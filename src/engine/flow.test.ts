@@ -178,3 +178,30 @@ describe('I-864 flow', async () => {
     expect(ids({ readsEnglish: 'B' })).toContain('interpreterLanguage');
   });
 });
+
+describe('I-864A flow', async () => {
+  const { i864a } = await import('../forms/i864a');
+  const ids = (a: Record<string, string>) => visibleScreens(i864a, a).map((s) => s.question.id);
+
+  it('has unique answer ids', () => {
+    const seen = new Set<string>();
+    for (const s of i864a.sections)
+      for (const q of s.questions) {
+        const own = q.kind === 'fields' ? q.fields.map((f) => f.id) : q.kind === 'yesNoList' ? q.items.map((i) => i.id) : [q.id];
+        for (const id of own) {
+          expect(seen.has(id), id).toBe(false);
+          seen.add(id);
+        }
+      }
+  });
+
+  it('follows the relationship, assets, immigrants and statements', () => {
+    expect(ids({ relationship: 'A' })).not.toContain('relative');
+    expect(ids({ relationship: 'C', relative: '5' })).toContain('relativeOther');
+    expect(ids({ useAssets: 'no' })).not.toContain('assets');
+    expect(ids({})).toContain('imm1');
+    expect(ids({ 'imm.more1': 'yes' })).toContain('imm2');
+    expect(ids({ 'sponsor.readsEnglish': 'B' })).toContain('sponsor.readsEnglish.languageQ');
+    expect(ids({ readsEnglish: 'A' })).not.toContain('readsEnglish.languageQ');
+  });
+});

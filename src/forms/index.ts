@@ -5,8 +5,9 @@ import { i130 } from './i130';
 import { i130a } from './i130a';
 import { i485 } from './i485';
 import { i864 } from './i864';
+import { i864a } from './i864a';
 
-export const forms: FormDefinition[] = [i765, i130, i130a, i485, i864, n400];
+export const forms: FormDefinition[] = [i765, i130, i130a, i485, i864, i864a, n400];
 
 export function formById(id: string): FormDefinition | null {
   return forms.find((f) => f.id === id) ?? null;
