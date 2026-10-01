@@ -1,6 +1,6 @@
 import type { Answers, Field, FormDefinition, Option, Question } from './types';
 import type { T } from '../i18n';
-import { all, date, is, nameFields, rows, yesNo } from './helpers';
+import { all, anyAddress, date, is, nameFields, rows, sexField, yesNo } from './helpers';
 import { CLASSES_OF_ADMISSION } from './classOfAdmission';
 
 // Questions follow USCIS Form I-130, Petition for Alien Relative, edition 04/01/24.
@@ -10,24 +10,6 @@ import { CLASSES_OF_ADMISSION } from './classOfAdmission';
 
 export const I130_EDITION = '04/01/24';
 
-/**
- * An address that may be in the U.S. or abroad. Only street, city and country are required,
- * because U.S. addresses need state and ZIP while foreign ones use province and postal code.
- */
-const anyAddress = (prefix: string, ref: string, opts: { careOf?: boolean; streetRequired?: boolean } = {}): Field[] => [
-  ...(opts.careOf
-    ? [{ id: `${prefix}.careOf`, type: 'text', label: { es: 'A cargo de (si recibe correo en casa de otra persona)', en: 'In care of' }, formRef: `${ref} · In Care Of Name`, maxLength: 34 } as Field]
-    : []),
-  { id: `${prefix}.street`, type: 'text', required: opts.streetRequired ?? true, label: { es: 'Número y calle', en: 'Street number and name' }, formRef: `${ref} · Street Number and Name`, maxLength: 34, placeholder: '1234 Main St' },
-  { id: `${prefix}.unit`, type: 'unit', label: { es: 'Apartamento, suite o piso', en: 'Apartment, suite or floor' }, formRef: `${ref} · Apt. / Ste. / Flr.`, placeholder: 'Apt 4B' },
-  { id: `${prefix}.city`, type: 'text', required: true, label: { es: 'Ciudad', en: 'City or town' }, formRef: `${ref} · City or Town`, maxLength: 20 },
-  { id: `${prefix}.state`, type: 'state', label: { es: 'Estado (si es en EE.UU.)', en: 'State (if in the U.S.)' }, formRef: `${ref} · State`, placeholder: 'CA' },
-  { id: `${prefix}.zip`, type: 'zip', label: { es: 'Código postal ZIP (si es en EE.UU.)', en: 'ZIP code (if in the U.S.)' }, formRef: `${ref} · ZIP Code` },
-  { id: `${prefix}.province`, type: 'text', label: { es: 'Provincia (fuera de EE.UU.)', en: 'Province (outside the U.S.)' }, formRef: `${ref} · Province`, maxLength: 20 },
-  { id: `${prefix}.postal`, type: 'text', label: { es: 'Código postal (fuera de EE.UU.)', en: 'Postal code (outside the U.S.)' }, formRef: `${ref} · Postal Code`, maxLength: 9 },
-  { id: `${prefix}.country`, type: 'text', required: true, label: { es: 'País', en: 'Country' }, formRef: `${ref} · Country`, placeholder: 'United States' },
-];
-
 /** A U.S. address: state and ZIP required. */
 const usAddress = (prefix: string, ref: string): Field[] => [
   { id: `${prefix}.street`, type: 'text', required: true, label: { es: 'Número y calle', en: 'Street number and name' }, formRef: `${ref} · Street Number and Name`, maxLength: 34, placeholder: '1234 Main St' },
@@ -36,13 +18,6 @@ const usAddress = (prefix: string, ref: string): Field[] => [
   { id: `${prefix}.state`, type: 'state', required: true, label: { es: 'Estado', en: 'State' }, formRef: `${ref} · State`, placeholder: 'CA' },
   { id: `${prefix}.zip`, type: 'zip', required: true, label: { es: 'Código postal (ZIP)', en: 'ZIP code' }, formRef: `${ref} · ZIP Code`, placeholder: '90210' },
 ];
-
-const sexOptions: Option[] = [
-  { value: 'female', label: { es: 'Femenino', en: 'Female' } },
-  { value: 'male', label: { es: 'Masculino', en: 'Male' } },
-];
-
-const sexField = (id: string, ref: string): Field => ({ id, type: 'select', required: true, label: { es: 'Sexo', en: 'Sex' }, formRef: `${ref} · Sex`, options: sexOptions });
 
 const maritalOptions: Option[] = [
   { value: 'single', label: { es: 'Soltero/a, nunca casado/a', en: 'Single, never married' } },
@@ -138,14 +113,14 @@ export const i130: FormDefinition = {
     es: [
       'Confirme en uscis.gov/i-130 que la edición {edition} sigue vigente; si cambió, use la nueva y copie sus respuestas de esta hoja.',
       'Revise el PDF página por página. Si el nombre o la dirección de su familiar se escriben en otro alfabeto, agréguelos a mano en los Ítems 57–58 de la Parte 4.',
-      'Si pide por su cónyuge, su cónyuge también debe llenar el Formulario I-130A.',
+      'Si pide por su cónyuge, su cónyuge también debe llenar el Formulario I-130A (también está en Camino) y enviarse junto con este.',
       'Revise la tarifa actual en uscis.gov/g-1055 y las pruebas de parentesco que piden las instrucciones (actas de nacimiento o de matrimonio, prueba de su ciudadanía o residencia).',
       'Imprima el PDF y firme la Parte 6, Ítem 6.a, a mano con tinta negra.',
     ],
     en: [
       'Check at uscis.gov/i-130 that edition {edition} is still current; if it changed, use the new one and copy your answers from this sheet.',
       'Check the PDF page by page. If your relative’s name or address is written in another script, add it by hand in Part 4, Items 57–58.',
-      'If you are petitioning for your spouse, your spouse must also complete Form I-130A.',
+      'If you are petitioning for your spouse, your spouse must also complete Form I-130A (it’s in Camino too), sent together with this one.',
       'Check the current fee at uscis.gov/g-1055 and the relationship evidence the instructions ask for (birth or marriage certificates, proof of your citizenship or residence).',
       'Print the PDF and sign Part 6, Item 6.a, by hand in black ink.',
     ],
