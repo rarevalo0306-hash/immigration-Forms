@@ -2,7 +2,9 @@ import { PDFCheckBox, PDFDocument, PDFDropdown, type PDFField, PDFTextField } fr
 import type { Answers } from '../forms/types';
 import { AP_BASES, REFUGEE_ITEMS } from '../forms/i131';
 import { parseUnit } from '../engine/validation';
-import { lastSegment, selectOption, setFieldText } from './common';
+import { fieldsBySegment, selectOption, setFieldText } from './common';
+
+export { fieldsBySegment };
 
 // Fields of USCIS Form I-131, edition 01/20/25 (public/forms/i-131.pdf), named by the last segment
 // of their full name and placed by where they sit on the printed page. Unlike the other forms, the
@@ -217,16 +219,6 @@ export function planI131(a: Answers): I131Plan {
   });
 
   return { text, check, checkValue, select };
-}
-
-/** Every field by the last segment of its name; on this form a segment can name several fields. */
-export function fieldsBySegment(fields: PDFField[]) {
-  const out = new Map<string, PDFField[]>();
-  for (const f of fields) {
-    const s = lastSegment(f.getName());
-    out.set(s, [...(out.get(s) ?? []), f]);
-  }
-  return out;
 }
 
 /** The boxes `base[n]` on every page, with the export value each one sets. */

@@ -364,3 +364,31 @@ describe('I-821D flow', async () => {
     expect(ids({ 'p4.4': 'yes' })).toContain('p4Explain');
   });
 });
+
+describe('I-821 flow', async () => {
+  const { i821 } = await import('../forms/i821');
+  const ids = (a: Record<string, string>) => visibleScreens(i821, a).map((s) => s.question.id);
+
+  it('has unique answer ids', () => {
+    const seen = new Set<string>();
+    for (const s of i821.sections)
+      for (const q of s.questions) {
+        const own = q.kind === 'fields' ? q.fields.map((f) => f.id) : q.kind === 'yesNoList' ? q.items.map((i) => i.id) : [q.id];
+        for (const id of own) {
+          expect(seen.has(id), id).toBe(false);
+          seen.add(id);
+        }
+      }
+  });
+
+  it('follows the answers', () => {
+    expect(ids({ appType: '1b' })).toContain('grantedBy');
+    expect(ids({ appType: '1a' })).toContain('priorApplications');
+    expect(ids({ mailingSame: 'no' })).toContain('home');
+    expect(ids({ proceedings: 'yes' })).toContain('proceedingDetails');
+    expect(ids({ otherCountries: 'yes' })).toContain('otherCountryDetails');
+    expect(ids({ offered: 'yes' })).toContain('offeredDetails');
+    expect(ids({ 'p7.36': 'yes' })).toContain('p7Explain');
+    expect(ids({})).not.toContain('p7Explain');
+  });
+});

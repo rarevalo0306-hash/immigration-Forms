@@ -63,3 +63,12 @@ export function optionBoxes(index: Map<string, PDFField>, base: string): { box: 
   }
 }
 
+/** Every field by the last segment of its name; a segment can name several fields (forms that repeat a name across pages). */
+export function fieldsBySegment(fields: PDFField[]) {
+  const out = new Map<string, PDFField[]>();
+  for (const f of fields) {
+    const s = lastSegment(f.getName());
+    out.set(s, [...(out.get(s) ?? []), f]);
+  }
+  return out;
+}
