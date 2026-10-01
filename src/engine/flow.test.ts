@@ -335,3 +335,32 @@ describe('I-129F flow', async () => {
     expect(ids({ 'crime.4a': 'yes' })).toContain('crimeDescribe');
   });
 });
+
+describe('I-821D flow', async () => {
+  const { i821d } = await import('../forms/i821d');
+  const ids = (a: Record<string, string>) => visibleScreens(i821d, a).map((s) => s.question.id);
+
+  it('has unique answer ids', () => {
+    const seen = new Set<string>();
+    for (const s of i821d.sections)
+      for (const q of s.questions) {
+        const own = q.kind === 'fields' ? q.fields.map((f) => f.id) : q.kind === 'yesNoList' ? q.items.map((i) => i.id) : [q.id];
+        for (const id of own) {
+          expect(seen.has(id), id).toBe(false);
+          seen.add(id);
+        }
+      }
+  });
+
+  it('asks Part 3 only on an initial request', () => {
+    expect(ids({ requestType: 'renewal' })).toContain('renewalExpires');
+    expect(ids({ requestType: 'renewal' })).not.toContain('education');
+    expect(ids({ requestType: 'initial' })).toContain('education');
+    expect(ids({ requestType: 'initial' })).toContain('initialNotice');
+    expect(ids({ requestType: 'initial', military: 'yes' })).toContain('militaryDetails');
+    expect(ids({ removal: 'yes' })).toContain('removalStatus');
+    expect(ids({ presentSame: 'no' })).toContain('present');
+    expect(ids({ 'address.more0': 'yes', 'address.more1': 'yes' })).toContain('address2');
+    expect(ids({ 'p4.4': 'yes' })).toContain('p4Explain');
+  });
+});
