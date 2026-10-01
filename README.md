@@ -22,7 +22,7 @@ Camino ayuda a inmigrantes a llenar los formularios de USCIS en español (o ingl
 
 - Una pregunta por pantalla, con una explicación de por qué se pide y la referencia en inglés al campo del formulario oficial (por ejemplo, "Part 2 · Item 16 · Date of Birth"). Las preguntas largas de Sí/No del N-400 (Parte 9) se agrupan por tema.
 - Muestra solo las preguntas que aplican: sigue las respuestas de Sí/No, la categoría de elegibilidad y la base de la solicitud. Las tablas (direcciones, trabajos, viajes, hijos, delitos) se llenan fila por fila preguntando "¿hay otra?".
-- En el N-400, el I-485 y el I-821, pide una explicación para cada respuesta que el formulario manda explicar y la escribe en la Parte 14.
+- En el N-400, el I-485 y el I-821, pide una explicación para cada respuesta que el formulario manda explicar y la escribe en la parte de información adicional (Parte 14, o Parte 11 en el I-821).
 - Valida y normaliza fechas (MM/DD/AAAA), A-Number, Seguro Social, código postal, teléfono, estado, recibos, I-94, SEVIS y el largo de cada campo del PDF.
 - En el I-864 suma solo el tamaño del hogar, el ingreso del hogar y el total de bienes.
 - Guarda el progreso solo en el dispositivo (`localStorage`); nada se envía a ningún servidor.
