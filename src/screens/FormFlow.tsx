@@ -23,6 +23,8 @@ export function FormFlow({ form, lang }: { form: FormDefinition; lang: Lang }) {
   const reviewPos = screens.length;
   const pos = Math.min(position, reviewPos);
   const screen = pos >= 0 && pos < reviewPos ? screens[pos] : null;
+  // Count only the sections that have questions to ask: the I-131 skips whole parts by document type.
+  const shownSections = useMemo(() => [...new Set(screens.map((s) => s.sectionIndex))], [screens]);
 
   // Remember the last question reached, so "Pick up where I left off" lands there.
   const [resumeAt, setResumeAt] = useState(saved?.position ?? 0);
@@ -66,8 +68,8 @@ export function FormFlow({ form, lang }: { form: FormDefinition; lang: Lang }) {
       {screen && (
         <div className="no-print">
           <ProgressSteps
-            total={form.sections.length}
-            current={screen.sectionIndex + 1}
+            total={shownSections.length}
+            current={shownSections.indexOf(screen.sectionIndex) + 1}
             label={screen.section.title[lang]}
             stepWord={(c, t) => fmt(ui.step[lang], { c, t })}
             ariaLabel={ui.progress[lang]}

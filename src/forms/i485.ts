@@ -1,6 +1,6 @@
 import type { Field, FormDefinition, Option, Question } from './types';
 import type { T } from '../i18n';
-import { all, anyAddress, date, is, nameFields, num, sexField, yesNo } from './helpers';
+import { all, anyAddress, biographic, date, is, nameFields, num, sexField, yesNo } from './helpers';
 import { flaggedI485, P9_GROUPS, P9_ITEMS, toYesNoItems } from './i485Part9';
 
 // Questions follow USCIS Form I-485, Application to Register Permanent Residence or Adjust Status,
@@ -760,79 +760,7 @@ export const i485: FormDefinition = {
       part: 'Part 8',
       title: t('Datos biográficos', 'Biographic information'),
       questions: [
-        {
-          id: 'ethnicity',
-          kind: 'choice',
-          formRef: 'Part 8 · Item 1 · Ethnicity',
-          question: t('¿Es usted hispano/a o latino/a?', 'Are you Hispanic or Latino?'),
-          options: [
-            { value: 'hispanic', label: t('Hispano/a o latino/a', 'Hispanic or Latino') },
-            { value: 'notHispanic', label: t('No hispano/a ni latino/a', 'Not Hispanic or Latino') },
-          ],
-        },
-        {
-          id: 'race',
-          kind: 'choice',
-          multiple: true,
-          formRef: 'Part 8 · Item 2 · Race',
-          question: t('¿Cuál es su raza?', 'What is your race?'),
-          why: t('Elija todas las que apliquen.', 'Choose all that apply.'),
-          options: [
-            { value: 'WH', label: t('Blanco/a', 'White') },
-            { value: 'AS', label: t('Asiático/a', 'Asian') },
-            { value: 'BL', label: t('Negro/a o afroamericano/a', 'Black or African American') },
-            { value: 'AI', label: t('Indígena americano/a o nativo/a de Alaska', 'American Indian or Alaska Native') },
-            { value: 'HW', label: t('Nativo/a de Hawái u otras islas del Pacífico', 'Native Hawaiian or Other Pacific Islander') },
-          ],
-        },
-        {
-          id: 'body',
-          kind: 'fields',
-          formRef: 'Part 8 · Items 3–6',
-          question: t('Su estatura, peso y color de ojos y cabello', 'Your height, weight, and eye and hair color'),
-          why: t('1.60 m son 5 pies 3 pulgadas; 70 kg son 154 libras.', 'In feet, inches and pounds.'),
-          fields: [
-            { id: 'heightFeet', type: 'select', required: true, label: { es: 'Estatura: pies', en: 'Height: feet' }, formRef: 'Part 8 · Item 3 · Feet', options: ['2', '3', '4', '5', '6', '7', '8'].map((v) => ({ value: v, label: { es: v, en: v } })) },
-            { id: 'heightInches', type: 'select', required: true, label: { es: 'Estatura: pulgadas', en: 'Height: inches' }, formRef: 'Part 8 · Item 3 · Inches', options: [...Array(12)].map((_, i) => ({ value: String(i), label: { es: String(i), en: String(i) } })) },
-            { id: 'weight', type: 'number', required: true, label: { es: 'Peso en libras', en: 'Weight in pounds' }, formRef: 'Part 8 · Item 4', maxLength: 3 },
-            {
-              id: 'eyes',
-              type: 'select',
-              required: true,
-              label: { es: 'Color de ojos', en: 'Eye color' },
-              formRef: 'Part 8 · Item 5',
-              options: [
-                { value: 'BN', label: t('Café', 'Brown') },
-                { value: 'BL', label: t('Negro', 'Black') },
-                { value: 'HA', label: t('Avellana (hazel)', 'Hazel') },
-                { value: 'GN', label: t('Verde', 'Green') },
-                { value: 'BU', label: t('Azul', 'Blue') },
-                { value: 'GR', label: t('Gris', 'Gray') },
-                { value: 'MA', label: t('Granate', 'Maroon') },
-                { value: 'PN', label: t('Rosado', 'Pink') },
-                { value: 'UN', label: t('Desconocido u otro', 'Unknown / Other') },
-              ],
-            },
-            {
-              id: 'hair',
-              type: 'select',
-              required: true,
-              label: { es: 'Color de cabello', en: 'Hair color' },
-              formRef: 'Part 8 · Item 6',
-              options: [
-                { value: 'BL', label: t('Negro', 'Black') },
-                { value: 'BR', label: t('Café', 'Brown') },
-                { value: 'BN', label: t('Rubio', 'Blond') },
-                { value: 'GR', label: t('Gris', 'Gray') },
-                { value: 'WH', label: t('Blanco', 'White') },
-                { value: 'RD', label: t('Rojo', 'Red') },
-                { value: 'SA', label: t('Rubio rojizo (sandy)', 'Sandy') },
-                { value: 'NH', label: t('Calvo/a (sin cabello)', 'Bald (no hair)') },
-                { value: 'OT', label: t('Desconocido u otro', 'Unknown / Other') },
-              ],
-            },
-          ],
-        },
+        ...biographic('Part 8'),
       ],
     },
     {

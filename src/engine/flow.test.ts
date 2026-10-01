@@ -205,3 +205,43 @@ describe('I-864A flow', async () => {
     expect(ids({ readsEnglish: 'A' })).not.toContain('readsEnglish.languageQ');
   });
 });
+
+describe('I-131 flow', async () => {
+  const { i131 } = await import('../forms/i131');
+  const ids = (a: Record<string, string>) => visibleScreens(i131, a).map((s) => s.question.id);
+
+  it('has unique answer ids', () => {
+    const seen = new Set<string>();
+    for (const s of i131.sections)
+      for (const q of s.questions) {
+        const own = q.kind === 'fields' ? q.fields.map((f) => f.id) : q.kind === 'yesNoList' ? q.items.map((i) => i.id) : [q.id];
+        for (const id of own) {
+          expect(seen.has(id), id).toBe(false);
+          seen.add(id);
+        }
+      }
+  });
+
+  it('asks only the parts of the chosen document', () => {
+    const ap = ids({ appType: '5', apBasis: '9' });
+    expect(ap).toContain('apReceipt');
+    expect(ap).toContain('tripDetails');
+    expect(ap).toContain('entry');
+    expect(ap).not.toContain('deliverTo');
+    expect(ap).not.toContain('timeOutside');
+    expect(ids({ appType: '5', apBasis: '5' })).toContain('apI485');
+    expect(ids({ appType: '5', apBasis: '8' })).not.toContain('apReceipt');
+    expect(ids({ appType: '5', apBasis: '17' })).toContain('apExplain');
+    const reentry = ids({ appType: '1', deliverTo: 'B', notice: 'B' });
+    expect(reentry).toContain('timeOutside');
+    expect(reentry).toContain('noticeAddress');
+    expect(reentry).not.toContain('tripDetails');
+    expect(reentry).not.toContain('entry');
+    expect(ids({ appType: '2' })).toContain('rtd.questions');
+    expect(ids({ appType: '2', 'rtd.3a': 'yes' })).toContain('rtdExplain');
+    expect(ids({ appType: '3', 'rtd.beforeDeparture': 'no', 'rtd.outside': 'yes' })).toContain('rtdLocation');
+    expect(ids({ appType: '4' })).toContain('tps');
+    expect(ids({ replacement: 'yes', replacementReason: '2' })).not.toContain('corrections');
+    expect(ids({ replacement: 'yes', replacementReason: '4' })).toContain('corrections');
+  });
+});

@@ -92,3 +92,84 @@ export const sexOptions: Option[] = [
 
 export const sexField = (id: string, ref: string): Field => ({ id, type: 'select', required: true, label: { es: 'Sexo', en: 'Sex' }, formRef: `${ref} · Sex`, options: sexOptions });
 
+
+/**
+ * Ethnicity, race, height, weight, eye and hair color, as USCIS asks them on the I-485 and I-131.
+ * The option values are the I-485's export values; other fillers translate them.
+ */
+const bt = (es: string, en: string): T => ({ es, en });
+
+export const biographic = (part: string): Question[] => [
+    {
+      id: 'ethnicity',
+      kind: 'choice',
+      formRef: `${part} · Item 1 · Ethnicity`,
+      question: bt('¿Es usted hispano/a o latino/a?', 'Are you Hispanic or Latino?'),
+      options: [
+        { value: 'hispanic', label: bt('Hispano/a o latino/a', 'Hispanic or Latino') },
+        { value: 'notHispanic', label: bt('No hispano/a ni latino/a', 'Not Hispanic or Latino') },
+      ],
+    },
+    {
+      id: 'race',
+      kind: 'choice',
+      multiple: true,
+      formRef: `${part} · Item 2 · Race`,
+      question: bt('¿Cuál es su raza?', 'What is your race?'),
+      why: bt('Elija todas las que apliquen.', 'Choose all that apply.'),
+      options: [
+        { value: 'WH', label: bt('Blanco/a', 'White') },
+        { value: 'AS', label: bt('Asiático/a', 'Asian') },
+        { value: 'BL', label: bt('Negro/a o afroamericano/a', 'Black or African American') },
+        { value: 'AI', label: bt('Indígena americano/a o nativo/a de Alaska', 'American Indian or Alaska Native') },
+        { value: 'HW', label: bt('Nativo/a de Hawái u otras islas del Pacífico', 'Native Hawaiian or Other Pacific Islander') },
+      ],
+    },
+    {
+      id: 'body',
+      kind: 'fields',
+      formRef: `${part} · Items 3–6`,
+      question: bt('Su estatura, peso y color de ojos y cabello', 'Your height, weight, and eye and hair color'),
+      why: bt('1.60 m son 5 pies 3 pulgadas; 70 kg son 154 libras.', 'In feet, inches and pounds.'),
+      fields: [
+        { id: 'heightFeet', type: 'select', required: true, label: { es: 'Estatura: pies', en: 'Height: feet' }, formRef: `${part} · Item 3 · Feet`, options: ['2', '3', '4', '5', '6', '7', '8'].map((v) => ({ value: v, label: { es: v, en: v } })) },
+        { id: 'heightInches', type: 'select', required: true, label: { es: 'Estatura: pulgadas', en: 'Height: inches' }, formRef: `${part} · Item 3 · Inches`, options: [...Array(12)].map((_, i) => ({ value: String(i), label: { es: String(i), en: String(i) } })) },
+        { id: 'weight', type: 'number', required: true, label: { es: 'Peso en libras', en: 'Weight in pounds' }, formRef: `${part} · Item 4`, maxLength: 3 },
+        {
+          id: 'eyes',
+          type: 'select',
+          required: true,
+          label: { es: 'Color de ojos', en: 'Eye color' },
+          formRef: `${part} · Item 5`,
+          options: [
+            { value: 'BN', label: bt('Café', 'Brown') },
+            { value: 'BL', label: bt('Negro', 'Black') },
+            { value: 'HA', label: bt('Avellana (hazel)', 'Hazel') },
+            { value: 'GN', label: bt('Verde', 'Green') },
+            { value: 'BU', label: bt('Azul', 'Blue') },
+            { value: 'GR', label: bt('Gris', 'Gray') },
+            { value: 'MA', label: bt('Granate', 'Maroon') },
+            { value: 'PN', label: bt('Rosado', 'Pink') },
+            { value: 'UN', label: bt('Desconocido u otro', 'Unknown / Other') },
+          ],
+        },
+        {
+          id: 'hair',
+          type: 'select',
+          required: true,
+          label: { es: 'Color de cabello', en: 'Hair color' },
+          formRef: `${part} · Item 6`,
+          options: [
+            { value: 'BL', label: bt('Negro', 'Black') },
+            { value: 'BR', label: bt('Café', 'Brown') },
+            { value: 'BN', label: bt('Rubio', 'Blond') },
+            { value: 'GR', label: bt('Gris', 'Gray') },
+            { value: 'WH', label: bt('Blanco', 'White') },
+            { value: 'RD', label: bt('Rojo', 'Red') },
+            { value: 'SA', label: bt('Rubio rojizo (sandy)', 'Sandy') },
+            { value: 'NH', label: bt('Calvo/a (sin cabello)', 'Bald (no hair)') },
+            { value: 'OT', label: bt('Desconocido u otro', 'Unknown / Other') },
+          ],
+        },
+      ],
+    },];
