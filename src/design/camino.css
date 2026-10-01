@@ -84,7 +84,7 @@
 .cm-lang button[aria-pressed="true"] { background: var(--pine); color: var(--surface-raised); }
 
 /* FormBadge */
-.cm-badge { display: inline-flex; align-items: baseline; gap: var(--space-2); padding: 4px var(--space-2);
+.cm-badge { white-space: nowrap; display: inline-flex; align-items: baseline; gap: var(--space-2); padding: 4px var(--space-2);
   border-radius: var(--radius-sm); background: var(--ink); color: var(--surface-raised); font: 700 14px/20px var(--font-sans); }
 .cm-badge span { font-weight: 400; }
 .cm-badge--soft { background: var(--pine-soft); color: var(--ink); }

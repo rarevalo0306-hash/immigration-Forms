@@ -1,8 +1,10 @@
 import type { Answers, Field, FormDefinition, Option } from './types';
 
-// Questions follow the parts of USCIS Form I-765, Application for Employment Authorization.
-// `formRef` uses the form's own English field names (not item numbers, which change between editions)
-// so a person can find each answer on the current edition from uscis.gov/i-765.
+// Questions follow USCIS Form I-765, Application for Employment Authorization, edition 08/21/25.
+// `formRef` gives the part, item number and the form's own English field name, so a person can
+// find each answer on the official PDF. src/pdf/i765Pdf.ts maps the answers onto that edition's fields.
+
+export const I765_EDITION = '08/21/25';
 
 const yesNo: Option[] = [
   { value: 'yes', label: { es: 'Sí', en: 'Yes' } },
@@ -11,29 +13,41 @@ const yesNo: Option[] = [
 
 const is = (id: string, value: string) => (a: Answers) => a[id] === value;
 
-const nameFields = (prefix: string, part: string, middle = true): Field[] => [
-  { id: `${prefix}.family`, type: 'text', required: true, label: { es: 'Apellido(s)', en: 'Family name (last name)' }, formRef: `${part} · Family Name (Last Name)` },
-  { id: `${prefix}.given`, type: 'text', required: true, label: { es: 'Nombre(s)', en: 'Given name (first name)' }, formRef: `${part} · Given Name (First Name)` },
-  ...(middle
-    ? [{ id: `${prefix}.middle`, type: 'text', label: { es: 'Segundo nombre', en: 'Middle name' }, formRef: `${part} · Middle Name` } as Field]
-    : []),
+const nameFields = (prefix: string, ref: string): Field[] => [
+  { id: `${prefix}.family`, type: 'text', required: true, label: { es: 'Apellido(s)', en: 'Family name (last name)' }, formRef: `${ref}.a · Family Name (Last Name)` },
+  { id: `${prefix}.given`, type: 'text', required: true, label: { es: 'Nombre(s)', en: 'Given name (first name)' }, formRef: `${ref}.b · Given Name (First Name)` },
+  { id: `${prefix}.middle`, type: 'text', label: { es: 'Segundo nombre', en: 'Middle name' }, formRef: `${ref}.c · Middle Name` },
 ];
 
-const addressFields = (prefix: string, ref: string, inCareOf: boolean): Field[] => [
-  ...(inCareOf
-    ? [{
-        id: `${prefix}.careOf`,
-        type: 'text',
-        label: { es: 'A cargo de (si recibe correo en casa de otra persona)', en: 'In care of (if you get mail at someone else’s home)' },
-        formRef: `${ref} · In Care Of Name`,
-      } as Field]
-    : []),
-  { id: `${prefix}.street`, type: 'text', required: true, label: { es: 'Número y calle', en: 'Street number and name' }, formRef: `${ref} · Street Number and Name`, placeholder: '1234 Main St' },
-  { id: `${prefix}.unit`, type: 'text', label: { es: 'Apartamento, suite o piso', en: 'Apartment, suite or floor' }, formRef: `${ref} · Apt./Ste./Flr.` },
-  { id: `${prefix}.city`, type: 'text', required: true, label: { es: 'Ciudad', en: 'City or town' }, formRef: `${ref} · City or Town` },
-  { id: `${prefix}.state`, type: 'state', required: true, label: { es: 'Estado', en: 'State' }, formRef: `${ref} · State`, placeholder: 'CA', hint: { es: 'Dos letras, por ejemplo CA, TX o NY.', en: 'Two letters, for example CA, TX or NY.' } },
-  { id: `${prefix}.zip`, type: 'zip', required: true, label: { es: 'Código postal (ZIP)', en: 'ZIP code' }, formRef: `${ref} · ZIP Code`, placeholder: '90210' },
-];
+/** `item` is the address's item number on the form; its lines are lettered from .a. */
+const addressFields = (prefix: string, item: number, inCareOf: boolean): Field[] => {
+  const letters = 'abcdef';
+  const ref = (i: number, name: string) => `Part 2 · Item ${item}.${letters[i]} · ${name}`;
+  let i = 0;
+  return [
+    ...(inCareOf
+      ? [{
+          id: `${prefix}.careOf`,
+          type: 'text',
+          label: { es: 'A cargo de (si recibe correo en casa de otra persona)', en: 'In care of (if you get mail at someone else’s home)' },
+          formRef: ref(i++, 'In Care Of Name'),
+          maxLength: 34,
+        } as Field]
+      : []),
+    { id: `${prefix}.street`, type: 'text', required: true, label: { es: 'Número y calle', en: 'Street number and name' }, formRef: ref(i++, 'Street Number and Name'), placeholder: '1234 Main St', maxLength: 34 },
+    {
+      id: `${prefix}.unit`,
+      type: 'unit',
+      label: { es: 'Apartamento, suite o piso', en: 'Apartment, suite or floor' },
+      formRef: ref(i++, 'Apt. / Ste. / Flr.'),
+      placeholder: 'Apt 4B',
+      hint: { es: 'Por ejemplo: Apt 4B, Ste 200 o Flr 3.', en: 'For example: Apt 4B, Ste 200 or Flr 3.' },
+    },
+    { id: `${prefix}.city`, type: 'text', required: true, label: { es: 'Ciudad', en: 'City or town' }, formRef: ref(i++, 'City or Town'), maxLength: 20 },
+    { id: `${prefix}.state`, type: 'state', required: true, label: { es: 'Estado', en: 'State' }, formRef: ref(i++, 'State'), placeholder: 'CA', hint: { es: 'Dos letras, por ejemplo CA, TX o NY.', en: 'Two letters, for example CA, TX or NY.' } },
+    { id: `${prefix}.zip`, type: 'zip', required: true, label: { es: 'Código postal (ZIP)', en: 'ZIP code' }, formRef: ref(i++, 'ZIP Code'), placeholder: '90210' },
+  ];
+};
 
 export const CATEGORY_OTHER = 'other';
 
@@ -59,8 +73,8 @@ export const i765: FormDefinition = {
   number: 'I-765',
   title: { es: 'Solicitud de permiso de trabajo', en: 'Application for Employment Authorization' },
   intro: {
-    es: 'El I-765 pide a USCIS un permiso de trabajo (EAD). Le haremos una pregunta a la vez; al final tendrá una hoja con todas sus respuestas, ordenadas como el formulario oficial, para copiarlas o llevarlas a quien le ayude.',
-    en: 'Form I-765 asks USCIS for a work permit (EAD). We’ll ask one question at a time; at the end you’ll have a sheet with all your answers, in the order of the official form, to copy or bring to whoever helps you.',
+    es: 'El I-765 pide a USCIS un permiso de trabajo (EAD). Le haremos una pregunta a la vez; al final podrá descargar el formulario oficial ya lleno y una hoja con todas sus respuestas.',
+    en: 'Form I-765 asks USCIS for a work permit (EAD). We’ll ask one question at a time; at the end you can download the official form already filled in, plus a sheet with all your answers.',
   },
   sections: [
     {
@@ -71,7 +85,7 @@ export const i765: FormDefinition = {
         {
           id: 'reason',
           kind: 'choice',
-          formRef: 'Part 1 · Reason for Applying',
+          formRef: 'Part 1 · Item 1 · Reason for Applying',
           question: { es: '¿Por qué solicita el permiso de trabajo?', en: 'Why are you applying for a work permit?' },
           why: {
             es: 'USCIS necesita saber si es la primera vez o si ya tuvo un permiso.',
@@ -93,77 +107,77 @@ export const i765: FormDefinition = {
         {
           id: 'name',
           kind: 'fields',
-          formRef: 'Part 2 · Full Legal Name',
+          formRef: 'Part 2 · Item 1 · Your Full Legal Name',
           question: { es: '¿Cuál es su nombre legal completo?', en: 'What is your full legal name?' },
           why: { es: 'Escríbalo exactamente como aparece en su pasaporte o documento de identidad.', en: 'Write it exactly as it appears on your passport or ID document.' },
           notice: {
             tone: 'info',
             title: { es: 'Responda en inglés', en: 'Answer in English' },
             body: {
-              es: 'Use letras latinas y no traduzca su nombre. Los acentos se pueden omitir.',
-              en: 'Use Latin letters and don’t translate your name. Accents can be left out.',
+              es: 'Use letras latinas y no traduzca su nombre. Los acentos se quitan al llenar el PDF.',
+              en: 'Use Latin letters and don’t translate your name. Accents are removed when the PDF is filled.',
             },
           },
-          fields: nameFields('name', 'Part 2'),
+          fields: nameFields('name', 'Part 2 · Item 1'),
         },
         {
           id: 'hasOtherNames',
           kind: 'choice',
-          formRef: 'Part 2 · Other Names Used',
+          formRef: 'Part 2 · Items 2–4 · Other Names Used',
           question: { es: '¿Ha usado otros nombres?', en: 'Have you used any other names?' },
-          why: { es: 'Por ejemplo, un apellido de soltera o un nombre con otra ortografía.', en: 'For example, a maiden name or a different spelling of your name.' },
+          why: { es: 'Por ejemplo, un apellido de soltera, un apodo o un nombre con otra ortografía.', en: 'For example, a maiden name, a nickname or a different spelling of your name.' },
           options: yesNo,
         },
         {
           id: 'otherName',
           kind: 'fields',
-          formRef: 'Part 2 · Other Names Used',
+          formRef: 'Part 2 · Item 2 · Other Names Used',
           showIf: is('hasOtherNames', 'yes'),
           question: { es: '¿Qué otro nombre ha usado?', en: 'What other name have you used?' },
-          why: { es: 'Si usó más de uno, escriba los demás en la Parte 6 (Información adicional) del formulario.', en: 'If you used more than one, list the others in Part 6 (Additional Information) of the form.' },
-          fields: nameFields('otherName', 'Part 2 · Other Names Used'),
+          why: { es: 'Si usó más de uno, escriba los demás a mano en los Ítems 3 y 4 del formulario.', en: 'If you used more than one, write the others by hand in Items 3 and 4 of the form.' },
+          fields: nameFields('otherName', 'Part 2 · Item 2'),
         },
         {
           id: 'mailing',
           kind: 'fields',
-          formRef: 'Part 2 · U.S. Mailing Address',
+          formRef: 'Part 2 · Item 5 · Your U.S. Mailing Address',
           question: { es: '¿A qué dirección le llega el correo?', en: 'Where do you get your mail?' },
           why: { es: 'USCIS enviará aquí sus cartas y su tarjeta de permiso de trabajo.', en: 'USCIS will send your letters and your work permit card here.' },
-          fields: addressFields('mailing', 'Part 2 · U.S. Mailing Address', true),
+          fields: addressFields('mailing', 5, true),
         },
         {
           id: 'sameAddress',
           kind: 'choice',
-          formRef: 'Part 2 · Is your current mailing address the same as your physical address?',
+          formRef: 'Part 2 · Item 6 · Is your current mailing address the same as your physical address?',
           question: { es: '¿Vive en esa misma dirección?', en: 'Do you live at that same address?' },
           options: yesNo,
         },
         {
           id: 'physical',
           kind: 'fields',
-          formRef: 'Part 2 · U.S. Physical Address',
+          formRef: 'Part 2 · Item 7 · U.S. Physical Address',
           showIf: is('sameAddress', 'no'),
           question: { es: '¿Dónde vive?', en: 'Where do you live?' },
-          fields: addressFields('physical', 'Part 2 · U.S. Physical Address', false),
+          fields: addressFields('physical', 7, false),
         },
         {
           id: 'ids',
           kind: 'fields',
-          formRef: 'Part 2 · Other Information',
+          formRef: 'Part 2 · Items 8–9 · Other Information',
           question: { es: '¿Tiene alguno de estos números de inmigración?', en: 'Do you have any of these immigration numbers?' },
           why: {
             es: 'Aparecen en cartas de USCIS o en un permiso anterior. Si no los tiene, deje los campos vacíos.',
             en: 'They appear on USCIS letters or a previous permit. If you don’t have them, leave the fields empty.',
           },
           fields: [
-            { id: 'aNumber', type: 'aNumber', label: { es: 'Número de extranjero (A-Number)', en: 'Alien Registration Number (A-Number)' }, formRef: 'Part 2 · Alien Registration Number (A-Number)', placeholder: 'A123456789' },
-            { id: 'uscisAccount', type: 'text', label: { es: 'Número de cuenta en línea de USCIS', en: 'USCIS Online Account Number' }, formRef: 'Part 2 · USCIS Online Account Number' },
+            { id: 'aNumber', type: 'aNumber', label: { es: 'Número de extranjero (A-Number)', en: 'Alien Registration Number (A-Number)' }, formRef: 'Part 2 · Item 8 · Alien Registration Number (A-Number)', placeholder: 'A123456789' },
+            { id: 'uscisAccount', type: 'uscisAccount', label: { es: 'Número de cuenta en línea de USCIS', en: 'USCIS Online Account Number' }, formRef: 'Part 2 · Item 9 · USCIS Online Account Number', placeholder: '123412341234' },
           ],
         },
         {
           id: 'sex',
           kind: 'choice',
-          formRef: 'Part 2 · Sex',
+          formRef: 'Part 2 · Item 10 · Sex',
           question: { es: '¿Qué sexo aparece en sus documentos?', en: 'What sex is on your documents?' },
           options: [
             { value: 'female', label: { es: 'Femenino', en: 'Female' } },
@@ -173,7 +187,7 @@ export const i765: FormDefinition = {
         {
           id: 'marital',
           kind: 'choice',
-          formRef: 'Part 2 · Marital Status',
+          formRef: 'Part 2 · Item 11 · Marital Status',
           question: { es: '¿Cuál es su estado civil?', en: 'What is your marital status?' },
           options: [
             { value: 'single', label: { es: 'Soltero/a', en: 'Single' } },
@@ -185,69 +199,17 @@ export const i765: FormDefinition = {
         {
           id: 'previousI765',
           kind: 'choice',
-          formRef: 'Part 2 · Have you previously filed Form I-765?',
+          formRef: 'Part 2 · Item 12 · Have you previously filed Form I-765?',
           question: { es: '¿Ha presentado un I-765 antes?', en: 'Have you filed Form I-765 before?' },
-          options: yesNo,
-        },
-      ],
-    },
-    {
-      id: 'ssn',
-      part: 'Part 2',
-      title: { es: 'Seguro Social', en: 'Social Security' },
-      questions: [
-        {
-          id: 'hasSsn',
-          kind: 'choice',
-          formRef: 'Part 2 · Has the Social Security Administration (SSA) ever officially issued a Social Security card to you?',
-          question: { es: '¿Alguna vez el Seguro Social (SSA) le dio una tarjeta?', en: 'Has Social Security (SSA) ever issued you a card?' },
           options: yesNo,
         },
         {
           id: 'ssnNumber',
           kind: 'fields',
-          formRef: 'Part 2 · U.S. Social Security Number',
-          showIf: is('hasSsn', 'yes'),
-          question: { es: '¿Cuál es su número de Seguro Social?', en: 'What is your Social Security number?' },
-          fields: [{ id: 'ssnValue', type: 'ssn', required: true, label: { es: 'Número de Seguro Social', en: 'Social Security number' }, formRef: 'Part 2 · U.S. Social Security Number', placeholder: '123-45-6789' }],
-        },
-        {
-          id: 'wantsSsnCard',
-          kind: 'choice',
-          formRef: 'Part 2 · Do you want the SSA to issue you a Social Security card?',
-          question: { es: '¿Quiere que el Seguro Social le envíe una tarjeta?', en: 'Do you want Social Security to send you a card?' },
-          why: {
-            es: 'Con este formulario puede pedir la tarjeta sin ir a una oficina del Seguro Social. Si ya tiene una y no necesita otra, responda No.',
-            en: 'This form lets you request the card without visiting a Social Security office. If you already have one and don’t need another, answer No.',
-          },
-          options: yesNo,
-        },
-        {
-          id: 'ssaConsent',
-          kind: 'choice',
-          formRef: 'Part 2 · Consent for Disclosure',
-          showIf: is('wantsSsnCard', 'yes'),
-          question: { es: '¿Permite que USCIS comparta sus datos con el Seguro Social para hacer la tarjeta?', en: 'Do you allow USCIS to share your information with Social Security to make the card?' },
-          why: { es: 'Si responde No, el Seguro Social no podrá hacer la tarjeta con esta solicitud.', en: 'If you answer No, Social Security can’t make the card from this application.' },
-          options: yesNo,
-        },
-        {
-          id: 'father',
-          kind: 'fields',
-          formRef: 'Part 2 · Father’s Name',
-          showIf: is('ssaConsent', 'yes'),
-          question: { es: '¿Cómo se llama su padre?', en: 'What is your father’s name?' },
-          why: { es: 'El Seguro Social lo usa para identificarle. Escriba su nombre al nacer.', en: 'Social Security uses it to identify you. Write his name at birth.' },
-          fields: nameFields('father', 'Part 2 · Father’s Name', false),
-        },
-        {
-          id: 'mother',
-          kind: 'fields',
-          formRef: 'Part 2 · Mother’s Name',
-          showIf: is('ssaConsent', 'yes'),
-          question: { es: '¿Cómo se llama su madre?', en: 'What is your mother’s name?' },
-          why: { es: 'Escriba su nombre al nacer, incluido su apellido de soltera.', en: 'Write her name at birth, including her maiden name.' },
-          fields: nameFields('mother', 'Part 2 · Mother’s Name', false),
+          formRef: 'Part 2 · Item 13 · Social Security Number (if known)',
+          question: { es: '¿Tiene número de Seguro Social?', en: 'Do you have a Social Security number?' },
+          why: { es: 'Escríbalo si lo sabe. Si no tiene uno, deje el campo vacío.', en: 'Enter it if you know it. If you don’t have one, leave the field empty.' },
+          fields: [{ id: 'ssnValue', type: 'ssn', label: { es: 'Número de Seguro Social', en: 'Social Security number' }, formRef: 'Part 2 · Item 13 · U.S. Social Security Number', placeholder: '123-45-6789' }],
         },
       ],
     },
@@ -259,28 +221,28 @@ export const i765: FormDefinition = {
         {
           id: 'citizenship',
           kind: 'fields',
-          formRef: 'Part 2 · Country of Citizenship or Nationality',
+          formRef: 'Part 2 · Item 14 · Country or Countries of Citizenship or Nationality',
           question: { es: '¿De qué país es ciudadano/a?', en: 'What country are you a citizen of?' },
           fields: [
-            { id: 'citizenship.1', type: 'text', required: true, label: { es: 'País', en: 'Country' }, formRef: 'Part 2 · Country of Citizenship or Nationality', placeholder: 'Mexico' },
-            { id: 'citizenship.2', type: 'text', label: { es: 'Segundo país (si tiene doble ciudadanía)', en: 'Second country (if you have dual citizenship)' }, formRef: 'Part 2 · Country of Citizenship or Nationality' },
+            { id: 'citizenship.1', type: 'text', required: true, label: { es: 'País', en: 'Country' }, formRef: 'Part 2 · Item 14.a · Country', placeholder: 'Mexico' },
+            { id: 'citizenship.2', type: 'text', label: { es: 'Segundo país (si tiene doble ciudadanía)', en: 'Second country (if you have dual citizenship)' }, formRef: 'Part 2 · Item 14.b · Country' },
           ],
         },
         {
           id: 'birthPlace',
           kind: 'fields',
-          formRef: 'Part 2 · Place of Birth',
+          formRef: 'Part 2 · Item 15 · Place of Birth',
           question: { es: '¿Dónde nació?', en: 'Where were you born?' },
           fields: [
-            { id: 'birth.city', type: 'text', required: true, label: { es: 'Ciudad o pueblo', en: 'City or town' }, formRef: 'Part 2 · City/Town/Village of Birth' },
-            { id: 'birth.state', type: 'text', label: { es: 'Estado o provincia', en: 'State or province' }, formRef: 'Part 2 · State/Province of Birth' },
-            { id: 'birth.country', type: 'text', required: true, label: { es: 'País', en: 'Country' }, formRef: 'Part 2 · Country of Birth' },
+            { id: 'birth.city', type: 'text', required: true, label: { es: 'Ciudad o pueblo', en: 'City or town' }, formRef: 'Part 2 · Item 15.a · City/Town/Village of Birth' },
+            { id: 'birth.state', type: 'text', label: { es: 'Estado o provincia', en: 'State or province' }, formRef: 'Part 2 · Item 15.b · State/Province of Birth' },
+            { id: 'birth.country', type: 'text', required: true, label: { es: 'País', en: 'Country' }, formRef: 'Part 2 · Item 15.c · Country of Birth' },
           ],
         },
         {
           id: 'dob',
           kind: 'fields',
-          formRef: 'Part 2 · Date of Birth',
+          formRef: 'Part 2 · Item 16 · Date of Birth',
           question: { es: '¿Cuál es su fecha de nacimiento?', en: 'What is your date of birth?' },
           fields: [
             {
@@ -288,7 +250,7 @@ export const i765: FormDefinition = {
               type: 'pastDate',
               required: true,
               label: { es: 'Fecha de nacimiento', en: 'Date of birth' },
-              formRef: 'Part 2 · Date of Birth (mm/dd/yyyy)',
+              formRef: 'Part 2 · Item 16 · Date of Birth (mm/dd/yyyy)',
               placeholder: 'MM/DD/AAAA',
               hint: { es: 'Mes primero, como en EE.UU.: 03/14/1990 es 14 de marzo.', en: 'Month first: 03/14/1990 is March 14.' },
             },
@@ -304,42 +266,42 @@ export const i765: FormDefinition = {
         {
           id: 'travelDocs',
           kind: 'fields',
-          formRef: 'Part 2 · Information About Your Last Arrival in the United States',
+          formRef: 'Part 2 · Items 17–21 · Information About Your Last Arrival in the United States',
           question: { es: '¿Con qué documentos entró por última vez a EE.UU.?', en: 'What documents did you use when you last entered the U.S.?' },
           why: {
             es: 'Escriba los que tenga. El número I-94 se puede buscar en i94.cbp.dhs.gov. Si entró sin documentos, deje los campos vacíos.',
             en: 'Fill in the ones you have. You can look up your I-94 number at i94.cbp.dhs.gov. If you entered without documents, leave the fields empty.',
           },
           fields: [
-            { id: 'i94', type: 'i94', label: { es: 'Número del registro de llegada y salida (I-94)', en: 'Form I-94 Arrival-Departure Record Number' }, formRef: 'Part 2 · Form I-94 Arrival-Departure Record Number' },
-            { id: 'passport', type: 'text', label: { es: 'Número de pasaporte', en: 'Passport number' }, formRef: 'Part 2 · Passport Number of Your Most Recently Issued Passport' },
-            { id: 'travelDoc', type: 'text', label: { es: 'Número de documento de viaje', en: 'Travel document number' }, formRef: 'Part 2 · Travel Document Number' },
-            { id: 'passportCountry', type: 'text', label: { es: 'País que emitió el pasaporte o documento', en: 'Country that issued the passport or document' }, formRef: 'Part 2 · Country That Issued Your Passport or Travel Document' },
-            { id: 'passportExpiry', type: 'date', label: { es: 'Fecha de vencimiento del pasaporte', en: 'Passport expiration date' }, formRef: 'Part 2 · Expiration Date for Passport or Travel Document (mm/dd/yyyy)', placeholder: 'MM/DD/AAAA' },
+            { id: 'i94', type: 'i94', label: { es: 'Número del registro de llegada y salida (I-94)', en: 'Form I-94 Arrival-Departure Record Number' }, formRef: 'Part 2 · Item 17 · Form I-94 Arrival-Departure Record Number' },
+            { id: 'passport', type: 'text', label: { es: 'Número de pasaporte', en: 'Passport number' }, formRef: 'Part 2 · Item 18 · Passport Number of Your Most Recently Issued Passport' },
+            { id: 'travelDoc', type: 'text', label: { es: 'Número de documento de viaje', en: 'Travel document number' }, formRef: 'Part 2 · Item 19 · Travel Document Number' },
+            { id: 'passportCountry', type: 'text', label: { es: 'País que emitió el pasaporte o documento', en: 'Country that issued the passport or document' }, formRef: 'Part 2 · Item 20 · Country That Issued Your Passport or Travel Document' },
+            { id: 'passportExpiry', type: 'date', label: { es: 'Fecha de vencimiento del pasaporte', en: 'Passport expiration date' }, formRef: 'Part 2 · Item 21 · Expiration Date for Passport or Travel Document (mm/dd/yyyy)', placeholder: 'MM/DD/AAAA' },
           ],
         },
         {
           id: 'lastArrival',
           kind: 'fields',
-          formRef: 'Part 2 · Date and Place of Your Last Arrival',
+          formRef: 'Part 2 · Items 22–23 · Your Last Arrival Into the United States',
           question: { es: '¿Cuándo y por dónde entró por última vez?', en: 'When and where did you last enter?' },
           fields: [
-            { id: 'arrival.date', type: 'pastDate', required: true, label: { es: 'Fecha de la última entrada', en: 'Date of last arrival' }, formRef: 'Part 2 · Date of Your Last Arrival Into the United States (mm/dd/yyyy)', placeholder: 'MM/DD/AAAA' },
-            { id: 'arrival.place', type: 'text', required: true, label: { es: 'Lugar de entrada (ciudad, estado)', en: 'Place of entry (city, state)' }, formRef: 'Part 2 · Place of Your Last Arrival Into the United States', placeholder: 'San Ysidro, CA' },
+            { id: 'arrival.date', type: 'pastDate', required: true, label: { es: 'Fecha de la última entrada', en: 'Date of last arrival' }, formRef: 'Part 2 · Item 22 · Date of Your Last Arrival Into the United States (mm/dd/yyyy)', placeholder: 'MM/DD/AAAA' },
+            { id: 'arrival.place', type: 'text', required: true, label: { es: 'Lugar de entrada (ciudad, estado)', en: 'Place of entry (city, state)' }, formRef: 'Part 2 · Item 23 · Place of Your Last Arrival Into the United States', placeholder: 'San Ysidro, CA' },
           ],
         },
         {
           id: 'status',
           kind: 'fields',
-          formRef: 'Part 2 · Immigration Status',
+          formRef: 'Part 2 · Items 24–25 · Immigration Status',
           question: { es: '¿Cuál era y cuál es su estatus migratorio?', en: 'What was and what is your immigration status?' },
           why: {
-            es: 'Por ejemplo: B-2 visitante, F-1 estudiante, parolee, solicitante de asilo, o "sin estatus" (EWI) si entró sin inspección.',
-            en: 'For example: B-2 visitor, F-1 student, parolee, asylum applicant, or "no status" (EWI) if you entered without inspection.',
+            es: 'Por ejemplo: B-2 visitante, F-1 estudiante, parolee, acción diferida, o "no status" si entró sin inspección.',
+            en: 'For example: B-2 visitor, F-1 student, parolee, deferred action, or "no status" if you entered without inspection.',
           },
           fields: [
-            { id: 'status.arrival', type: 'text', required: true, label: { es: 'Estatus al entrar la última vez', en: 'Status at your last arrival' }, formRef: 'Part 2 · Immigration Status at Your Last Arrival' },
-            { id: 'status.current', type: 'text', required: true, label: { es: 'Estatus actual', en: 'Current status' }, formRef: 'Part 2 · Your Current Immigration Status or Category' },
+            { id: 'status.arrival', type: 'text', required: true, label: { es: 'Estatus al entrar la última vez', en: 'Status at your last arrival' }, formRef: 'Part 2 · Item 24 · Immigration Status at Your Last Arrival' },
+            { id: 'status.current', type: 'text', required: true, label: { es: 'Estatus actual', en: 'Current status' }, formRef: 'Part 2 · Item 25 · Your Current Immigration Status or Category' },
           ],
         },
       ],
@@ -352,7 +314,7 @@ export const i765: FormDefinition = {
         {
           id: 'category',
           kind: 'choice',
-          formRef: 'Part 2 · Eligibility Category',
+          formRef: 'Part 2 · Item 27 · Eligibility Category',
           question: { es: '¿Por qué tiene derecho a un permiso de trabajo?', en: 'Why are you eligible for a work permit?' },
           why: {
             es: 'La categoría decide qué pruebas debe enviar y cuánto paga. Si no está seguro/a, consulte las instrucciones del I-765 o a un representante acreditado.',
@@ -363,36 +325,57 @@ export const i765: FormDefinition = {
         {
           id: 'categoryOther',
           kind: 'fields',
-          formRef: 'Part 2 · Eligibility Category',
+          formRef: 'Part 2 · Item 27 · Eligibility Category',
           showIf: is('category', CATEGORY_OTHER),
           question: { es: '¿Cuál es su categoría?', en: 'What is your category?' },
           why: { es: 'Escríbala como aparece en las instrucciones del I-765, con paréntesis.', en: 'Write it as it appears in the I-765 instructions, with parentheses.' },
-          fields: [{ id: 'category.other', type: 'text', required: true, label: { es: 'Categoría', en: 'Category' }, formRef: 'Part 2 · Eligibility Category', placeholder: '(c)(10)' }],
+          fields: [{ id: 'category.other', type: 'category', required: true, label: { es: 'Categoría', en: 'Category' }, formRef: 'Part 2 · Item 27 · Eligibility Category', placeholder: '(c)(10)' }],
+        },
+        {
+          id: 'sevis',
+          kind: 'fields',
+          formRef: 'Part 2 · Item 26 · SEVIS Number',
+          showIf: categoryIs('(c)(3)(B)', '(c)(3)(C)'),
+          question: { es: '¿Cuál es su número SEVIS?', en: 'What is your SEVIS number?' },
+          why: { es: 'Está en la parte de arriba de su formulario I-20. Empieza con N.', en: 'It’s at the top of your Form I-20. It starts with N.' },
+          fields: [{ id: 'sevisNumber', type: 'sevis', label: { es: 'Número SEVIS', en: 'SEVIS number' }, formRef: 'Part 2 · Item 26 · Student and Exchange Visitor Information System (SEVIS) Number', placeholder: 'N0012345678' }],
         },
         {
           id: 'stem',
           kind: 'fields',
-          formRef: 'Part 2 · (c)(3)(C) STEM OPT Eligibility',
-          showIf: categoryIs('(c)(3)(c)'),
+          formRef: 'Part 2 · Item 28 · (c)(3)(C) STEM OPT Eligibility Category',
+          showIf: categoryIs('(c)(3)(C)'),
           question: { es: 'Sobre su título y su empleador', en: 'About your degree and your employer' },
           fields: [
-            { id: 'stem.degree', type: 'text', required: true, label: { es: 'Título (degree)', en: 'Degree' }, formRef: 'Part 2 · Degree' },
-            { id: 'stem.employer', type: 'text', required: true, label: { es: 'Nombre del empleador como aparece en E-Verify', en: 'Employer’s name as listed in E-Verify' }, formRef: 'Part 2 · Employer’s Name as Listed in E-Verify' },
-            { id: 'stem.everify', type: 'text', required: true, label: { es: 'Número de identificación de la empresa en E-Verify', en: 'Employer’s E-Verify company identification number' }, formRef: 'Part 2 · Employer’s E-Verify Company Identification Number' },
+            { id: 'stem.degree', type: 'text', required: true, label: { es: 'Título (degree)', en: 'Degree' }, formRef: 'Part 2 · Item 28.a · Degree', maxLength: 16 },
+            { id: 'stem.employer', type: 'text', required: true, label: { es: 'Nombre del empleador como aparece en E-Verify', en: 'Employer’s name as listed in E-Verify' }, formRef: 'Part 2 · Item 28.b · Employer’s Name as Listed in E-Verify' },
+            { id: 'stem.everify', type: 'text', required: true, label: { es: 'Número de identificación de la empresa en E-Verify', en: 'Employer’s E-Verify company identification number' }, formRef: 'Part 2 · Item 28.c · Employer’s E-Verify Company Identification Number' },
           ],
         },
         {
           id: 'h1b',
           kind: 'fields',
-          formRef: 'Part 2 · (c)(26) Eligibility',
+          formRef: 'Part 2 · Item 29 · (c)(26) Eligibility Category',
           showIf: categoryIs('(c)(26)'),
           question: { es: '¿Cuál es el número de recibo del I-797 de su cónyuge H-1B?', en: 'What is the receipt number on your H-1B spouse’s I-797?' },
-          fields: [{ id: 'h1b.receipt', type: 'receipt', required: true, label: { es: 'Número de recibo', en: 'Receipt number' }, formRef: 'Part 2 · Receipt Number of Your H-1B Spouse’s Most Recent Form I-797', placeholder: 'IOE0123456789' }],
+          fields: [{ id: 'h1b.receipt', type: 'receipt', required: true, label: { es: 'Número de recibo', en: 'Receipt number' }, formRef: 'Part 2 · Item 29 · Receipt Number of Your H-1B Spouse’s Most Recent Form I-797', placeholder: 'IOE0123456789' }],
+        },
+        {
+          id: 'i140',
+          kind: 'fields',
+          formRef: 'Part 2 · Item 31.a · (c)(35) and (c)(36) Eligibility Category',
+          showIf: categoryIs('(c)(35)', '(c)(36)'),
+          question: { es: '¿Cuál es el número de recibo del I-797 del formulario I-140?', en: 'What is the receipt number on the I-797 for Form I-140?' },
+          why: {
+            es: 'En (c)(35) es el de su propio I-140. En (c)(36), el de su cónyuge o padre/madre.',
+            en: 'For (c)(35) it’s your own I-140. For (c)(36), your spouse’s or parent’s.',
+          },
+          fields: [{ id: 'i140.receipt', type: 'receipt', required: true, label: { es: 'Número de recibo', en: 'Receipt number' }, formRef: 'Part 2 · Item 31.a · Receipt Number of Form I-797 Notice for Form I-140', placeholder: 'IOE0123456789' }],
         },
         {
           id: 'arrested',
           kind: 'choice',
-          formRef: 'Part 2 · (c)(8) Eligibility — Arrests or Convictions',
+          formRef: 'Part 2 · Item 30 / 31.b · Have you EVER been arrested for and/or convicted of any crime?',
           showIf: categoryIs('(c)(8)', '(c)(35)', '(c)(36)'),
           question: { es: '¿Alguna vez lo/la han arrestado o condenado por algún delito?', en: 'Have you ever been arrested for or convicted of any crime?' },
           why: {
@@ -419,18 +402,18 @@ export const i765: FormDefinition = {
         {
           id: 'contactInfo',
           kind: 'fields',
-          formRef: 'Part 3 · Applicant’s Contact Information',
-          question: { es: '¿Cómo podemos contactarle?', en: 'How can USCIS contact you?' },
+          formRef: 'Part 3 · Items 3–5 · Applicant’s Contact Information',
+          question: { es: '¿Cómo puede contactarle USCIS?', en: 'How can USCIS contact you?' },
           fields: [
-            { id: 'phone', type: 'phone', required: true, label: { es: 'Teléfono de día', en: 'Daytime phone number' }, formRef: 'Part 3 · Applicant’s Daytime Telephone Number', placeholder: '213 555 0123' },
-            { id: 'mobile', type: 'phone', label: { es: 'Celular', en: 'Mobile phone number' }, formRef: 'Part 3 · Applicant’s Mobile Telephone Number' },
-            { id: 'email', type: 'email', label: { es: 'Correo electrónico', en: 'Email address' }, formRef: 'Part 3 · Applicant’s Email Address' },
+            { id: 'phone', type: 'phone', required: true, label: { es: 'Teléfono de día', en: 'Daytime phone number' }, formRef: 'Part 3 · Item 3 · Applicant’s Daytime Telephone Number', placeholder: '213 555 0123' },
+            { id: 'mobile', type: 'phone', label: { es: 'Celular', en: 'Mobile phone number' }, formRef: 'Part 3 · Item 4 · Applicant’s Mobile Telephone Number' },
+            { id: 'email', type: 'email', label: { es: 'Correo electrónico', en: 'Email address' }, formRef: 'Part 3 · Item 5 · Applicant’s Email Address', maxLength: 38 },
           ],
         },
         {
           id: 'readsEnglish',
           kind: 'choice',
-          formRef: 'Part 3 · Applicant’s Statement',
+          formRef: 'Part 3 · Item 1 · Applicant’s Statement',
           question: { es: '¿Puede leer y entender el formulario en inglés?', en: 'Can you read and understand the form in English?' },
           why: {
             es: 'Si alguien le traduce el formulario, esa persona debe llenar y firmar la Parte 4 (intérprete). Si alguien lo prepara por usted, la Parte 5.',
@@ -440,6 +423,14 @@ export const i765: FormDefinition = {
             { value: 'yes', label: { es: 'Sí, leo inglés', en: 'Yes, I read English' } },
             { value: 'interpreter', label: { es: 'No, un intérprete me lo leerá', en: 'No, an interpreter will read it to me' } },
           ],
+        },
+        {
+          id: 'interpreterLanguage',
+          kind: 'fields',
+          formRef: 'Part 3 · Item 1.b · Language in which you are fluent',
+          showIf: is('readsEnglish', 'interpreter'),
+          question: { es: '¿En qué idioma le leerá el intérprete?', en: 'What language will the interpreter read it to you in?' },
+          fields: [{ id: 'fluentLanguage', type: 'text', required: true, label: { es: 'Idioma', en: 'Language' }, formRef: 'Part 3 · Item 1.b · Language', placeholder: 'Spanish' }],
         },
       ],
     },

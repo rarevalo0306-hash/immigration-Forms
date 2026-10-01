@@ -82,6 +82,7 @@ const inputModes: Partial<Record<string, 'numeric' | 'tel' | 'email'>> = {
   pastDate: 'numeric',
   futureDate: 'numeric',
   ssn: 'numeric',
+  uscisAccount: 'numeric',
   zip: 'numeric',
   phone: 'tel',
   email: 'email',

@@ -33,7 +33,16 @@ export function normalize(type: FieldType, raw: string): string {
     case 'state':
       return s.toUpperCase();
     case 'receipt':
+    case 'i94':
       return s.replace(/[\s-]/g, '').toUpperCase();
+    case 'uscisAccount':
+      return digits(s);
+    case 'sevis': {
+      const d = digits(s);
+      return d ? `N${d.padStart(10, '0')}` : '';
+    }
+    case 'category':
+      return s.replace(/\s/g, '');
     default:
       return s;
   }
@@ -51,16 +60,45 @@ const msg = {
   state: { es: 'Use la abreviatura de 2 letras del estado, por ejemplo CA o TX.', en: 'Use the 2-letter state abbreviation, for example CA or TX.' },
   receipt: { es: 'El número de recibo tiene 3 letras y 10 números, por ejemplo IOE0123456789.', en: 'A receipt number has 3 letters and 10 digits, for example IOE0123456789.' },
   i94: { es: 'El número I-94 tiene 11 caracteres, letras o números.', en: 'An I-94 number has 11 characters, letters or digits.' },
+  uscisAccount: { es: 'El número de cuenta de USCIS tiene 12 números.', en: 'A USCIS online account number has 12 digits.' },
+  sevis: { es: 'El número SEVIS es una N seguida de 10 números, por ejemplo N0012345678.', en: 'A SEVIS number is an N followed by 10 digits, for example N0012345678.' },
+  unit: { es: 'El número de apartamento, suite o piso cabe en 6 caracteres, por ejemplo Apt 4B.', en: 'The apartment, suite or floor number fits 6 characters, for example Apt 4B.' },
+  category: { es: 'Escriba la categoría con paréntesis, por ejemplo (c)(10) o (a)(17).', en: 'Write the category with parentheses, for example (c)(10) or (a)(17).' },
 } satisfies Record<string, T>;
 
 const STATES = new Set(
   'AL AK AZ AR CA CO CT DE DC FL GA HI ID IL IN IA KS KY LA ME MD MA MI MN MS MO MT NE NV NH NJ NM NY NC ND OH OK OR PA RI SC SD TN TX UT VT VA WA WV WI WY AS GU MP PR VI'.split(' '),
 );
 
+/**
+ * Splits an eligibility category such as "(c)(3)(C)" into the parts the form prints in separate
+ * parenthesized boxes: ["c", "3", "C"]. Returns null when it isn't shaped like a category.
+ */
+export function parseCategory(raw: string): [string, string, string] | null {
+  const m = /^\(([a-z])\)\((\d{1,3})\)(?:\(([a-z0-9]{1,4})\))?$/i.exec(raw.replace(/\s/g, ''));
+  return m ? [m[1].toLowerCase(), m[2], m[3] ?? ''] : null;
+}
+
+/** Splits an apartment line such as "Apt 4B" or "Suite 200" into the form's unit checkbox and number. */
+export function parseUnit(raw: string): { kind: 'APT' | 'STE' | 'FLR'; number: string } | null {
+  const s = raw.trim();
+  if (!s) return null;
+  const m = /^(apt\.?|apartment|apto\.?|departamento|depto\.?|ste\.?|suite|flr\.?|floor|fl\.?|piso|#)?\s*(.*)$/i.exec(s)!;
+  const word = (m[1] ?? '').toLowerCase().replace('.', '');
+  const kind = ['ste', 'suite'].includes(word) ? 'STE' : ['flr', 'floor', 'fl', 'piso'].includes(word) ? 'FLR' : 'APT';
+  return { kind, number: m[2].replace(/^#\s*/, '').trim() };
+}
+
 /** Returns an error message, or null when the value is acceptable. Empty values are checked by `required` only. */
 export function validateField(field: Field, value: string, today = new Date()): T | null {
   const v = value.trim();
   if (!v) return field.required ? { es: 'Esta respuesta es necesaria.', en: 'This answer is required.' } : null;
+  if (field.maxLength && v.length > field.maxLength) {
+    return {
+      es: `En el formulario caben ${field.maxLength} caracteres; ahora hay ${v.length}. Abrevie (por ejemplo St, Ave, Blvd).`,
+      en: `The form fits ${field.maxLength} characters; this has ${v.length}. Abbreviate (for example St, Ave, Blvd).`,
+    };
+  }
   switch (field.type) {
     case 'date':
     case 'pastDate':
@@ -88,7 +126,15 @@ export function validateField(field: Field, value: string, today = new Date()): 
     case 'receipt':
       return /^[A-Za-z]{3}\d{10}$/.test(v.replace(/[\s-]/g, '')) ? null : msg.receipt;
     case 'i94':
-      return /^[A-Za-z0-9]{11}$/.test(v.replace(/\s/g, '')) ? null : msg.i94;
+      return /^[A-Za-z0-9]{11}$/.test(v.replace(/[\s-]/g, '')) ? null : msg.i94;
+    case 'uscisAccount':
+      return /^[\d\s-]+$/.test(v) && digits(v).length === 12 ? null : msg.uscisAccount;
+    case 'sevis':
+      return /^[Nn]?[\d\s-]+$/.test(v) && digits(v).length >= 1 && digits(v).length <= 10 ? null : msg.sevis;
+    case 'category':
+      return parseCategory(v) ? null : msg.category;
+    case 'unit':
+      return (parseUnit(v)?.number.length ?? 0) <= 6 ? null : msg.unit;
     default:
       return null;
   }

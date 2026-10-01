@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { Field, FieldType } from '../forms/types';
-import { normalize, parseUsDate, validateField } from './validation';
+import { normalize, parseCategory, parseUnit, parseUsDate, validateField } from './validation';
 
 const field = (type: FieldType, required = false): Field => ({ id: 'x', type, required, label: { es: '', en: '' }, formRef: '' });
 const ok = (type: FieldType, v: string) => validateField(field(type), v, new Date(2026, 9, 1)) === null;
@@ -42,6 +42,38 @@ describe('validateField', () => {
     expect(ok('receipt', 'IOE 0123456789')).toBe(true);
     expect(ok('receipt', 'IOE012345')).toBe(false);
     expect(ok('i94', '12345678A01')).toBe(true);
+    expect(ok('uscisAccount', '1234 1234 1234')).toBe(true);
+    expect(ok('uscisAccount', '12345')).toBe(false);
+    expect(ok('sevis', 'N0012345678')).toBe(true);
+    expect(ok('sevis', 'X0012345678')).toBe(false);
+    expect(ok('category', '(c)(10)')).toBe(true);
+    expect(ok('category', 'c10')).toBe(false);
+    expect(ok('unit', 'Apt 4B')).toBe(true);
+    expect(ok('unit', 'Apartment 1234567')).toBe(false);
+  });
+  it('enforces the PDF field length', () => {
+    const f = { ...field('text'), maxLength: 5 };
+    expect(validateField(f, '12345')).toBeNull();
+    expect(validateField(f, '123456')?.es).toMatch(/caben 5/);
+  });
+});
+
+describe('parseCategory', () => {
+  it('splits a category into the form boxes', () => {
+    expect(parseCategory('(c)(3)(C)')).toEqual(['c', '3', 'C']);
+    expect(parseCategory('(A)(12)')).toEqual(['a', '12', '']);
+    expect(parseCategory('(c)(17)(iii)')).toEqual(['c', '17', 'iii']);
+    expect(parseCategory('c8')).toBeNull();
+  });
+});
+
+describe('parseUnit', () => {
+  it('reads the unit type and number', () => {
+    expect(parseUnit('Apt 4B')).toEqual({ kind: 'APT', number: '4B' });
+    expect(parseUnit('Suite 200')).toEqual({ kind: 'STE', number: '200' });
+    expect(parseUnit('Flr. 3')).toEqual({ kind: 'FLR', number: '3' });
+    expect(parseUnit('#12')).toEqual({ kind: 'APT', number: '12' });
+    expect(parseUnit('')).toBeNull();
   });
 });
 

@@ -24,6 +24,7 @@ html, body { margin: 0; background: var(--surface); color: var(--ink); font-fami
 .app-review-row dd { margin: 0; font: 400 18px/28px var(--font-sans); overflow-wrap: anywhere; }
 .app-empty { color: var(--ink-muted); font-style: italic; }
 .app-edit { min-height: 40px; }
+.app-pdf { display: flex; flex-direction: column; gap: var(--space-4); }
 
 @media (max-width: 560px) {
   .app-main { padding: var(--space-4); }

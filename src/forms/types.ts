@@ -2,7 +2,23 @@ import type { T } from '../i18n';
 
 export type Answers = Record<string, string | string[]>;
 
-export type FieldType = 'text' | 'date' | 'pastDate' | 'futureDate' | 'aNumber' | 'ssn' | 'zip' | 'phone' | 'email' | 'state' | 'receipt' | 'i94';
+export type FieldType =
+  | 'text'
+  | 'date'
+  | 'pastDate'
+  | 'futureDate'
+  | 'aNumber'
+  | 'uscisAccount'
+  | 'ssn'
+  | 'zip'
+  | 'phone'
+  | 'email'
+  | 'state'
+  | 'unit'
+  | 'receipt'
+  | 'i94'
+  | 'sevis'
+  | 'category';
 
 export interface Field {
   id: string;
@@ -13,6 +29,8 @@ export interface Field {
   hint?: T;
   required?: boolean;
   placeholder?: string;
+  /** The most characters the official PDF field holds. */
+  maxLength?: number;
 }
 
 export interface Option {

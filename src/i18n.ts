@@ -14,6 +14,17 @@ export const ui = {
   review: { es: 'Revisar respuestas', en: 'Review answers' },
   edit: { es: 'Editar', en: 'Edit' },
   print: { es: 'Imprimir hoja de respuestas', en: 'Print answer sheet' },
+  downloadPdf: { es: 'Descargar I-765 lleno (PDF)', en: 'Download filled I-765 (PDF)' },
+  preparingPdf: { es: 'Preparando el PDF…', en: 'Preparing the PDF…' },
+  pdfError: {
+    es: 'No pudimos preparar el PDF. Revise su conexión e intente de nuevo; su hoja de respuestas sigue disponible.',
+    en: 'We couldn’t prepare the PDF. Check your connection and try again; your answer sheet is still available.',
+  },
+  pdfTitle: { es: 'Su formulario oficial, ya lleno', en: 'Your official form, already filled in' },
+  pdfBody: {
+    es: 'Descargue el I-765 de USCIS (edición {edition}) con sus respuestas. Ábralo y revise cada página antes de enviarlo. Firme la Parte 3, Ítem 7, a mano con tinta negra: el formulario no acepta firmas escritas a máquina.',
+    en: 'Download USCIS Form I-765 (edition {edition}) with your answers. Open it and check every page before you file. Sign Part 3, Item 7, by hand in black ink: the form does not accept typed signatures.',
+  },
   optional: { es: '(opcional)', en: '(optional)' },
   notAnswered: { es: 'Sin respuesta', en: 'Not answered' },
   step: { es: 'Paso {c} de {t}', en: 'Step {c} of {t}' },

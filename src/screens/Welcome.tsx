@@ -11,8 +11,8 @@ interface Props {
 }
 
 const steps = {
-  es: ['Responda una pregunta a la vez (unos 20 minutos).', 'Revise todas sus respuestas en una sola página.', 'Imprima la hoja y úsela para llenar el formulario oficial de uscis.gov/i-765.'],
-  en: ['Answer one question at a time (about 20 minutes).', 'Review all your answers on one page.', 'Print the sheet and use it to fill in the official form from uscis.gov/i-765.'],
+  es: ['Responda una pregunta a la vez (unos 20 minutos).', 'Revise todas sus respuestas en una sola página.', 'Descargue el formulario oficial I-765 ya lleno, revíselo y fírmelo a mano.'],
+  en: ['Answer one question at a time (about 20 minutes).', 'Review all your answers on one page.', 'Download the official Form I-765 already filled in, check it and sign it by hand.'],
 };
 
 export function Welcome({ form, lang, hasProgress, onStart, onStartOver }: Props) {
