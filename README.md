@@ -1,6 +1,6 @@
 # Camino — formularios de inmigración, una pregunta a la vez
 
-Camino ayuda a inmigrantes a llenar los formularios de USCIS en español (o inglés), paso a paso, sin jerga legal. Por ahora tiene catorce:
+Camino ayuda a inmigrantes a llenar los formularios de USCIS en español (o inglés), paso a paso, sin jerga legal. Por ahora tiene quince:
 
 | Formulario | Edición | Qué es |
 | --- | --- | --- |
@@ -17,6 +17,7 @@ Camino ayuda a inmigrantes a llenar los formularios de USCIS en español (o ingl
 | **I-751** | 04/01/24 | Quitar las condiciones de la residencia (tarjeta de 2 años por matrimonio) |
 | **I-90** | 01/20/25 | Renovación o reemplazo de la tarjeta de residente (green card) |
 | **AR-11** | 11/02/22 | Cambio de dirección (obligatorio dentro de 10 días) |
+| **I-912** | 07/22/25 | Exención de tarifa (beneficios públicos, ingresos bajos o dificultad económica) |
 | **N-400** | 01/20/25 | Solicitud de ciudadanía (naturalización) |
 
 ## Qué hace
@@ -60,11 +61,11 @@ npm run build
 | Ruta | Qué es |
 | --- | --- |
 | `src/design/` | Tokens y componentes del sistema de diseño Camino (Button, TextField, ChoiceGroup, ProgressSteps, QuestionCard, Notice, LanguageToggle, FormBadge) |
-| `src/forms/` | El contenido de cada formulario (`i765.ts`, `i821d.ts`, `i821.ts` con `i821Part7.ts`, `i130.ts`, `i130a.ts`, `i129f.ts`, `i485.ts` con `i485Part9.ts`, `i131.ts`, `i864.ts`, `i864a.ts`, `i751.ts`, `i90.ts`, `ar11.ts`, `n400.ts`): secciones, preguntas en ES/EN, referencias al formulario y condiciones; `helpers.ts` con piezas comunes |
+| `src/forms/` | El contenido de cada formulario (`i765.ts`, `i821d.ts`, `i821.ts` con `i821Part7.ts`, `i130.ts`, `i130a.ts`, `i129f.ts`, `i485.ts` con `i485Part9.ts`, `i131.ts`, `i864.ts`, `i864a.ts`, `i751.ts`, `i90.ts`, `ar11.ts`, `i912.ts`, `n400.ts`): secciones, preguntas en ES/EN, referencias al formulario y condiciones; `helpers.ts` con piezas comunes |
 | `src/engine/` | Qué preguntas se muestran, validación y normalización (con pruebas) |
 | `src/pdf/` | Llenado de cada PDF oficial (con pruebas sobre los PDF reales) |
 | `src/screens/` | Inicio, bienvenida, preguntas y revisión |
 | `public/forms/` | Los PDF oficiales listos para llenar |
 | `scripts/` | Preparación de una nueva edición de un PDF |
 
-Para agregar otro formulario (I-912, I-589…), cree un `FormDefinition` como `src/forms/n400.ts`, su llenado en `src/pdf/`, y agréguelo a `src/forms/index.ts`.
+Para agregar otro formulario (I-589, I-864EZ…), cree un `FormDefinition` como `src/forms/n400.ts`, su llenado en `src/pdf/`, y agréguelo a `src/forms/index.ts`.

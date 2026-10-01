@@ -403,3 +403,33 @@ describe('AR-11 flow', async () => {
     expect(ids({ previousHas: 'yes', mailingDifferent: 'yes' })).toContain('mailing');
   });
 });
+
+describe('I-912 flow', async () => {
+  const { i912 } = await import('../forms/i912');
+  const ids = (a: Record<string, string | string[]>) => visibleScreens(i912, a).map((s) => s.question.id);
+
+  it('has unique answer ids', () => {
+    const seen = new Set<string>();
+    for (const s of i912.sections)
+      for (const q of s.questions) {
+        const own = q.kind === 'fields' ? q.fields.map((f) => f.id) : q.kind === 'yesNoList' ? q.items.map((i) => i.id) : [q.id];
+        for (const id of own) {
+          expect(seen.has(id), id).toBe(false);
+          seen.add(id);
+        }
+      }
+  });
+
+  it('asks only the parts for the chosen bases', () => {
+    expect(ids({})).not.toContain('benefit1');
+    expect(ids({})).not.toContain('employment');
+    expect(ids({})).not.toContain('hardshipStory');
+    expect(ids({ basis: ['A'] })).toContain('benefit1');
+    expect(ids({ basis: ['B'] })).toContain('agi');
+    expect(ids({ basis: ['B'], employment: 'Unemployed' })).toContain('unemployedSince');
+    expect(ids({ basis: ['C'] })).toContain('hardshipStory');
+    expect(ids({ basis: ['C'], 'asset.more0': 'yes' })).toContain('asset1');
+    expect(ids({ basis: ['C'], expenseTypes: ['O'] })).toContain('expenseOther');
+    expect(ids({ 'family.more0': 'yes' })).toContain('family1');
+  });
+});
