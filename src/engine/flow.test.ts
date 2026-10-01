@@ -303,3 +303,35 @@ describe('I-751 flow', async () => {
     expect(ids({ 'acc.children': 'yes' })).toContain('accDetails');
   });
 });
+
+describe('I-129F flow', async () => {
+  const { i129f } = await import('../forms/i129f');
+  const ids = (a: Record<string, string>) => visibleScreens(i129f, a).map((s) => s.question.id);
+
+  it('has unique answer ids', () => {
+    const seen = new Set<string>();
+    for (const s of i129f.sections)
+      for (const q of s.questions) {
+        const own = q.kind === 'fields' ? q.fields.map((f) => f.id) : q.kind === 'yesNoList' ? q.items.map((i) => i.id) : [q.id];
+        for (const id of own) {
+          expect(seen.has(id), id).toBe(false);
+          seen.add(id);
+        }
+      }
+  });
+
+  it('follows the answers', () => {
+    expect(ids({ classification: 'B' })).toContain('filedI130');
+    expect(ids({ classification: 'A' })).not.toContain('filedI130');
+    expect(ids({ 'pet.mailingSame': 'no' })).toContain('pet.home1');
+    expect(ids({ 'pet.mailingSame': 'yes' })).not.toContain('pet.home1');
+    expect(ids({ 'pet.citizenVia': 'A' })).not.toContain('pet.certificate');
+    expect(ids({ 'pet.citizenVia': 'B', 'pet.certificate': 'yes' })).toContain('pet.certificateDetails');
+    expect(ids({ 'ben.everInUS': 'yes', 'ben.inUSNow': 'yes' })).toContain('ben.entry');
+    expect(ids({ 'ben.kids': 'yes', 'ben.kid.withBen': 'no' })).toContain('ben.kidAddress');
+    expect(ids({ met: 'A' })).not.toContain('metDescribe');
+    expect(ids({ 'crime.2b': 'yes' })).toContain('crime.battered');
+    expect(ids({ 'crime.4a': 'yes' })).not.toContain('crime.battered');
+    expect(ids({ 'crime.4a': 'yes' })).toContain('crimeDescribe');
+  });
+});
