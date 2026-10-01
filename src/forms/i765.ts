@@ -71,7 +71,33 @@ const categoryIs = (...cs: string[]) => (a: Answers) => cs.map((c) => c.toLowerC
 export const i765: FormDefinition = {
   id: 'i-765',
   number: 'I-765',
+  edition: I765_EDITION,
   title: { es: 'Solicitud de permiso de trabajo', en: 'Application for Employment Authorization' },
+  summary: {
+    es: 'Pida o renueve su permiso de trabajo (EAD): asilo, TPS, parole, DACA, ajuste de estatus y más.',
+    en: 'Apply for or renew your work permit (EAD): asylum, TPS, parole, DACA, adjustment of status and more.',
+  },
+  minutes: 20,
+  pdf: {
+    path: 'forms/i-765.pdf',
+    fileName: 'I-765-filled.pdf',
+    load: () => import('../pdf/i765Pdf').then((m) => m.fillI765),
+    signHere: { es: 'Parte 3, Ítem 7', en: 'Part 3, Item 7' },
+  },
+  nextSteps: {
+    es: [
+      'Confirme en uscis.gov/i-765 que la edición {edition} sigue vigente; si cambió, use la nueva y copie sus respuestas de esta hoja.',
+      'Revise el PDF página por página. Si usó más de un nombre, agregue los demás a mano en los Ítems 3 y 4 de la Parte 2.',
+      'Revise la tarifa actual en uscis.gov/g-1055 y las pruebas que pide su categoría en las instrucciones del I-765.',
+      'Imprima el PDF y firme la Parte 3, Ítem 7, a mano con tinta negra.',
+    ],
+    en: [
+      'Check at uscis.gov/i-765 that edition {edition} is still current; if it changed, use the new one and copy your answers from this sheet.',
+      'Check the PDF page by page. If you used more than one other name, add the rest by hand in Part 2, Items 3 and 4.',
+      'Check the current fee at uscis.gov/g-1055 and the evidence your category needs in the I-765 instructions.',
+      'Print the PDF and sign Part 3, Item 7, by hand in black ink.',
+    ],
+  },
   intro: {
     es: 'El I-765 pide a USCIS un permiso de trabajo (EAD). Le haremos una pregunta a la vez; al final podrá descargar el formulario oficial ya lleno y una hoja con todas sus respuestas.',
     en: 'Form I-765 asks USCIS for a work permit (EAD). We’ll ask one question at a time; at the end you can download the official form already filled in, plus a sheet with all your answers.',

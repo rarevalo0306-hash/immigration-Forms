@@ -47,3 +47,44 @@ describe('I-765 flow', () => {
     expect(Object.keys(validateQuestion(name, { 'name.family': 'García' }))).toEqual(['name.given']);
   });
 });
+
+describe('N-400 flow', async () => {
+  const { n400 } = await import('../forms/n400');
+  const ids = (a: Record<string, string>) => visibleScreens(n400, a).map((s) => s.question.id);
+
+  it('has unique answer ids', () => {
+    const seen = new Set<string>();
+    for (const s of n400.sections)
+      for (const q of s.questions) {
+        const own = q.kind === 'fields' ? q.fields.map((f) => f.id) : q.kind === 'yesNoList' ? q.items.map((i) => i.id) : [q.id];
+        for (const id of own) {
+          expect(seen.has(id), id).toBe(false);
+          seen.add(id);
+        }
+      }
+  });
+
+  it('chains table rows on "another one?"', () => {
+    expect(ids({})).not.toContain('prevHome1');
+    expect(ids({ 'prevHome.more0': 'yes' })).toContain('prevHome1');
+    expect(ids({ 'prevHome.more0': 'yes' })).not.toContain('prevHome2');
+    expect(ids({ 'prevHome.more0': 'yes', 'prevHome.more1': 'yes' })).toContain('prevHome2');
+    expect(ids({ 'prevHome.more0': 'yes', 'prevHome.more1': 'no', 'prevHome.more2': 'yes' })).not.toContain('prevHome3');
+    expect(ids({})).toContain('job1');
+    expect(ids({ 'trip.more0': 'yes', 'trip.more1': 'yes', 'trip.more2': 'yes' })).toContain('trip3');
+  });
+
+  it('asks spouse details only for spouse-based filing', () => {
+    expect(ids({ marital: 'married', eligibility: 'A' })).not.toContain('spouse');
+    expect(ids({ marital: 'married', eligibility: 'B' })).toContain('spouse');
+    expect(ids({ marital: 'married', eligibility: 'D' })).toContain('spouseEmployerQ');
+  });
+
+  it('asks for explanations of concerning answers', () => {
+    expect(ids({ 'p9.17.c': 'yes' })).toContain('explain.17.c');
+    expect(ids({ 'p9.31': 'no' })).toContain('explain.31');
+    expect(ids({ 'p9.31': 'yes' })).not.toContain('explain.31');
+    expect(ids({ 'p9.15.b': 'yes' })).toContain('crime1');
+    expect(ids({ sex: 'female' })).not.toContain('p9i');
+  });
+});

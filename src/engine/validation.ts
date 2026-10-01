@@ -62,6 +62,7 @@ const msg = {
   i94: { es: 'El número I-94 tiene 11 caracteres, letras o números.', en: 'An I-94 number has 11 characters, letters or digits.' },
   uscisAccount: { es: 'El número de cuenta de USCIS tiene 12 números.', en: 'A USCIS online account number has 12 digits.' },
   sevis: { es: 'El número SEVIS es una N seguida de 10 números, por ejemplo N0012345678.', en: 'A SEVIS number is an N followed by 10 digits, for example N0012345678.' },
+  number: { es: 'Escriba solo números, sin puntos ni comas.', en: 'Enter digits only, without periods or commas.' },
   unit: { es: 'El número de apartamento, suite o piso cabe en 6 caracteres, por ejemplo Apt 4B.', en: 'The apartment, suite or floor number fits 6 characters, for example Apt 4B.' },
   category: { es: 'Escriba la categoría con paréntesis, por ejemplo (c)(10) o (a)(17).', en: 'Write the category with parentheses, for example (c)(10) or (a)(17).' },
 } satisfies Record<string, T>;
@@ -133,6 +134,10 @@ export function validateField(field: Field, value: string, today = new Date()): 
       return /^[Nn]?[\d\s-]+$/.test(v) && digits(v).length >= 1 && digits(v).length <= 10 ? null : msg.sevis;
     case 'category':
       return parseCategory(v) ? null : msg.category;
+    case 'select':
+      return field.options?.some((o) => o.value === v) ? null : { es: 'Elija una opción de la lista.', en: 'Choose an option from the list.' };
+    case 'number':
+      return /^\d+$/.test(v) ? null : msg.number;
     case 'unit':
       return (parseUnit(v)?.number.length ?? 0) <= 6 ? null : msg.unit;
     default:

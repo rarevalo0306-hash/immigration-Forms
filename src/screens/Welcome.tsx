@@ -10,10 +10,18 @@ interface Props {
   onStartOver: () => void;
 }
 
-const steps = {
-  es: ['Responda una pregunta a la vez (unos 20 minutos).', 'Revise todas sus respuestas en una sola página.', 'Descargue el formulario oficial I-765 ya lleno, revíselo y fírmelo a mano.'],
-  en: ['Answer one question at a time (about 20 minutes).', 'Review all your answers on one page.', 'Download the official Form I-765 already filled in, check it and sign it by hand.'],
-};
+const steps = (form: FormDefinition) => ({
+  es: [
+    `Responda una pregunta a la vez (unos ${form.minutes} minutos).`,
+    'Revise todas sus respuestas en una sola página.',
+    `Descargue el formulario oficial ${form.number} ya lleno, revíselo y fírmelo a mano.`,
+  ],
+  en: [
+    `Answer one question at a time (about ${form.minutes} minutes).`,
+    'Review all your answers on one page.',
+    `Download the official Form ${form.number} already filled in, check it and sign it by hand.`,
+  ],
+});
 
 export function Welcome({ form, lang, hasProgress, onStart, onStartOver }: Props) {
   return (
@@ -24,7 +32,7 @@ export function Welcome({ form, lang, hasProgress, onStart, onStartOver }: Props
       <h1 className="app-title">{form.title[lang]}</h1>
       <p className="cm-card-why">{form.intro[lang]}</p>
       <ol className="app-steps">
-        {steps[lang].map((s) => (
+        {steps(form)[lang].map((s) => (
           <li key={s}>{s}</li>
         ))}
       </ol>

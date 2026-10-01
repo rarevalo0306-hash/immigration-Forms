@@ -1,5 +1,6 @@
 // Camino components — typed port of the Camino design system bundle.
 import { useId, type ButtonHTMLAttributes, type InputHTMLAttributes, type ReactNode } from 'react';
+import type * as React from 'react';
 
 function cx(...parts: (string | false | null | undefined)[]) {
   return parts.filter(Boolean).join(' ');
@@ -19,9 +20,11 @@ export interface TextFieldProps extends InputHTMLAttributes<HTMLInputElement> {
   labelEn?: ReactNode;
   hint?: ReactNode;
   error?: ReactNode;
+  /** Renders a textarea for explanations. */
+  multiline?: boolean;
 }
 
-export function TextField({ id, label, labelEn, hint, error, className, ...rest }: TextFieldProps) {
+export function TextField({ id, label, labelEn, hint, error, className, multiline, ...rest }: TextFieldProps) {
   const autoId = useId();
   const fieldId = id ?? autoId;
   const hintId = `${fieldId}-hint`;
@@ -34,8 +37,57 @@ export function TextField({ id, label, labelEn, hint, error, className, ...rest 
         {labelEn && <span className="cm-label-en">{labelEn}</span>}
       </label>
       {hint && <span className="cm-hint" id={hintId}>{hint}</span>}
-      <input id={fieldId} className="cm-input" aria-invalid={error ? true : undefined} aria-describedby={describedBy} {...rest} />
+      {multiline ? (
+        <textarea
+          id={fieldId}
+          className="cm-input cm-textarea"
+          rows={4}
+          aria-invalid={error ? true : undefined}
+          aria-describedby={describedBy}
+          value={rest.value}
+          onChange={rest.onChange as unknown as React.ChangeEventHandler<HTMLTextAreaElement>}
+          placeholder={rest.placeholder}
+        />
+      ) : (
+        <input id={fieldId} className="cm-input" aria-invalid={error ? true : undefined} aria-describedby={describedBy} {...rest} />
+      )}
       {error && <span className="cm-error" id={errId} role="alert">{error}</span>}
+    </div>
+  );
+}
+
+export interface SelectFieldProps {
+  id?: string;
+  label: ReactNode;
+  labelEn?: ReactNode;
+  hint?: ReactNode;
+  error?: ReactNode;
+  value: string;
+  onChange: (value: string) => void;
+  options: { value: string; label: string }[];
+  placeholder?: string;
+}
+
+export function SelectField({ id, label, labelEn, hint, error, value, onChange, options, placeholder = '—' }: SelectFieldProps) {
+  const autoId = useId();
+  const fieldId = id ?? autoId;
+  const describedBy = [hint && `${fieldId}-hint`, error && `${fieldId}-err`].filter(Boolean).join(' ') || undefined;
+  return (
+    <div className={cx('cm-field', !!error && 'cm-field--error')}>
+      <label className="cm-label" htmlFor={fieldId}>
+        {label}
+        {labelEn && <span className="cm-label-en">{labelEn}</span>}
+      </label>
+      {hint && <span className="cm-hint" id={`${fieldId}-hint`}>{hint}</span>}
+      <select id={fieldId} className="cm-input cm-select" value={value} onChange={(e) => onChange(e.target.value)} aria-invalid={error ? true : undefined} aria-describedby={describedBy}>
+        <option value="">{placeholder}</option>
+        {options.map((o) => (
+          <option key={o.value} value={o.value}>
+            {o.label}
+          </option>
+        ))}
+      </select>
+      {error && <span className="cm-error" id={`${fieldId}-err`} role="alert">{error}</span>}
     </div>
   );
 }
@@ -129,6 +181,39 @@ export function QuestionCard({ question, eyebrow, why, children, onBack, onNext,
         </div>
       )}
     </section>
+  );
+}
+
+export interface YesNoRowProps {
+  label: ReactNode;
+  labelEn?: ReactNode;
+  value: string | null;
+  onChange: (value: 'yes' | 'no') => void;
+  yesLabel?: string;
+  noLabel?: string;
+  error?: ReactNode;
+}
+
+/** One yes/no question in a list of them: the question, then two side-by-side choices. */
+export function YesNoRow({ label, labelEn, value, onChange, yesLabel = 'Sí', noLabel = 'No', error }: YesNoRowProps) {
+  const name = useId();
+  return (
+    <fieldset className={cx('cm-yn', !!error && 'cm-yn--error')}>
+      <legend className="cm-yn-q">
+        {label}
+        {labelEn && <span className="cm-label-en">{labelEn}</span>}
+      </legend>
+      <div className="cm-yn-opts">
+        {(['yes', 'no'] as const).map((v) => (
+          <label key={v} className="cm-choice cm-yn-opt">
+            <input type="radio" name={name} value={v} checked={value === v} onChange={() => onChange(v)} />
+            <span className="cm-choice-box" aria-hidden />
+            <span>{v === 'yes' ? yesLabel : noLabel}</span>
+          </label>
+        ))}
+      </div>
+      {error && <span className="cm-error" role="alert">{error}</span>}
+    </fieldset>
   );
 }
 

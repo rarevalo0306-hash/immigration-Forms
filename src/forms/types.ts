@@ -18,7 +18,10 @@ export type FieldType =
   | 'receipt'
   | 'i94'
   | 'sevis'
-  | 'category';
+  | 'category'
+  | 'number'
+  | 'longText'
+  | 'select';
 
 export interface Field {
   id: string;
@@ -31,6 +34,8 @@ export interface Field {
   placeholder?: string;
   /** The most characters the official PDF field holds. */
   maxLength?: number;
+  /** For `select` fields. */
+  options?: Option[];
 }
 
 export interface Option {
@@ -57,9 +62,24 @@ export interface FieldsQuestion extends QuestionBase {
 export interface ChoiceQuestion extends QuestionBase {
   kind: 'choice';
   options: Option[];
+  /** "Select all that apply": the answer is a list of values. */
+  multiple?: boolean;
 }
 
-export type Question = FieldsQuestion | ChoiceQuestion;
+/** Several yes/no questions on one screen, for long runs like the N-400's Part 9. */
+export interface YesNoItem {
+  id: string;
+  label: T;
+  formRef: string;
+  showIf?: (a: Answers) => boolean;
+}
+
+export interface YesNoListQuestion extends QuestionBase {
+  kind: 'yesNoList';
+  items: YesNoItem[];
+}
+
+export type Question = FieldsQuestion | ChoiceQuestion | YesNoListQuestion;
 
 export interface Section {
   id: string;
@@ -69,10 +89,27 @@ export interface Section {
   questions: Question[];
 }
 
+export interface FormPdf {
+  /** Path under public/ of the official PDF, prepared with scripts/prepare-uscis-pdf.py. */
+  path: string;
+  fileName: string;
+  /** Lazily loads the filler so pdf-lib only downloads when someone asks for the PDF. */
+  load: () => Promise<(template: ArrayBuffer | Uint8Array, answers: Answers) => Promise<Uint8Array>>;
+  /** Where the applicant signs by hand, e.g. "Part 11, Item 4". */
+  signHere: T;
+}
+
 export interface FormDefinition {
   id: string;
   number: string;
+  /** Edition date printed at the bottom of the official form. */
+  edition: string;
   title: T;
+  /** One line for the form picker. */
+  summary: T;
   intro: T;
+  minutes: number;
   sections: Section[];
+  pdf: FormPdf;
+  nextSteps: Record<'es' | 'en', string[]>;
 }

@@ -49,11 +49,11 @@
 .cm-progress { display: flex; flex-direction: column; gap: var(--space-2); }
 .cm-progress-meta { font: 400 14px/20px var(--font-sans); color: var(--ink-muted); }
 .cm-progress-meta strong { color: var(--ink); }
-.cm-steps { display: flex; align-items: center; gap: var(--space-2); list-style: none; margin: 0; padding: 0; }
+.cm-steps { display: flex; align-items: center; gap: 4px; list-style: none; margin: 0; padding: 0; }
 .cm-step { width: 16px; height: 16px; border-radius: var(--radius-pill); border: 2px solid var(--line); background: var(--surface-raised); flex: none; }
 .cm-step--done { background: var(--pine); border-color: var(--pine); }
 .cm-step--current { background: var(--marigold); border-color: var(--ink); width: 24px; height: 24px; }
-.cm-step-bar { flex: 1; height: 2px; background: var(--line); min-width: 8px; }
+.cm-step-bar { flex: 1; height: 2px; background: var(--line); min-width: 4px; }
 .cm-step-bar--done { background: var(--pine); }
 
 /* QuestionCard */
@@ -88,3 +88,16 @@
   border-radius: var(--radius-sm); background: var(--ink); color: var(--surface-raised); font: 700 14px/20px var(--font-sans); }
 .cm-badge span { font-weight: 400; }
 .cm-badge--soft { background: var(--pine-soft); color: var(--ink); }
+
+/* TextField, multiline */
+.cm-textarea { min-height: 120px; padding: var(--space-2) var(--space-4); resize: vertical; }
+
+/* YesNoRow */
+.cm-yn { border: 0; margin: 0; padding: var(--space-4) 0 0; display: flex; flex-direction: column; gap: var(--space-2); border-top: 1px solid var(--line); }
+.cm-yn-q { padding: 0; font: 400 18px/28px var(--font-sans); color: var(--ink); margin-bottom: var(--space-2); }
+.cm-yn-opts { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-2); }
+.cm-yn-opt { min-height: 48px; }
+.cm-yn--error .cm-yn-opt { border-color: var(--danger); }
+.cm-select { appearance: none; padding-right: var(--space-8);
+  background-image: linear-gradient(45deg, transparent 50%, var(--ink) 50%), linear-gradient(135deg, var(--ink) 50%, transparent 50%);
+  background-position: calc(100% - 22px) 50%, calc(100% - 16px) 50%; background-size: 6px 6px; background-repeat: no-repeat; }

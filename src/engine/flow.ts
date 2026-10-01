@@ -1,4 +1,4 @@
-import type { Answers, FormDefinition, Question, Section } from '../forms/types';
+import type { Answers, FormDefinition, Question, Section, YesNoItem, YesNoListQuestion } from '../forms/types';
 import { normalize, validateField } from './validation';
 import type { T } from '../i18n';
 
@@ -19,12 +19,30 @@ export function visibleScreens(form: FormDefinition, answers: Answers): Screen[]
   return out;
 }
 
+export function visibleItems(q: YesNoListQuestion, answers: Answers): YesNoItem[] {
+  return q.items.filter((i) => !i.showIf || i.showIf(answers));
+}
+
+/** Every answer id a question owns, given the current answers. */
+export function answerIds(q: Question, answers: Answers): string[] {
+  if (q.kind === 'fields') return q.fields.map((f) => f.id);
+  if (q.kind === 'yesNoList') return visibleItems(q, answers).map((i) => i.id);
+  return [q.id];
+}
+
 export type Errors = Record<string, T>;
 
 export function validateQuestion(q: Question, answers: Answers): Errors {
   const errors: Errors = {};
   if (q.kind === 'choice') {
-    if (!answers[q.id]) errors[q.id] = { es: 'Elija una opción.', en: 'Choose an option.' };
+    const a = answers[q.id];
+    if (!a || (Array.isArray(a) && a.length === 0)) errors[q.id] = { es: 'Elija una opción.', en: 'Choose an option.' };
+    return errors;
+  }
+  if (q.kind === 'yesNoList') {
+    for (const item of visibleItems(q, answers)) {
+      if (!answers[item.id]) errors[item.id] = { es: 'Responda Sí o No.', en: 'Answer Yes or No.' };
+    }
     return errors;
   }
   for (const f of q.fields) {
@@ -40,7 +58,7 @@ export function normalizeQuestion(q: Question, answers: Answers): Answers {
   const next = { ...answers };
   for (const f of q.fields) {
     const v = next[f.id];
-    if (typeof v === 'string') next[f.id] = normalize(f.type, v);
+    if (typeof v === 'string' && f.type !== 'select' && f.type !== 'longText') next[f.id] = normalize(f.type, v);
   }
   return next;
 }
@@ -53,7 +71,7 @@ export function pruneHidden(form: FormDefinition, answers: Answers): Answers {
     const keep = new Set<string>();
     for (const { question } of visibleScreens(form, current)) {
       keep.add(question.id);
-      if (question.kind === 'fields') question.fields.forEach((f) => keep.add(f.id));
+      answerIds(question, current).forEach((id) => keep.add(id));
     }
     const next = Object.fromEntries(Object.entries(current).filter(([k]) => keep.has(k)));
     if (Object.keys(next).length === Object.keys(current).length) return next;

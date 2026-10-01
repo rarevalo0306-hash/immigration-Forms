@@ -3,9 +3,8 @@ import type { Answers } from './forms/types';
 
 export interface Saved {
   answers: Answers;
-  /** Index into the visible screens; -1 = welcome, screens.length = review. */
+  /** Index into the visible screens; screens.length = review. */
   position: number;
-  lang: Lang;
 }
 
 const key = (formId: string) => `camino:${formId}:v1`;
@@ -32,6 +31,25 @@ export function save(formId: string, s: Saved) {
 export function clear(formId: string) {
   try {
     localStorage.removeItem(key(formId));
+  } catch {
+    // ignore
+  }
+}
+
+const LANG_KEY = 'camino:lang';
+
+export function loadLang(): Lang | null {
+  try {
+    const v = localStorage.getItem(LANG_KEY);
+    return v === 'es' || v === 'en' ? v : null;
+  } catch {
+    return null;
+  }
+}
+
+export function saveLang(lang: Lang) {
+  try {
+    localStorage.setItem(LANG_KEY, lang);
   } catch {
     // ignore
   }

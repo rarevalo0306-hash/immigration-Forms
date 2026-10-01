@@ -2,6 +2,7 @@ import { PDFCheckBox, PDFDocument, PDFDropdown, PDFTextField } from 'pdf-lib';
 import type { Answers } from '../forms/types';
 import { CATEGORY_OTHER } from '../forms/i765';
 import { parseCategory, parseUnit } from '../engine/validation';
+import { selectOption, setFieldText, toFormText } from './common';
 
 // Field names of USCIS Form I-765, edition 08/21/25 (public/forms/i-765.pdf).
 const P1 = 'form1[0].Page1[0].';
@@ -15,19 +16,7 @@ type Plan = { text: Record<string, string>; check: string[]; select: Record<stri
 const str = (a: Answers, id: string) => String(a[id] ?? '').trim();
 const digits = (s: string) => s.replace(/\D/g, '');
 
-/**
- * The PDF's standard font covers Latin-1 only, and USCIS reads the form in English: drop accents
- * (García → Garcia) and anything else the font can't draw.
- */
-export function toFormText(s: string): string {
-  return s
-    .normalize('NFD')
-    .replace(/[̀-ͯ]/g, '')
-    .replace(/[‘’]/g, "'")
-    .replace(/[“”]/g, '"')
-    .replace(/[–—]/g, '-')
-    .replace(/[^\x20-\x7e]/g, '');
-}
+export { toFormText };
 
 function category(a: Answers) {
   return a.category === CATEGORY_OTHER ? str(a, 'category.other') : str(a, 'category');
@@ -161,10 +150,7 @@ export async function fillI765(template: ArrayBuffer | Uint8Array, a: Answers): 
   for (const [name, raw] of Object.entries(plan.text)) {
     const field = form.getField(name);
     if (!(field instanceof PDFTextField)) throw new Error(`Not a text field: ${name}`);
-    let value = toFormText(raw);
-    const max = field.getMaxLength();
-    if (max !== undefined && value.length > max) value = value.slice(0, max);
-    field.setText(value);
+    setFieldText(field, raw);
   }
   for (const name of plan.check) {
     const field = form.getField(name);
@@ -174,7 +160,7 @@ export async function fillI765(template: ArrayBuffer | Uint8Array, a: Answers): 
   for (const [name, value] of Object.entries(plan.select)) {
     const field = form.getField(name);
     if (!(field instanceof PDFDropdown)) throw new Error(`Not a dropdown: ${name}`);
-    if (field.getOptions().includes(value)) field.select(value);
+    selectOption(field, value);
   }
 
   doc.setTitle('Form I-765, Application For Employment Authorization');
