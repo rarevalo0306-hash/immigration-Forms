@@ -433,3 +433,35 @@ describe('I-912 flow', async () => {
     expect(ids({ 'family.more0': 'yes' })).toContain('family1');
   });
 });
+
+describe('I-589 flow', async () => {
+  const { i589 } = await import('../forms/i589');
+  const ids = (a: Record<string, string | string[]>) => visibleScreens(i589, a).map((s) => s.question.id);
+
+  it('has unique answer ids', () => {
+    const seen = new Set<string>();
+    for (const s of i589.sections)
+      for (const q of s.questions) {
+        const own = q.kind === 'fields' ? q.fields.map((f) => f.id) : q.kind === 'yesNoList' ? q.items.map((i) => i.id) : [q.id];
+        for (const id of own) {
+          expect(seen.has(id), id).toBe(false);
+          seen.add(id);
+        }
+      }
+  });
+
+  it('follows the answers', () => {
+    expect(ids({})).not.toContain('spouse');
+    expect(ids({ marital: 'M' })).toContain('spouse');
+    expect(ids({ marital: 'M', 'spouse.inUS': 'yes' })).toContain('spouseEntry');
+    expect(ids({ marital: 'M', 'spouse.inUS': 'no' })).toContain('spouseLocation');
+    expect(ids({ hasChildren: 'yes' })).toContain('child1');
+    expect(ids({ hasChildren: 'yes' })).not.toContain('child2');
+    expect(ids({ hasChildren: 'yes', 'child.more1': 'yes', 'child2.inUS': 'yes' })).toContain('child2Entry');
+    expect(ids({ fearSameCountry: 'no' })).toContain('fearAddress');
+    expect(ids({ b1a: 'yes' })).toContain('b1aExplain');
+    expect(ids({ b3a: 'no' })).not.toContain('b3b');
+    expect(ids({ c2b: 'yes' })).toContain('c2Explain');
+    expect(ids({ familyHelped: 'yes' })).toContain('helpers');
+  });
+});

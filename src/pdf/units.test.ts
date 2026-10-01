@@ -11,6 +11,9 @@ const BY_POSITION: Record<string, RegExp> = {
   'i-765.pdf': /^Pt[56]Line3b_Unit$/,
 };
 
+// The I-589 asks for an "Apt. Number" as text and has no unit boxes.
+const NO_UNITS = new Set(['i-589.pdf']);
+
 const dir = new URL('../../public/forms/', import.meta.url);
 
 describe('Apt./Ste./Flr. boxes', () => {
@@ -24,7 +27,7 @@ describe('Apt./Ste./Flr. boxes', () => {
         const w = f.acroField.getWidgets()[0];
         groups.set(m[1], [...(groups.get(m[1]) ?? []), { value: w.getOnValue()?.decodeText().trim() ?? '', x: w.getRectangle().x }]);
       }
-      expect(groups.size).toBeGreaterThan(0);
+      expect(groups.size > 0).toBe(!NO_UNITS.has(file));
       for (const [base, boxes] of groups) {
         if (BY_POSITION[file]?.test(base)) continue;
         expect(boxes.sort((p, q) => p.x - q.x).map((b) => b.value), `${file} ${base}`).toEqual(['APT', 'STE', 'FLR']);
