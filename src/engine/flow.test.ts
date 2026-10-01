@@ -392,3 +392,14 @@ describe('I-821 flow', async () => {
     expect(ids({})).not.toContain('p7Explain');
   });
 });
+
+describe('AR-11 flow', async () => {
+  const { ar11 } = await import('../forms/ar11');
+  const ids = (a: Record<string, string>) => visibleScreens(ar11, a).map((s) => s.question.id);
+
+  it('asks the optional addresses only when they apply', () => {
+    expect(ids({})).toEqual(['name', 'details', 'present', 'previousHas', 'mailingDifferent']);
+    expect(ids({ previousHas: 'yes', mailingDifferent: 'yes' })).toContain('previous');
+    expect(ids({ previousHas: 'yes', mailingDifferent: 'yes' })).toContain('mailing');
+  });
+});
