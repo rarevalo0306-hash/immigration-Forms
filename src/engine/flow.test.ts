@@ -274,3 +274,32 @@ describe('I-90 flow', async () => {
     expect(ids({ accommodation: 'yes' })).toContain('accommodationDetails');
   });
 });
+
+describe('I-751 flow', async () => {
+  const { i751 } = await import('../forms/i751');
+  const ids = (a: Record<string, string | string[]>) => visibleScreens(i751, a).map((s) => s.question.id);
+
+  it('has unique answer ids', () => {
+    const seen = new Set<string>();
+    for (const s of i751.sections)
+      for (const q of s.questions) {
+        const own = q.kind === 'fields' ? q.fields.map((f) => f.id) : q.kind === 'yesNoList' ? q.items.map((i) => i.id) : [q.id];
+        for (const id of own) {
+          expect(seen.has(id), id).toBe(false);
+          seen.add(id);
+        }
+      }
+  });
+
+  it('asks the spouse’s statement only on a joint petition', () => {
+    expect(ids({ basis: 'A' })).toContain('spouse.readsEnglish');
+    expect(ids({ basis: 'A' })).not.toContain('waivers');
+    expect(ids({ basis: 'waiver' })).toContain('waivers');
+    expect(ids({ basis: 'waiver' })).not.toContain('spouse.readsEnglish');
+    expect(ids({ q20: 'yes' })).toContain('explainArrests');
+    expect(ids({ q22: 'yes' })).toContain('listAddresses');
+    expect(ids({ 'spouse.livesWithYou': 'no' })).toContain('spouse.address');
+    expect(ids({ 'child.more0': 'yes', 'child.more1': 'yes' })).toContain('child2');
+    expect(ids({ 'acc.children': 'yes' })).toContain('accDetails');
+  });
+});
