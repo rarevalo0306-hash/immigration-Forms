@@ -1,0 +1,925 @@
+import type { Answers, Field, FormDefinition, Option, Question } from './types';
+import type { T } from '../i18n';
+import { all, date, is, nameFields, rows, yesNo } from './helpers';
+import { CLASSES_OF_ADMISSION } from './classOfAdmission';
+
+// Questions follow USCIS Form I-130, Petition for Alien Relative, edition 04/01/24.
+// The person filling in the app is the petitioner (the U.S. citizen or permanent resident);
+// the beneficiary is the relative. `formRef` gives the part, item number and the form's own
+// English wording. src/pdf/i130Pdf.ts maps the answers onto that edition's fields.
+
+export const I130_EDITION = '04/01/24';
+
+/**
+ * An address that may be in the U.S. or abroad. Only street, city and country are required,
+ * because U.S. addresses need state and ZIP while foreign ones use province and postal code.
+ */
+const anyAddress = (prefix: string, ref: string, opts: { careOf?: boolean; streetRequired?: boolean } = {}): Field[] => [
+  ...(opts.careOf
+    ? [{ id: `${prefix}.careOf`, type: 'text', label: { es: 'A cargo de (si recibe correo en casa de otra persona)', en: 'In care of' }, formRef: `${ref} · In Care Of Name`, maxLength: 34 } as Field]
+    : []),
+  { id: `${prefix}.street`, type: 'text', required: opts.streetRequired ?? true, label: { es: 'Número y calle', en: 'Street number and name' }, formRef: `${ref} · Street Number and Name`, maxLength: 34, placeholder: '1234 Main St' },
+  { id: `${prefix}.unit`, type: 'unit', label: { es: 'Apartamento, suite o piso', en: 'Apartment, suite or floor' }, formRef: `${ref} · Apt. / Ste. / Flr.`, placeholder: 'Apt 4B' },
+  { id: `${prefix}.city`, type: 'text', required: true, label: { es: 'Ciudad', en: 'City or town' }, formRef: `${ref} · City or Town`, maxLength: 20 },
+  { id: `${prefix}.state`, type: 'state', label: { es: 'Estado (si es en EE.UU.)', en: 'State (if in the U.S.)' }, formRef: `${ref} · State`, placeholder: 'CA' },
+  { id: `${prefix}.zip`, type: 'zip', label: { es: 'Código postal ZIP (si es en EE.UU.)', en: 'ZIP code (if in the U.S.)' }, formRef: `${ref} · ZIP Code` },
+  { id: `${prefix}.province`, type: 'text', label: { es: 'Provincia (fuera de EE.UU.)', en: 'Province (outside the U.S.)' }, formRef: `${ref} · Province`, maxLength: 20 },
+  { id: `${prefix}.postal`, type: 'text', label: { es: 'Código postal (fuera de EE.UU.)', en: 'Postal code (outside the U.S.)' }, formRef: `${ref} · Postal Code`, maxLength: 9 },
+  { id: `${prefix}.country`, type: 'text', required: true, label: { es: 'País', en: 'Country' }, formRef: `${ref} · Country`, placeholder: 'United States' },
+];
+
+/** A U.S. address: state and ZIP required. */
+const usAddress = (prefix: string, ref: string): Field[] => [
+  { id: `${prefix}.street`, type: 'text', required: true, label: { es: 'Número y calle', en: 'Street number and name' }, formRef: `${ref} · Street Number and Name`, maxLength: 34, placeholder: '1234 Main St' },
+  { id: `${prefix}.unit`, type: 'unit', label: { es: 'Apartamento, suite o piso', en: 'Apartment, suite or floor' }, formRef: `${ref} · Apt. / Ste. / Flr.`, placeholder: 'Apt 4B' },
+  { id: `${prefix}.city`, type: 'text', required: true, label: { es: 'Ciudad', en: 'City or town' }, formRef: `${ref} · City or Town`, maxLength: 20 },
+  { id: `${prefix}.state`, type: 'state', required: true, label: { es: 'Estado', en: 'State' }, formRef: `${ref} · State`, placeholder: 'CA' },
+  { id: `${prefix}.zip`, type: 'zip', required: true, label: { es: 'Código postal (ZIP)', en: 'ZIP code' }, formRef: `${ref} · ZIP Code`, placeholder: '90210' },
+];
+
+const sexOptions: Option[] = [
+  { value: 'female', label: { es: 'Femenino', en: 'Female' } },
+  { value: 'male', label: { es: 'Masculino', en: 'Male' } },
+];
+
+const sexField = (id: string, ref: string): Field => ({ id, type: 'select', required: true, label: { es: 'Sexo', en: 'Sex' }, formRef: `${ref} · Sex`, options: sexOptions });
+
+const maritalOptions: Option[] = [
+  { value: 'single', label: { es: 'Soltero/a, nunca casado/a', en: 'Single, never married' } },
+  { value: 'married', label: { es: 'Casado/a', en: 'Married' } },
+  { value: 'separated', label: { es: 'Separado/a', en: 'Separated' } },
+  { value: 'divorced', label: { es: 'Divorciado/a', en: 'Divorced' } },
+  { value: 'widowed', label: { es: 'Viudo/a', en: 'Widowed' } },
+  { value: 'annulled', label: { es: 'Matrimonio anulado', en: 'Annulled' } },
+];
+
+const everMarried = (id: string) => (a: Answers) => !!a[id] && a[id] !== 'single';
+
+const overflow = (what: T): T => ({
+  es: `El formulario tiene espacio solo para estas filas. Si tiene más ${what.es}, escríbalas a mano en la Parte 9 (Información adicional) del PDF.`,
+  en: `The form only has room for these rows. If you have more ${what.en}, write them by hand in Part 9 (Additional Information) of the PDF.`,
+});
+
+const spouseRows = (who: 'pet' | 'ben', part: string, items: [string, string, string, string]): Question[] => {
+  const status = `${who}.marital`;
+  const isPet = who === 'pet';
+  return [
+    {
+      id: `${who}.spouse1`,
+      kind: 'fields',
+      formRef: `${part} · Item ${items[0]} · Spouse 1`,
+      showIf: everMarried(status),
+      question: isPet
+        ? { es: '¿Cómo se llama su cónyuge actual o más reciente?', en: 'What is the name of your current or most recent spouse?' }
+        : { es: '¿Cómo se llama el cónyuge actual o más reciente de su familiar?', en: 'What is the name of your relative’s current or most recent spouse?' },
+      why: { es: 'Si sigue casado/a, deje vacía la fecha en que terminó el matrimonio.', en: 'If still married, leave the date the marriage ended empty.' },
+      fields: [...nameFields(`${who}.spouse1`, `${part} · Item ${items[0]}`), date(`${who}.spouse1.ended`, 'Fecha en que terminó el matrimonio', 'Date marriage ended', `${part} · Item ${items[1]} · Date Marriage Ended`, false)],
+    },
+    {
+      id: `${who}.spouse.more1`,
+      kind: 'choice',
+      formRef: `${part} · Item ${items[2]} · Spouse 2`,
+      showIf: everMarried(status),
+      question: isPet ? { es: '¿Tuvo otro matrimonio antes?', en: 'Did you have another marriage before?' } : { es: '¿El/la beneficiario/a tuvo otro matrimonio antes?', en: 'Did the beneficiary have another marriage before?' },
+      options: yesNo,
+    },
+    {
+      id: `${who}.spouse2`,
+      kind: 'fields',
+      formRef: `${part} · Item ${items[2]} · Spouse 2`,
+      showIf: all(everMarried(status), is(`${who}.spouse.more1`, 'yes')),
+      question: { es: '¿Con quién fue ese matrimonio?', en: 'Who was that marriage with?' },
+      why: { es: 'Si hubo más matrimonios, escríbalos a mano en la Parte 9.', en: 'If there were more marriages, write them by hand in Part 9.' },
+      fields: [...nameFields(`${who}.spouse2`, `${part} · Item ${items[2]}`), date(`${who}.spouse2.ended`, 'Fecha en que terminó el matrimonio', 'Date marriage ended', `${part} · Item ${items[3]} · Date Marriage Ended`)],
+    },
+  ];
+};
+
+const relationshipOptions: Option[] = [
+  { value: 'Spouse', label: { es: 'Cónyuge', en: 'Spouse' } },
+  { value: 'Son', label: { es: 'Hijo', en: 'Son' } },
+  { value: 'Daughter', label: { es: 'Hija', en: 'Daughter' } },
+  { value: 'Stepson', label: { es: 'Hijastro', en: 'Stepson' } },
+  { value: 'Stepdaughter', label: { es: 'Hijastra', en: 'Stepdaughter' } },
+  { value: 'Adopted son', label: { es: 'Hijo adoptivo', en: 'Adopted son' } },
+  { value: 'Adopted daughter', label: { es: 'Hija adoptiva', en: 'Adopted daughter' } },
+];
+
+export const relationshipChoices: Option[] = [
+  { value: 'spouse', label: { es: 'Mi esposo/a', en: 'My spouse' } },
+  { value: 'child', label: { es: 'Mi hijo/a', en: 'My child' } },
+  { value: 'parent', label: { es: 'Mi padre o madre', en: 'My parent' } },
+  { value: 'sibling', label: { es: 'Mi hermano/a', en: 'My brother or sister' } },
+];
+
+const ben = (es: string, en: string): T => ({ es, en });
+
+export const i130: FormDefinition = {
+  id: 'i-130',
+  number: 'I-130',
+  edition: I130_EDITION,
+  title: { es: 'Petición para un familiar', en: 'Petition for Alien Relative' },
+  summary: {
+    es: 'Si es ciudadano/a o residente permanente, pida la residencia para su cónyuge, hijo/a, padre, madre o hermano/a.',
+    en: 'If you are a U.S. citizen or permanent resident, petition for your spouse, child, parent or sibling to become a resident.',
+  },
+  intro: {
+    es: 'El I-130 lo presenta usted (el "peticionario") para demostrar su parentesco con un familiar (el "beneficiario") que quiere inmigrar. Le preguntaremos sobre usted, sobre su familiar y sobre su relación. Tenga a mano los datos de su familiar: fechas, direcciones, documentos de viaje y matrimonios.',
+    en: 'You (the "petitioner") file Form I-130 to show your relationship to a relative (the "beneficiary") who wants to immigrate. We’ll ask about you, your relative and your relationship. Have your relative’s details at hand: dates, addresses, travel documents and marriages.',
+  },
+  minutes: 60,
+  pdf: {
+    path: 'forms/i-130.pdf',
+    fileName: 'I-130-filled.pdf',
+    load: () => import('../pdf/i130Pdf').then((m) => m.fillI130),
+    signHere: { es: 'Parte 6, Ítem 6.a', en: 'Part 6, Item 6.a' },
+  },
+  nextSteps: {
+    es: [
+      'Confirme en uscis.gov/i-130 que la edición {edition} sigue vigente; si cambió, use la nueva y copie sus respuestas de esta hoja.',
+      'Revise el PDF página por página. Si el nombre o la dirección de su familiar se escriben en otro alfabeto, agréguelos a mano en los Ítems 57–58 de la Parte 4.',
+      'Si pide por su cónyuge, su cónyuge también debe llenar el Formulario I-130A.',
+      'Revise la tarifa actual en uscis.gov/g-1055 y las pruebas de parentesco que piden las instrucciones (actas de nacimiento o de matrimonio, prueba de su ciudadanía o residencia).',
+      'Imprima el PDF y firme la Parte 6, Ítem 6.a, a mano con tinta negra.',
+    ],
+    en: [
+      'Check at uscis.gov/i-130 that edition {edition} is still current; if it changed, use the new one and copy your answers from this sheet.',
+      'Check the PDF page by page. If your relative’s name or address is written in another script, add it by hand in Part 4, Items 57–58.',
+      'If you are petitioning for your spouse, your spouse must also complete Form I-130A.',
+      'Check the current fee at uscis.gov/g-1055 and the relationship evidence the instructions ask for (birth or marriage certificates, proof of your citizenship or residence).',
+      'Print the PDF and sign Part 6, Item 6.a, by hand in black ink.',
+    ],
+  },
+  sections: [
+    {
+      id: 'relationship',
+      part: 'Part 1',
+      title: { es: 'Parentesco', en: 'Relationship' },
+      questions: [
+        {
+          id: 'relationship',
+          kind: 'choice',
+          formRef: 'Part 1 · Item 1 · I am filing this petition for my',
+          question: { es: '¿Para quién presenta esta petición?', en: 'Who are you filing this petition for?' },
+          why: {
+            es: 'Los residentes permanentes solo pueden pedir por su cónyuge o hijos solteros. Los hermanos y padres solo los puede pedir un ciudadano mayor de 21 años.',
+            en: 'Permanent residents can only petition for a spouse or unmarried children. Only a U.S. citizen aged 21 or older can petition for siblings or parents.',
+          },
+          options: relationshipChoices,
+        },
+        {
+          id: 'childRelationship',
+          kind: 'choice',
+          formRef: 'Part 1 · Item 2 · Relationship to your child or parent',
+          showIf: is('relationship', 'child', 'parent'),
+          question: { es: '¿Cuál de estas describe su relación?', en: 'Which of these describes your relationship?' },
+          why: { es: 'Desde el punto de vista del hijo o la hija.', en: 'From the child’s point of view.' },
+          options: [
+            { value: 'inWedlock', label: { es: 'El hijo/a nació de padres casados entre sí', en: 'The child was born to parents married to each other' } },
+            { value: 'stepchild', label: { es: 'Hijastro/a y padrastro/madrastra', en: 'Stepchild / stepparent' } },
+            { value: 'outOfWedlock', label: { es: 'El hijo/a nació de padres no casados entre sí', en: 'The child was born to parents not married to each other' } },
+            { value: 'adopted', label: { es: 'El hijo/a fue adoptado/a', en: 'The child was adopted' } },
+          ],
+        },
+        {
+          id: 'siblingAdopted',
+          kind: 'choice',
+          formRef: 'Part 1 · Item 3 · Are you related by adoption?',
+          showIf: is('relationship', 'sibling'),
+          question: { es: '¿Usted y su hermano/a son familia por adopción?', en: 'Are you and your sibling related by adoption?' },
+          options: yesNo,
+        },
+        {
+          id: 'lprByAdoption',
+          kind: 'choice',
+          formRef: 'Part 1 · Item 4 · Did you gain lawful permanent resident status or citizenship through adoption?',
+          question: { es: '¿Obtuvo su residencia o ciudadanía por adopción?', en: 'Did you get your residence or citizenship through adoption?' },
+          options: yesNo,
+        },
+      ],
+    },
+    {
+      id: 'petitioner',
+      part: 'Part 2',
+      title: { es: 'Sobre usted', en: 'About you' },
+      questions: [
+        {
+          id: 'pet.name',
+          kind: 'fields',
+          formRef: 'Part 2 · Item 4 · Your Full Name',
+          question: { es: '¿Cuál es su nombre legal completo?', en: 'What is your full legal name?' },
+          notice: {
+            tone: 'info',
+            title: { es: 'Usted es el peticionario', en: 'You are the petitioner' },
+            body: {
+              es: 'Las primeras preguntas son sobre usted, la persona ciudadana o residente que presenta la petición. Después le preguntaremos por su familiar.',
+              en: 'The first questions are about you, the citizen or resident filing the petition. Then we’ll ask about your relative.',
+            },
+          },
+          fields: nameFields('pet.name', 'Part 2 · Item 4'),
+        },
+        {
+          id: 'pet.ids',
+          kind: 'fields',
+          formRef: 'Part 2 · Items 1–3',
+          question: { es: 'Sus números de identificación', en: 'Your identification numbers' },
+          why: { es: 'Deje vacíos los que no tenga.', en: 'Leave empty the ones you don’t have.' },
+          fields: [
+            { id: 'pet.aNumber', type: 'aNumber', label: { es: 'A-Number', en: 'A-Number' }, formRef: 'Part 2 · Item 1 · Alien Registration Number (A-Number)', placeholder: 'A123456789' },
+            { id: 'pet.uscisAccount', type: 'uscisAccount', label: { es: 'Número de cuenta en línea de USCIS', en: 'USCIS online account number' }, formRef: 'Part 2 · Item 2 · USCIS Online Account Number' },
+            { id: 'pet.ssn', type: 'ssn', label: { es: 'Número de Seguro Social', en: 'Social Security number' }, formRef: 'Part 2 · Item 3 · U.S. Social Security Number', placeholder: '123-45-6789' },
+          ],
+        },
+        {
+          id: 'pet.otherName',
+          kind: 'fields',
+          formRef: 'Part 2 · Item 5 · Other Names Used',
+          question: { es: '¿Ha usado otro nombre?', en: 'Have you used another name?' },
+          why: { es: 'Por ejemplo, un apellido de soltera o un apodo. Si no, deje los campos vacíos.', en: 'For example, a maiden name or nickname. If not, leave the fields empty.' },
+          fields: nameFields('pet.otherName', 'Part 2 · Item 5', false),
+        },
+        {
+          id: 'pet.birth',
+          kind: 'fields',
+          formRef: 'Part 2 · Items 6–9',
+          question: { es: '¿Cuándo y dónde nació?', en: 'When and where were you born?' },
+          fields: [
+            { id: 'pet.birthCity', type: 'text', required: true, label: { es: 'Ciudad o pueblo de nacimiento', en: 'City or town of birth' }, formRef: 'Part 2 · Item 6 · City/Town/Village of Birth' },
+            { id: 'pet.birthCountry', type: 'text', required: true, label: { es: 'País de nacimiento', en: 'Country of birth' }, formRef: 'Part 2 · Item 7 · Country of Birth' },
+            date('pet.dob', 'Fecha de nacimiento', 'Date of birth', 'Part 2 · Item 8 · Date of Birth'),
+            sexField('pet.sex', 'Part 2 · Item 9'),
+          ],
+        },
+        {
+          id: 'pet.mailing',
+          kind: 'fields',
+          formRef: 'Part 2 · Item 10 · Mailing Address',
+          question: { es: '¿A qué dirección le llega el correo?', en: 'Where do you get your mail?' },
+          why: { es: 'Si es en EE.UU., escriba estado y ZIP; si es en otro país, provincia y código postal.', en: 'In the U.S., give state and ZIP; abroad, province and postal code.' },
+          fields: anyAddress('pet.mailing', 'Part 2 · Item 10', { careOf: true }),
+        },
+        {
+          id: 'pet.mailingSame',
+          kind: 'choice',
+          formRef: 'Part 2 · Item 11 · Is your current mailing address the same as your physical address?',
+          question: { es: '¿Vive en esa misma dirección?', en: 'Do you live at that same address?' },
+          options: yesNo,
+        },
+        {
+          id: 'pet.home1',
+          kind: 'fields',
+          formRef: 'Part 2 · Items 12–13 · Physical Address 1',
+          showIf: is('pet.mailingSame', 'no'),
+          question: { es: '¿Dónde vive?', en: 'Where do you live?' },
+          fields: [...anyAddress('pet.home1', 'Part 2 · Item 12'), date('pet.home1.from', 'Vive aquí desde', 'Living here since', 'Part 2 · Item 13.a · Date From')],
+        },
+        {
+          id: 'pet.home.more',
+          kind: 'choice',
+          formRef: 'Part 2 · Items 12–15 · Address History',
+          question: { es: '¿Ha vivido en otra dirección en los últimos 5 años?', en: 'Have you lived at another address in the last 5 years?' },
+          why: { es: 'Dentro o fuera de EE.UU.', en: 'Inside or outside the U.S.' },
+          options: yesNo,
+        },
+        {
+          id: 'pet.homePrev',
+          kind: 'fields',
+          formRef: 'Part 2 · Address History',
+          showIf: is('pet.home.more', 'yes'),
+          question: { es: '¿Dónde vivía antes?', en: 'Where did you live before?' },
+          why: { es: 'Si vivió en más lugares, escríbalos a mano en la Parte 9.', en: 'If you lived in more places, write them by hand in Part 9.' },
+          fields: [...anyAddress('pet.homePrev', 'Part 2 · Address History'), date('pet.homePrev.from', 'Desde', 'From', 'Part 2 · Address History · Date From'), date('pet.homePrev.to', 'Hasta', 'To', 'Part 2 · Address History · Date To')],
+        },
+      ],
+    },
+    {
+      id: 'petitionerFamily',
+      part: 'Part 2',
+      title: { es: 'Su matrimonio y sus padres', en: 'Your marriage and parents' },
+      questions: [
+        {
+          id: 'pet.marital',
+          kind: 'choice',
+          formRef: 'Part 2 · Item 17 · Current Marital Status',
+          question: { es: '¿Cuál es su estado civil?', en: 'What is your marital status?' },
+          options: maritalOptions,
+        },
+        {
+          id: 'pet.marriage',
+          kind: 'fields',
+          formRef: 'Part 2 · Items 16, 18–19',
+          showIf: everMarried('pet.marital'),
+          question: { es: 'Sobre su matrimonio', en: 'About your marriage' },
+          fields: [
+            { id: 'pet.timesMarried', type: 'number', required: true, label: { es: '¿Cuántas veces se ha casado?', en: 'How many times have you been married?' }, formRef: 'Part 2 · Item 16', maxLength: 5 },
+            date('pet.marriedOn', 'Fecha de su matrimonio actual', 'Date of current marriage', 'Part 2 · Item 18 · Date of Current Marriage', false),
+            { id: 'pet.marriedCity', type: 'text', label: { es: 'Ciudad donde se casó', en: 'City where you married' }, formRef: 'Part 2 · Item 19.a · City or Town', maxLength: 20 },
+            { id: 'pet.marriedState', type: 'state', label: { es: 'Estado (si fue en EE.UU.)', en: 'State (if in the U.S.)' }, formRef: 'Part 2 · Item 19.b · State' },
+            { id: 'pet.marriedProvince', type: 'text', label: { es: 'Provincia (fuera de EE.UU.)', en: 'Province (outside the U.S.)' }, formRef: 'Part 2 · Item 19.c · Province', maxLength: 20 },
+            { id: 'pet.marriedCountry', type: 'text', label: { es: 'País', en: 'Country' }, formRef: 'Part 2 · Item 19.d · Country' },
+          ],
+          why: { es: 'Deje vacíos la fecha y el lugar si ya no está casado/a.', en: 'Leave the date and place empty if you are no longer married.' },
+        },
+        ...spouseRows('pet', 'Part 2', ['20', '21', '22', '23']),
+        ...[1, 2].map(
+          (i): Question => ({
+            id: `pet.parent${i}`,
+            kind: 'fields',
+            formRef: `Part 2 · Items ${i === 1 ? '24–29' : '30–35'} · Parent ${i}’s Information`,
+            question: i === 1 ? { es: 'Sobre uno de sus padres', en: 'About one of your parents' } : { es: 'Sobre su otro padre o madre', en: 'About your other parent' },
+            why: { es: 'Si no sabe algún dato, escriba "unknown".', en: 'If you don’t know something, write "unknown".' },
+            fields: [
+              ...nameFields(`pet.parent${i}`, `Part 2 · Item ${i === 1 ? 24 : 30}`),
+              date(`pet.parent${i}.dob`, 'Fecha de nacimiento', 'Date of birth', `Part 2 · Item ${i === 1 ? 25 : 31} · Date of Birth`, false),
+              { ...sexField(`pet.parent${i}.sex`, `Part 2 · Item ${i === 1 ? 26 : 32}`), required: false },
+              { id: `pet.parent${i}.birthCountry`, type: 'text', label: { es: 'País de nacimiento', en: 'Country of birth' }, formRef: `Part 2 · Item ${i === 1 ? 27 : 33} · Country of Birth` },
+              { id: `pet.parent${i}.city`, type: 'text', label: { es: 'Ciudad donde vive (o "deceased" si falleció)', en: 'City of residence (or "deceased")' }, formRef: `Part 2 · Item ${i === 1 ? 28 : 34} · City/Town/Village of Residence` },
+              { id: `pet.parent${i}.country`, type: 'text', label: { es: 'País donde vive', en: 'Country of residence' }, formRef: `Part 2 · Item ${i === 1 ? 29 : 35} · Country of Residence` },
+            ],
+          }),
+        ),
+      ],
+    },
+    {
+      id: 'petitionerStatus',
+      part: 'Part 2',
+      title: { es: 'Su estatus y trabajo', en: 'Your status and work' },
+      questions: [
+        {
+          id: 'pet.status',
+          kind: 'choice',
+          formRef: 'Part 2 · Item 36 · I am a',
+          question: { es: '¿Usted es ciudadano/a o residente permanente?', en: 'Are you a U.S. citizen or a permanent resident?' },
+          options: [
+            { value: 'citizen', label: { es: 'Ciudadano/a de EE.UU.', en: 'U.S. citizen' } },
+            { value: 'lpr', label: { es: 'Residente permanente (green card)', en: 'Lawful permanent resident' } },
+          ],
+        },
+        {
+          id: 'pet.citizenHow',
+          kind: 'choice',
+          formRef: 'Part 2 · Item 37 · My citizenship was acquired through',
+          showIf: is('pet.status', 'citizen'),
+          question: { es: '¿Cómo obtuvo la ciudadanía?', en: 'How did you get your citizenship?' },
+          options: [
+            { value: 'birth', label: { es: 'Nací en EE.UU.', en: 'Birth in the United States' } },
+            { value: 'naturalization', label: { es: 'Naturalización', en: 'Naturalization' } },
+            { value: 'parents', label: { es: 'Por mis padres', en: 'Parents' } },
+          ],
+        },
+        {
+          id: 'pet.hasCertificate',
+          kind: 'choice',
+          formRef: 'Part 2 · Item 38 · Have you obtained a Certificate of Naturalization or a Certificate of Citizenship?',
+          showIf: all(is('pet.status', 'citizen'), is('pet.citizenHow', 'naturalization', 'parents')),
+          question: { es: '¿Tiene un certificado de naturalización o de ciudadanía?', en: 'Do you have a Certificate of Naturalization or of Citizenship?' },
+          options: yesNo,
+        },
+        {
+          id: 'pet.certificate',
+          kind: 'fields',
+          formRef: 'Part 2 · Item 39',
+          showIf: all(is('pet.status', 'citizen'), is('pet.hasCertificate', 'yes')),
+          question: { es: 'Datos de su certificado', en: 'Your certificate details' },
+          fields: [
+            { id: 'pet.cert.number', type: 'text', required: true, label: { es: 'Número del certificado', en: 'Certificate number' }, formRef: 'Part 2 · Item 39.a · Certificate Number' },
+            { id: 'pet.cert.place', type: 'text', required: true, label: { es: 'Lugar donde se emitió', en: 'Place of issuance' }, formRef: 'Part 2 · Item 39.b · Place of Issuance' },
+            date('pet.cert.date', 'Fecha de emisión', 'Date of issuance', 'Part 2 · Item 39.c · Date of Issuance'),
+          ],
+        },
+        {
+          id: 'pet.lpr',
+          kind: 'fields',
+          formRef: 'Part 2 · Item 40',
+          showIf: is('pet.status', 'lpr'),
+          question: { es: 'Sobre su residencia permanente', en: 'About your permanent residence' },
+          why: { es: 'La clase de admisión está en su green card, como "Category" (por ejemplo IR1, F21, CR1).', en: 'The class of admission is on your green card as "Category" (for example IR1, F21, CR1).' },
+          fields: [
+            { id: 'pet.lpr.class', type: 'text', required: true, label: { es: 'Clase de admisión', en: 'Class of admission' }, formRef: 'Part 2 · Item 40.a · Class of Admission', placeholder: 'IR1' },
+            date('pet.lpr.date', 'Fecha de admisión', 'Date of admission', 'Part 2 · Item 40.b · Date of Admission'),
+            { id: 'pet.lpr.city', type: 'text', required: true, label: { es: 'Ciudad de admisión', en: 'City of admission' }, formRef: 'Part 2 · Item 40.c · Place of Admission: City or Town' },
+            { id: 'pet.lpr.state', type: 'state', required: true, label: { es: 'Estado de admisión', en: 'State of admission' }, formRef: 'Part 2 · Item 40.d · State' },
+          ],
+        },
+        {
+          id: 'pet.lprByMarriage',
+          kind: 'choice',
+          formRef: 'Part 2 · Item 41 · Did you gain lawful permanent resident status through marriage to a U.S. citizen or lawful permanent resident?',
+          showIf: is('pet.status', 'lpr'),
+          question: { es: '¿Obtuvo su residencia por casarse con un ciudadano o residente?', en: 'Did you get your residence through marriage to a citizen or resident?' },
+          options: yesNo,
+        },
+        ...rows({
+          max: 2,
+          id: 'pet.job',
+          first: () => true,
+          question: (i) => (i === 1 ? { es: '¿Dónde trabaja ahora?', en: 'Where do you work now?' } : { es: '¿Dónde trabajó antes?', en: 'Where did you work before?' }),
+          why: (i) => (i === 1 ? { es: 'Si no trabaja, escriba "Unemployed" en el nombre del empleador.', en: 'If you don’t work, write "Unemployed" as the employer name.' } : undefined),
+          more: { es: '¿Tuvo otro trabajo en los últimos 5 años?', en: 'Did you have another job in the last 5 years?' },
+          formRef: 'Part 2 · Items 42–49 · Employment History',
+          fields: (i) => [
+            { id: `pet.job${i}.name`, type: 'text', required: true, label: { es: 'Empleador o compañía', en: 'Employer or company' }, formRef: `Part 2 · Item ${i === 1 ? 42 : 46} · Name of Employer/Company`, maxLength: 34 },
+            ...anyAddress(`pet.job${i}`, `Part 2 · Item ${i === 1 ? 43 : 47}`, { streetRequired: false }).map((f) => ({ ...f, required: false })),
+            { id: `pet.job${i}.occupation`, type: 'text', label: { es: 'Su ocupación', en: 'Your occupation' }, formRef: `Part 2 · Item ${i === 1 ? 44 : 48} · Your Occupation` },
+            date(`pet.job${i}.from`, 'Desde', 'From', `Part 2 · Item ${i === 1 ? '45.a' : '49.a'} · Date From`, false),
+            ...(i === 1 ? [] : [date(`pet.job${i}.to`, 'Hasta', 'To', 'Part 2 · Item 49.b · Date To', false)]),
+          ],
+          overflow: overflow({ es: 'trabajos', en: 'jobs' }),
+        }),
+      ],
+    },
+    {
+      id: 'biographic',
+      part: 'Part 3',
+      title: { es: 'Sus datos biográficos', en: 'Your biographic information' },
+      questions: [
+        {
+          id: 'pet.ethnicity',
+          kind: 'choice',
+          formRef: 'Part 3 · Item 1 · Ethnicity',
+          question: { es: '¿Es usted hispano/a o latino/a?', en: 'Are you Hispanic or Latino?' },
+          options: [
+            { value: 'hispanic', label: { es: 'Hispano/a o latino/a', en: 'Hispanic or Latino' } },
+            { value: 'notHispanic', label: { es: 'No hispano/a ni latino/a', en: 'Not Hispanic or Latino' } },
+          ],
+        },
+        {
+          id: 'pet.race',
+          kind: 'choice',
+          multiple: true,
+          formRef: 'Part 3 · Item 2 · Race',
+          question: { es: '¿Cuál es su raza?', en: 'What is your race?' },
+          why: { es: 'Elija todas las que apliquen.', en: 'Choose all that apply.' },
+          options: [
+            { value: 'white', label: { es: 'Blanco/a', en: 'White' } },
+            { value: 'asian', label: { es: 'Asiático/a', en: 'Asian' } },
+            { value: 'black', label: { es: 'Negro/a o afroamericano/a', en: 'Black or African American' } },
+            { value: 'indian', label: { es: 'Indígena americano/a o nativo/a de Alaska', en: 'American Indian or Alaska Native' } },
+            { value: 'pacific', label: { es: 'Nativo/a de Hawái u otras islas del Pacífico', en: 'Native Hawaiian or Other Pacific Islander' } },
+          ],
+        },
+        {
+          id: 'pet.body',
+          kind: 'fields',
+          formRef: 'Part 3 · Items 3–6',
+          question: { es: 'Su estatura, peso y color de ojos y cabello', en: 'Your height, weight, and eye and hair color' },
+          why: { es: '1.60 m son 5 pies 3 pulgadas; 70 kg son 154 libras.', en: 'In feet, inches and pounds.' },
+          fields: [
+            { id: 'pet.heightFeet', type: 'select', required: true, label: { es: 'Estatura: pies', en: 'Height: feet' }, formRef: 'Part 3 · Item 3 · Height (Feet)', options: ['2', '3', '4', '5', '6', '7', '8'].map((v) => ({ value: v, label: { es: v, en: v } })) },
+            { id: 'pet.heightInches', type: 'select', required: true, label: { es: 'Estatura: pulgadas', en: 'Height: inches' }, formRef: 'Part 3 · Item 3 · Height (Inches)', options: [...Array(12)].map((_, i) => ({ value: String(i), label: { es: String(i), en: String(i) } })) },
+            { id: 'pet.weight', type: 'number', required: true, label: { es: 'Peso en libras', en: 'Weight in pounds' }, formRef: 'Part 3 · Item 4 · Weight (Pounds)', maxLength: 3 },
+            {
+              id: 'pet.eyes',
+              type: 'select',
+              required: true,
+              label: { es: 'Color de ojos', en: 'Eye color' },
+              formRef: 'Part 3 · Item 5 · Eye Color',
+              options: [
+                { value: 'BRN', label: { es: 'Café', en: 'Brown' } },
+                { value: 'BLK', label: { es: 'Negro', en: 'Black' } },
+                { value: 'HZL', label: { es: 'Avellana (hazel)', en: 'Hazel' } },
+                { value: 'GRN', label: { es: 'Verde', en: 'Green' } },
+                { value: 'BLU', label: { es: 'Azul', en: 'Blue' } },
+                { value: 'GRAY', label: { es: 'Gris', en: 'Gray' } },
+                { value: 'MRN', label: { es: 'Granate', en: 'Maroon' } },
+                { value: 'PNK', label: { es: 'Rosado', en: 'Pink' } },
+                { value: 'OTH', label: { es: 'Desconocido u otro', en: 'Unknown / Other' } },
+              ],
+            },
+            {
+              id: 'pet.hair',
+              type: 'select',
+              required: true,
+              label: { es: 'Color de cabello', en: 'Hair color' },
+              formRef: 'Part 3 · Item 6 · Hair Color',
+              options: [
+                { value: 'BLK', label: { es: 'Negro', en: 'Black' } },
+                { value: 'BRN', label: { es: 'Café', en: 'Brown' } },
+                { value: 'BND', label: { es: 'Rubio', en: 'Blond' } },
+                { value: 'GRY', label: { es: 'Gris', en: 'Gray' } },
+                { value: 'WHT', label: { es: 'Blanco', en: 'White' } },
+                { value: 'RED', label: { es: 'Rojo', en: 'Red' } },
+                { value: 'SDY', label: { es: 'Rubio rojizo (sandy)', en: 'Sandy' } },
+                { value: 'BLD', label: { es: 'Calvo/a (sin cabello)', en: 'Bald (no hair)' } },
+                { value: 'OTH', label: { es: 'Desconocido u otro', en: 'Unknown / Other' } },
+              ],
+            },
+          ],
+        },
+      ],
+    },
+    {
+      id: 'beneficiary',
+      part: 'Part 4',
+      title: { es: 'Sobre su familiar', en: 'About your relative' },
+      questions: [
+        {
+          id: 'ben.name',
+          kind: 'fields',
+          formRef: 'Part 4 · Item 4 · Beneficiary’s Full Name',
+          question: ben('¿Cuál es el nombre legal completo de su familiar?', 'What is your relative’s full legal name?'),
+          notice: {
+            tone: 'info',
+            title: { es: 'Ahora, sobre su familiar', en: 'Now, about your relative' },
+            body: {
+              es: 'Desde aquí las preguntas son sobre la persona que usted pide (el "beneficiario").',
+              en: 'From here, the questions are about the person you are petitioning for (the "beneficiary").',
+            },
+          },
+          fields: nameFields('ben.name', 'Part 4 · Item 4'),
+        },
+        {
+          id: 'ben.ids',
+          kind: 'fields',
+          formRef: 'Part 4 · Items 1–3',
+          question: ben('Números de identificación de su familiar', 'Your relative’s identification numbers'),
+          why: { es: 'Deje vacíos los que no tenga.', en: 'Leave empty the ones they don’t have.' },
+          fields: [
+            { id: 'ben.aNumber', type: 'aNumber', label: { es: 'A-Number', en: 'A-Number' }, formRef: 'Part 4 · Item 1 · Alien Registration Number (A-Number)' },
+            { id: 'ben.uscisAccount', type: 'uscisAccount', label: { es: 'Número de cuenta en línea de USCIS', en: 'USCIS online account number' }, formRef: 'Part 4 · Item 2 · USCIS Online Account Number' },
+            { id: 'ben.ssn', type: 'ssn', label: { es: 'Número de Seguro Social', en: 'Social Security number' }, formRef: 'Part 4 · Item 3 · U.S. Social Security Number' },
+          ],
+        },
+        {
+          id: 'ben.otherName',
+          kind: 'fields',
+          formRef: 'Part 4 · Item 5 · Other Names Used',
+          question: ben('¿Su familiar ha usado otro nombre?', 'Has your relative used another name?'),
+          why: { es: 'Si no, deje los campos vacíos.', en: 'If not, leave the fields empty.' },
+          fields: nameFields('ben.otherName', 'Part 4 · Item 5', false),
+        },
+        {
+          id: 'ben.birth',
+          kind: 'fields',
+          formRef: 'Part 4 · Items 6–9',
+          question: ben('¿Cuándo y dónde nació su familiar?', 'When and where was your relative born?'),
+          fields: [
+            { id: 'ben.birthCity', type: 'text', required: true, label: { es: 'Ciudad o pueblo de nacimiento', en: 'City or town of birth' }, formRef: 'Part 4 · Item 6 · City/Town/Village of Birth', maxLength: 38 },
+            { id: 'ben.birthCountry', type: 'text', required: true, label: { es: 'País de nacimiento', en: 'Country of birth' }, formRef: 'Part 4 · Item 7 · Country of Birth' },
+            date('ben.dob', 'Fecha de nacimiento', 'Date of birth', 'Part 4 · Item 8 · Date of Birth'),
+            sexField('ben.sex', 'Part 4 · Item 9'),
+          ],
+        },
+        {
+          id: 'ben.priorPetition',
+          kind: 'choice',
+          formRef: 'Part 4 · Item 10 · Has anyone else ever filed a petition for the beneficiary?',
+          question: ben('¿Alguien más ha presentado antes una petición por su familiar?', 'Has anyone else ever filed a petition for your relative?'),
+          why: { es: 'Elija "No sé" solo si ni usted ni su familiar lo saben.', en: 'Choose "Unknown" only if neither you nor your relative knows.' },
+          options: [...yesNo, { value: 'unknown', label: { es: 'No sé', en: 'Unknown' } }],
+        },
+        {
+          id: 'ben.home',
+          kind: 'fields',
+          formRef: 'Part 4 · Item 11 · Beneficiary’s Physical Address',
+          question: ben('¿Dónde vive su familiar?', 'Where does your relative live?'),
+          why: { es: 'Si vive fuera de EE.UU. en una casa sin número ni nombre de calle, deje la calle vacía.', en: 'If they live abroad in a home without a street number or name, leave the street empty.' },
+          fields: anyAddress('ben.home', 'Part 4 · Item 11', { streetRequired: false }),
+        },
+        {
+          id: 'ben.usAddress.differs',
+          kind: 'choice',
+          formRef: 'Part 4 · Item 12 · Address in the United States where the beneficiary intends to live',
+          question: ben('¿Su familiar vivirá en EE.UU. en otra dirección distinta?', 'Will your relative live at a different address in the U.S.?'),
+          options: yesNo,
+        },
+        {
+          id: 'ben.usAddress',
+          kind: 'fields',
+          formRef: 'Part 4 · Item 12',
+          showIf: is('ben.usAddress.differs', 'yes'),
+          question: ben('¿Dónde vivirá su familiar en EE.UU.?', 'Where will your relative live in the U.S.?'),
+          fields: usAddress('ben.usAddress', 'Part 4 · Item 12'),
+        },
+        {
+          id: 'ben.abroad.differs',
+          kind: 'choice',
+          formRef: 'Part 4 · Item 13 · Beneficiary’s address outside the United States',
+          question: ben('¿Su familiar tiene otra dirección fuera de EE.UU.?', 'Does your relative have a different address outside the U.S.?'),
+          why: { es: 'Por ejemplo, si vive en EE.UU. pero tiene casa en su país.', en: 'For example, if they live in the U.S. but have a home in their country.' },
+          options: yesNo,
+        },
+        {
+          id: 'ben.abroad',
+          kind: 'fields',
+          formRef: 'Part 4 · Item 13',
+          showIf: is('ben.abroad.differs', 'yes'),
+          question: ben('¿Cuál es su dirección fuera de EE.UU.?', 'What is their address outside the U.S.?'),
+          fields: anyAddress('ben.abroad', 'Part 4 · Item 13').filter((f) => !f.id.endsWith('.state') && !f.id.endsWith('.zip')),
+        },
+        {
+          id: 'ben.contact',
+          kind: 'fields',
+          formRef: 'Part 4 · Items 14–16',
+          question: ben('¿Cómo se contacta a su familiar?', 'How can your relative be contacted?'),
+          fields: [
+            { id: 'ben.phone', type: 'text', label: { es: 'Teléfono de día', en: 'Daytime phone' }, formRef: 'Part 4 · Item 14 · Daytime Telephone Number', maxLength: 15, hint: { es: 'Incluya el código del país si es fuera de EE.UU.', en: 'Include the country code if outside the U.S.' } },
+            { id: 'ben.mobile', type: 'text', label: { es: 'Celular', en: 'Mobile phone' }, formRef: 'Part 4 · Item 15 · Mobile Telephone Number', maxLength: 15 },
+            { id: 'ben.email', type: 'email', label: { es: 'Correo electrónico', en: 'Email address' }, formRef: 'Part 4 · Item 16 · Email Address' },
+          ],
+        },
+      ],
+    },
+    {
+      id: 'beneficiaryFamily',
+      part: 'Part 4',
+      title: { es: 'La familia de su familiar', en: 'Your relative’s family' },
+      questions: [
+        {
+          id: 'ben.marital',
+          kind: 'choice',
+          formRef: 'Part 4 · Item 18 · Current Marital Status',
+          question: ben('¿Cuál es el estado civil de su familiar?', 'What is your relative’s marital status?'),
+          options: maritalOptions,
+        },
+        {
+          id: 'ben.marriage',
+          kind: 'fields',
+          formRef: 'Part 4 · Items 17, 19–20',
+          showIf: everMarried('ben.marital'),
+          question: ben('Sobre el matrimonio de su familiar', 'About your relative’s marriage'),
+          why: { es: 'Deje vacíos la fecha y el lugar si ya no está casado/a.', en: 'Leave the date and place empty if no longer married.' },
+          fields: [
+            { id: 'ben.timesMarried', type: 'number', required: true, label: { es: '¿Cuántas veces se ha casado?', en: 'How many times married?' }, formRef: 'Part 4 · Item 17', maxLength: 5 },
+            date('ben.marriedOn', 'Fecha del matrimonio actual', 'Date of current marriage', 'Part 4 · Item 19 · Date of Current Marriage', false),
+            { id: 'ben.marriedCity', type: 'text', label: { es: 'Ciudad donde se casó', en: 'City of marriage' }, formRef: 'Part 4 · Item 20.a · City or Town', maxLength: 20 },
+            { id: 'ben.marriedState', type: 'state', label: { es: 'Estado (si fue en EE.UU.)', en: 'State (if in the U.S.)' }, formRef: 'Part 4 · Item 20.b · State' },
+            { id: 'ben.marriedProvince', type: 'text', label: { es: 'Provincia (fuera de EE.UU.)', en: 'Province' }, formRef: 'Part 4 · Item 20.c · Province', maxLength: 20 },
+            { id: 'ben.marriedCountry', type: 'text', label: { es: 'País', en: 'Country' }, formRef: 'Part 4 · Item 20.d · Country' },
+          ],
+        },
+        ...spouseRows('ben', 'Part 4', ['21', '22', '23', '24']),
+        {
+          id: 'ben.person.more0',
+          kind: 'choice',
+          formRef: 'Part 4 · Items 25–44 · Information About Beneficiary’s Family',
+          question: ben('¿Su familiar tiene cónyuge o hijos?', 'Does your relative have a spouse or children?'),
+          why: { es: 'Incluya a su cónyuge y a todos sus hijos, de cualquier edad.', en: 'Include their spouse and all their children, of any age.' },
+          options: yesNo,
+        },
+        ...rows({
+          max: 5,
+          id: 'ben.person',
+          first: is('ben.person.more0', 'yes'),
+          question: (i) => (i === 1 ? ben('Un miembro de la familia de su familiar', 'A member of your relative’s family') : ben('Otro miembro de su familia', 'Another member of their family')),
+          more: ben('¿Tiene otro cónyuge o hijo/a?', 'Is there another spouse or child?'),
+          formRef: 'Part 4 · Information About Beneficiary’s Family',
+          fields: (i) => [
+            ...nameFields(`ben.person${i}`, `Part 4 · Person ${i}`),
+            { id: `ben.person${i}.relationship`, type: 'select', required: true, label: { es: 'Relación con su familiar', en: 'Relationship to your relative' }, formRef: `Part 4 · Person ${i} · Relationship`, options: relationshipOptions },
+            date(`ben.person${i}.dob`, 'Fecha de nacimiento', 'Date of birth', `Part 4 · Person ${i} · Date of Birth`),
+            { id: `ben.person${i}.birthCountry`, type: 'text', required: true, label: { es: 'País de nacimiento', en: 'Country of birth' }, formRef: `Part 4 · Person ${i} · Country of Birth` },
+          ],
+          overflow: overflow({ es: 'personas', en: 'people' }),
+        }),
+      ],
+    },
+    {
+      id: 'beneficiaryEntry',
+      part: 'Part 4',
+      title: { es: 'Entrada y trabajo de su familiar', en: 'Your relative’s entry and work' },
+      questions: [
+        {
+          id: 'ben.everInUS',
+          kind: 'choice',
+          formRef: 'Part 4 · Item 45 · Was the beneficiary EVER in the United States?',
+          question: ben('¿Su familiar ha estado alguna vez en EE.UU.?', 'Has your relative ever been in the U.S.?'),
+          options: yesNo,
+        },
+        {
+          id: 'ben.inUSNow',
+          kind: 'choice',
+          formRef: 'Part 4 · Item 46',
+          showIf: is('ben.everInUS', 'yes'),
+          question: ben('¿Su familiar está en EE.UU. ahora?', 'Is your relative in the U.S. now?'),
+          options: yesNo,
+        },
+        {
+          id: 'ben.entry',
+          kind: 'fields',
+          formRef: 'Part 4 · Items 46.a–46.d',
+          showIf: all(is('ben.everInUS', 'yes'), is('ben.inUSNow', 'yes')),
+          question: ben('¿Cómo entró su familiar la última vez?', 'How did your relative last enter?'),
+          why: { es: 'La clase de admisión está en el I-94 (por ejemplo B2 visitante, F1 estudiante). Si entró sin inspección, elija "EWI".', en: 'The class of admission is on the I-94 (for example B2 visitor, F1 student). If they entered without inspection, choose "EWI".' },
+          fields: [
+            { id: 'ben.entry.class', type: 'select', required: true, label: { es: 'Llegó como (clase de admisión)', en: 'Arrived as (class of admission)' }, formRef: 'Part 4 · Item 46.a · Class of Admission', options: CLASSES_OF_ADMISSION.map((c) => ({ value: c, label: { es: c, en: c } })) },
+            { id: 'ben.entry.i94', type: 'i94', label: { es: 'Número I-94', en: 'I-94 number' }, formRef: 'Part 4 · Item 46.b · Form I-94 Arrival-Departure Record Number' },
+            date('ben.entry.date', 'Fecha de llegada', 'Date of arrival', 'Part 4 · Item 46.c · Date of Arrival', false),
+            { id: 'ben.entry.expires', type: 'text', label: { es: 'Fecha en que vence o venció su permanencia (o "D/S")', en: 'Date authorized stay expires (or "D/S")' }, formRef: 'Part 4 · Item 46.d · Date authorized stay expired, or will expire', placeholder: 'MM/DD/AAAA' },
+          ],
+        },
+        {
+          id: 'ben.passport',
+          kind: 'fields',
+          formRef: 'Part 4 · Items 47–50',
+          question: ben('Pasaporte o documento de viaje de su familiar', 'Your relative’s passport or travel document'),
+          why: { es: 'Deje vacío lo que no tenga.', en: 'Leave empty what they don’t have.' },
+          fields: [
+            { id: 'ben.passport.number', type: 'text', label: { es: 'Número de pasaporte', en: 'Passport number' }, formRef: 'Part 4 · Item 47 · Passport Number', maxLength: 30 },
+            { id: 'ben.passport.travelDoc', type: 'text', label: { es: 'Número de documento de viaje', en: 'Travel document number' }, formRef: 'Part 4 · Item 48 · Travel Document Number' },
+            { id: 'ben.passport.country', type: 'text', label: { es: 'País que lo emitió', en: 'Country of issuance' }, formRef: 'Part 4 · Item 49 · Country of Issuance for Passport or Travel Document' },
+            date('ben.passport.expires', 'Fecha de vencimiento', 'Expiration date', 'Part 4 · Item 50 · Expiration Date for Passport or Travel Document', false, 'date'),
+          ],
+        },
+        {
+          id: 'ben.job',
+          kind: 'fields',
+          formRef: 'Part 4 · Items 51–52 · Beneficiary’s Employment Information',
+          question: ben('¿Dónde trabaja su familiar?', 'Where does your relative work?'),
+          why: { es: 'Si no trabaja, escriba "Unemployed" y deje el resto vacío.', en: 'If they don’t work, write "Unemployed" and leave the rest empty.' },
+          fields: [
+            { id: 'ben.job.name', type: 'text', label: { es: 'Empleador actual', en: 'Current employer' }, formRef: 'Part 4 · Item 51.a · Name of Current Employer', maxLength: 38 },
+            ...anyAddress('ben.job', 'Part 4 · Item 51').map((f) => ({ ...f, required: false })),
+            date('ben.job.from', 'Fecha en que empezó', 'Date employment began', 'Part 4 · Item 52 · Date Employment Began', false),
+          ],
+        },
+        {
+          id: 'ben.proceedings',
+          kind: 'choice',
+          formRef: 'Part 4 · Item 53 · Was the beneficiary EVER in immigration proceedings?',
+          question: ben('¿Su familiar ha estado alguna vez en un proceso de inmigración (corte)?', 'Has your relative ever been in immigration proceedings?'),
+          notice: {
+            tone: 'legal',
+            title: { es: 'Esto no es asesoría legal', en: 'This is not legal advice' },
+            body: {
+              es: 'Si su familiar tuvo un proceso de deportación o exclusión, hable con un abogado de inmigración o un representante acreditado antes de presentar la petición.',
+              en: 'If your relative was in removal or exclusion proceedings, talk to an immigration attorney or accredited representative before filing.',
+            },
+          },
+          options: yesNo,
+        },
+        {
+          id: 'ben.proceedings.type',
+          kind: 'choice',
+          multiple: true,
+          formRef: 'Part 4 · Item 54 · Type of proceedings',
+          showIf: is('ben.proceedings', 'yes'),
+          question: ben('¿Qué tipo de proceso?', 'What type of proceedings?'),
+          options: [
+            { value: 'removal', label: { es: 'Remoción (removal)', en: 'Removal' } },
+            { value: 'exclusion', label: { es: 'Exclusión o deportación', en: 'Exclusion / Deportation' } },
+            { value: 'rescission', label: { es: 'Rescisión', en: 'Rescission' } },
+            { value: 'judicial', label: { es: 'Otro proceso judicial', en: 'Other judicial proceedings' } },
+          ],
+        },
+        {
+          id: 'ben.proceedings.where',
+          kind: 'fields',
+          formRef: 'Part 4 · Items 55–56',
+          showIf: is('ben.proceedings', 'yes'),
+          question: ben('¿Dónde y cuándo fue el proceso?', 'Where and when were the proceedings?'),
+          fields: [
+            { id: 'ben.proceedings.city', type: 'text', required: true, label: { es: 'Ciudad', en: 'City' }, formRef: 'Part 4 · Item 55.a · City or Town', maxLength: 20 },
+            { id: 'ben.proceedings.state', type: 'state', required: true, label: { es: 'Estado', en: 'State' }, formRef: 'Part 4 · Item 55.b · State' },
+            date('ben.proceedings.date', 'Fecha', 'Date', 'Part 4 · Item 56 · Date'),
+          ],
+        },
+      ],
+    },
+    {
+      id: 'processing',
+      part: 'Part 4',
+      title: { es: 'Convivencia y trámite', en: 'Living together and processing' },
+      questions: [
+        {
+          id: 'lastTogether',
+          kind: 'fields',
+          formRef: 'Part 4 · Items 59–60 · Last address at which you physically lived together',
+          showIf: is('relationship', 'spouse'),
+          question: { es: '¿Cuál fue la última dirección donde vivieron juntos?', en: 'What was the last address where you lived together?' },
+          why: { es: 'Si nunca han vivido juntos, escriba "Never lived together" en la calle y deje lo demás vacío.', en: 'If you never lived together, write "Never lived together" as the street and leave the rest empty.' },
+          fields: [
+            ...anyAddress('together', 'Part 4 · Item 59').map((f) => (f.id === 'together.street' ? f : { ...f, required: false })),
+            date('together.from', 'Desde', 'From', 'Part 4 · Item 60.a · Date From', false),
+            date('together.to', 'Hasta', 'To', 'Part 4 · Item 60.b · Date To', false),
+          ],
+        },
+        {
+          id: 'processingPlace',
+          kind: 'choice',
+          formRef: 'Part 4 · Items 61–62',
+          question: { es: '¿Dónde hará su familiar el trámite de residencia?', en: 'Where will your relative apply for residence?' },
+          why: {
+            es: 'Dentro de EE.UU. es el "ajuste de estatus" (Formulario I-485), solo si su familiar cumple los requisitos. Fuera, es una visa de inmigrante en un consulado.',
+            en: 'Inside the U.S. it’s "adjustment of status" (Form I-485), only if your relative qualifies. Outside, it’s an immigrant visa at a consulate.',
+          },
+          options: [
+            { value: 'aos', label: { es: 'En EE.UU., con ajuste de estatus', en: 'In the U.S., through adjustment of status' } },
+            { value: 'consular', label: { es: 'En un consulado de EE.UU. en el extranjero', en: 'At a U.S. consulate abroad' } },
+          ],
+        },
+        {
+          id: 'aosOffice',
+          kind: 'fields',
+          formRef: 'Part 4 · Item 61',
+          showIf: is('processingPlace', 'aos'),
+          question: { es: '¿En qué oficina de USCIS?', en: 'At which USCIS office?' },
+          why: { es: 'Escriba la ciudad y el estado de la oficina de USCIS más cercana a donde vive su familiar.', en: 'Write the city and state of the USCIS office closest to where your relative lives.' },
+          fields: [
+            { id: 'aos.city', type: 'text', required: true, label: { es: 'Ciudad', en: 'City' }, formRef: 'Part 4 · Item 61.a · City or Town', maxLength: 20 },
+            { id: 'aos.state', type: 'state', required: true, label: { es: 'Estado', en: 'State' }, formRef: 'Part 4 · Item 61.b · State' },
+          ],
+        },
+        {
+          id: 'consulate',
+          kind: 'fields',
+          formRef: 'Part 4 · Item 62',
+          showIf: is('processingPlace', 'consular'),
+          question: { es: '¿En qué consulado o embajada?', en: 'At which consulate or embassy?' },
+          why: { es: 'Normalmente el del país donde vive su familiar.', en: 'Usually the one in the country where your relative lives.' },
+          fields: [
+            { id: 'consulate.city', type: 'text', required: true, label: { es: 'Ciudad', en: 'City' }, formRef: 'Part 4 · Item 62.a · City or Town', maxLength: 20, placeholder: 'Ciudad Juarez' },
+            { id: 'consulate.province', type: 'text', label: { es: 'Provincia o estado', en: 'Province' }, formRef: 'Part 4 · Item 62.b · Province', maxLength: 20 },
+            { id: 'consulate.country', type: 'text', required: true, label: { es: 'País', en: 'Country' }, formRef: 'Part 4 · Item 62.c · Country', placeholder: 'Mexico' },
+          ],
+        },
+      ],
+    },
+    {
+      id: 'other',
+      part: 'Part 5',
+      title: { es: 'Otras peticiones', en: 'Other petitions' },
+      questions: [
+        {
+          id: 'prevPetition',
+          kind: 'choice',
+          formRef: 'Part 5 · Item 1 · Have you EVER previously filed a petition for this beneficiary or any other alien?',
+          question: { es: '¿Ha presentado antes una petición por esta u otra persona?', en: 'Have you ever filed a petition for this or any other person?' },
+          options: yesNo,
+        },
+        {
+          id: 'prevPetitionInfo',
+          kind: 'fields',
+          formRef: 'Part 5 · Items 2–5',
+          showIf: is('prevPetition', 'yes'),
+          question: { es: 'Sobre esa petición', en: 'About that petition' },
+          why: { es: 'Si presentó más de una, escriba las demás a mano en la Parte 9.', en: 'If you filed more than one, write the rest by hand in Part 9.' },
+          fields: [
+            ...nameFields('prev', 'Part 5 · Item 2'),
+            { id: 'prev.city', type: 'text', required: true, label: { es: 'Ciudad donde la presentó', en: 'City where filed' }, formRef: 'Part 5 · Item 3.a · City or Town', maxLength: 20 },
+            { id: 'prev.state', type: 'state', label: { es: 'Estado', en: 'State' }, formRef: 'Part 5 · Item 3.b · State' },
+            date('prev.date', 'Fecha en que la presentó', 'Date filed', 'Part 5 · Item 4 · Date Filed'),
+            { id: 'prev.result', type: 'text', required: true, label: { es: 'Resultado (approved, denied, withdrawn…)', en: 'Result' }, formRef: 'Part 5 · Item 5 · Result', maxLength: 33, placeholder: 'approved' },
+          ],
+        },
+        {
+          id: 'otherRelative.more0',
+          kind: 'choice',
+          formRef: 'Part 5 · Items 6–9 · Separate petitions for other relatives',
+          question: { es: '¿Está presentando también peticiones separadas por otros familiares?', en: 'Are you also filing separate petitions for other relatives?' },
+          options: yesNo,
+        },
+        ...rows({
+          max: 2,
+          id: 'otherRelative',
+          first: is('otherRelative.more0', 'yes'),
+          question: () => ({ es: '¿Por quién más presenta una petición?', en: 'Who else are you petitioning for?' }),
+          more: { es: '¿Hay otro familiar más?', en: 'Is there another relative?' },
+          formRef: 'Part 5 · Items 6–9',
+          fields: (i) => [
+            ...nameFields(`otherRelative${i}`, `Part 5 · Relative ${i}`),
+            { id: `otherRelative${i}.relationship`, type: 'text', required: true, label: { es: 'Parentesco (en inglés)', en: 'Relationship' }, formRef: `Part 5 · Relative ${i} · Relationship`, maxLength: 29, placeholder: 'Son' },
+          ],
+          overflow: overflow({ es: 'familiares', en: 'relatives' }),
+        }),
+      ],
+    },
+    {
+      id: 'contact',
+      part: 'Part 6',
+      title: { es: 'Contacto', en: 'Contact' },
+      questions: [
+        {
+          id: 'contactInfo',
+          kind: 'fields',
+          formRef: 'Part 6 · Items 3–5 · Petitioner’s Contact Information',
+          question: { es: '¿Cómo puede contactarle USCIS?', en: 'How can USCIS contact you?' },
+          fields: [
+            { id: 'phone', type: 'phone', required: true, label: { es: 'Teléfono de día', en: 'Daytime phone' }, formRef: 'Part 6 · Item 3 · Petitioner’s Daytime Telephone Number', placeholder: '213 555 0123' },
+            { id: 'mobile', type: 'phone', label: { es: 'Celular', en: 'Mobile phone' }, formRef: 'Part 6 · Item 4 · Petitioner’s Mobile Telephone Number' },
+            { id: 'email', type: 'email', label: { es: 'Correo electrónico', en: 'Email address' }, formRef: 'Part 6 · Item 5 · Petitioner’s Email Address', maxLength: 38 },
+          ],
+        },
+        {
+          id: 'readsEnglish',
+          kind: 'choice',
+          formRef: 'Part 6 · Item 1 · Petitioner’s Statement',
+          question: { es: '¿Puede leer y entender la petición en inglés?', en: 'Can you read and understand the petition in English?' },
+          why: { es: 'Si alguien se la traduce, esa persona llena y firma la Parte 7 (intérprete).', en: 'If someone translates it for you, they fill in and sign Part 7 (interpreter).' },
+          options: [
+            { value: 'yes', label: { es: 'Sí, leo inglés', en: 'Yes, I read English' } },
+            { value: 'interpreter', label: { es: 'No, un intérprete me la leerá', en: 'No, an interpreter will read it to me' } },
+          ],
+        },
+        {
+          id: 'interpreterLanguage',
+          kind: 'fields',
+          formRef: 'Part 6 · Item 1.b',
+          showIf: is('readsEnglish', 'interpreter'),
+          question: { es: '¿En qué idioma se la leerán?', en: 'What language will it be read to you in?' },
+          fields: [{ id: 'fluentLanguage', type: 'text', required: true, label: { es: 'Idioma', en: 'Language' }, formRef: 'Part 6 · Item 1.b · Language', placeholder: 'Spanish' }],
+        },
+      ],
+    },
+  ],
+};

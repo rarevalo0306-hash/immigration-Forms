@@ -1,10 +1,11 @@
 # Camino — formularios de inmigración, una pregunta a la vez
 
-Camino ayuda a inmigrantes a llenar los formularios de USCIS en español (o inglés), paso a paso, sin jerga legal. Por ahora tiene dos:
+Camino ayuda a inmigrantes a llenar los formularios de USCIS en español (o inglés), paso a paso, sin jerga legal. Por ahora tiene tres:
 
 | Formulario | Edición | Qué es |
 | --- | --- | --- |
 | **I-765** | 08/21/25 | Solicitud de permiso de trabajo (EAD) |
+| **I-130** | 04/01/24 | Petición para un familiar (la presenta el ciudadano o residente) |
 | **N-400** | 01/20/25 | Solicitud de ciudadanía (naturalización) |
 
 ## Qué hace
@@ -45,11 +46,11 @@ npm run build
 | Ruta | Qué es |
 | --- | --- |
 | `src/design/` | Tokens y componentes del sistema de diseño Camino (Button, TextField, ChoiceGroup, ProgressSteps, QuestionCard, Notice, LanguageToggle, FormBadge) |
-| `src/forms/` | El contenido de cada formulario (`i765.ts`, `n400.ts`): secciones, preguntas en ES/EN, referencias al formulario y condiciones |
+| `src/forms/` | El contenido de cada formulario (`i765.ts`, `i130.ts`, `n400.ts`): secciones, preguntas en ES/EN, referencias al formulario y condiciones; `helpers.ts` con piezas comunes |
 | `src/engine/` | Qué preguntas se muestran, validación y normalización (con pruebas) |
 | `src/pdf/` | Llenado de cada PDF oficial (con pruebas sobre los PDF reales) |
 | `src/screens/` | Inicio, bienvenida, preguntas y revisión |
 | `public/forms/` | Los PDF oficiales listos para llenar |
 | `scripts/` | Preparación de una nueva edición de un PDF |
 
-Para agregar otro formulario (I-130, I-485…), cree un `FormDefinition` como `src/forms/n400.ts`, su llenado en `src/pdf/`, y agréguelo a `src/forms/index.ts`.
+Para agregar otro formulario (I-485, I-864…), cree un `FormDefinition` como `src/forms/n400.ts`, su llenado en `src/pdf/`, y agréguelo a `src/forms/index.ts`.

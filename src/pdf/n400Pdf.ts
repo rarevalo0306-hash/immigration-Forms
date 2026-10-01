@@ -1,8 +1,10 @@
-import { PDFCheckBox, PDFDocument, PDFDropdown, PDFTextField, type PDFField, type PDFForm } from 'pdf-lib';
+import { PDFCheckBox, PDFDocument, PDFDropdown, PDFTextField } from 'pdf-lib';
 import type { Answers } from '../forms/types';
 import { flaggedPart9, PART14_BLOCKS } from '../forms/n400';
 import { parseUnit } from '../engine/validation';
-import { selectOption, setFieldText } from './common';
+import { fieldIndex, optionBoxes, selectOption, setFieldText } from './common';
+
+export { fieldIndex, optionBoxes };
 
 // Fields of USCIS Form N-400, edition 01/20/25 (public/forms/n-400.pdf). Each field is named here by
 // the last segment of its full name (e.g. "P2_Line1_FamilyName[0]"), which is unique in this edition.
@@ -258,30 +260,6 @@ export function planN400(a: Answers): N400Plan {
     });
 
   return { text, checkValue, check, select };
-}
-
-/** The last segment of a field's full name; some names hold escaped dots ("Line12\\.c_Checkbox[0]"). */
-export function lastSegment(name: string) {
-  return name.split(/(?<!\\)\./).pop()!;
-}
-
-/** Finds every field by the last segment of its name. */
-export function fieldIndex(form: PDFForm) {
-  const bySegment = new Map<string, PDFField>();
-  for (const f of form.getFields()) bySegment.set(lastSegment(f.getName()), f);
-  return bySegment;
-}
-
-/** The checkboxes `base[0]`, `base[1]`… with the export value each one sets. */
-export function optionBoxes(index: Map<string, PDFField>, base: string): { box: PDFCheckBox; value: string }[] {
-  const out: { box: PDFCheckBox; value: string }[] = [];
-  for (let i = 0; ; i++) {
-    const f = index.get(`${base}[${i}]`);
-    if (!f) return out;
-    if (!(f instanceof PDFCheckBox)) throw new Error(`Not a checkbox: ${base}[${i}]`);
-    const on = f.acroField.getWidgets()[0].getOnValue();
-    out.push({ box: f, value: on ? on.decodeText() : '' });
-  }
 }
 
 /** Fills the official N-400 PDF with the answers and returns the new file's bytes. */

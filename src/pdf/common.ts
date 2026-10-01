@@ -1,4 +1,4 @@
-import type { PDFDropdown, PDFTextField } from 'pdf-lib';
+import { PDFCheckBox, type PDFDropdown, type PDFField, type PDFForm, type PDFTextField } from 'pdf-lib';
 
 /**
  * The PDF's standard font covers Latin-1 only, and USCIS reads its forms in English: drop accents
@@ -37,3 +37,29 @@ export function selectOption(field: PDFDropdown, value: string) {
   if (option === undefined) throw new Error(`No "${value}" option in ${field.getName()}`);
   field.select(option);
 }
+
+/** The last segment of a field's full name; some names hold escaped dots ("Line12\\.c_Checkbox[0]"). */
+export function lastSegment(name: string) {
+  return name.split(/(?<!\\)\./).pop()!;
+}
+
+/** Finds every field by the last segment of its name. */
+export function fieldIndex(form: PDFForm) {
+  const bySegment = new Map<string, PDFField>();
+  for (const f of form.getFields()) bySegment.set(lastSegment(f.getName()), f);
+  return bySegment;
+}
+
+/** The checkboxes `base[0]`, `base[1]`… with the export value each one sets. */
+export function optionBoxes(index: Map<string, PDFField>, base: string): { box: PDFCheckBox; value: string }[] {
+  const out: { box: PDFCheckBox; value: string }[] = [];
+  for (let i = 0; ; i++) {
+    const f = index.get(`${base}[${i}]`);
+    if (!f) return out;
+    if (!(f instanceof PDFCheckBox)) throw new Error(`Not a checkbox: ${base}[${i}]`);
+    const on = f.acroField.getWidgets()[0].getOnValue();
+    // Some forms pad export values (" APT "); compare them trimmed.
+    out.push({ box: f, value: on ? on.decodeText().trim() : '' });
+  }
+}
+

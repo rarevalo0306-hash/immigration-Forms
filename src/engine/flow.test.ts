@@ -88,3 +88,31 @@ describe('N-400 flow', async () => {
     expect(ids({ sex: 'female' })).not.toContain('p9i');
   });
 });
+
+describe('I-130 flow', async () => {
+  const { i130 } = await import('../forms/i130');
+  const ids = (a: Record<string, string>) => visibleScreens(i130, a).map((s) => s.question.id);
+
+  it('has unique answer ids', () => {
+    const seen = new Set<string>();
+    for (const s of i130.sections)
+      for (const q of s.questions) {
+        const own = q.kind === 'fields' ? q.fields.map((f) => f.id) : q.kind === 'yesNoList' ? q.items.map((i) => i.id) : [q.id];
+        for (const id of own) {
+          expect(seen.has(id), id).toBe(false);
+          seen.add(id);
+        }
+      }
+  });
+
+  it('follows the relationship and status', () => {
+    expect(ids({ relationship: 'sibling' })).toContain('siblingAdopted');
+    expect(ids({ relationship: 'child' })).toContain('childRelationship');
+    expect(ids({ relationship: 'spouse' })).toContain('lastTogether');
+    expect(ids({ relationship: 'child' })).not.toContain('lastTogether');
+    expect(ids({ 'pet.status': 'lpr' })).toContain('pet.lpr');
+    expect(ids({ 'pet.status': 'citizen', 'pet.citizenHow': 'birth' })).not.toContain('pet.hasCertificate');
+    expect(ids({ 'ben.everInUS': 'yes', 'ben.inUSNow': 'yes' })).toContain('ben.entry');
+    expect(ids({ 'pet.marital': 'single' })).not.toContain('pet.spouse1');
+  });
+});
