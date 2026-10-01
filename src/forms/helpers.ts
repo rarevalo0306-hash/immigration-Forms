@@ -93,17 +93,19 @@ export const sexOptions: Option[] = [
 export const sexField = (id: string, ref: string): Field => ({ id, type: 'select', required: true, label: { es: 'Sexo', en: 'Sex' }, formRef: `${ref} · Sex`, options: sexOptions });
 
 
+const bt = (es: string, en: string): T => ({ es, en });
+
 /**
  * Ethnicity, race, height, weight, eye and hair color, as USCIS asks them on the I-485 and I-131.
  * The option values are the I-485's export values; other fillers translate them.
  */
-const bt = (es: string, en: string): T => ({ es, en });
-
-export const biographic = (part: string): Question[] => [
+export const biographic = (part: string, first = 1): Question[] => {
+  const item = (n: number) => `${part} · Item ${n + first - 1}`;
+  return [
     {
       id: 'ethnicity',
       kind: 'choice',
-      formRef: `${part} · Item 1 · Ethnicity`,
+      formRef: `${item(1)} · Ethnicity`,
       question: bt('¿Es usted hispano/a o latino/a?', 'Are you Hispanic or Latino?'),
       options: [
         { value: 'hispanic', label: bt('Hispano/a o latino/a', 'Hispanic or Latino') },
@@ -114,7 +116,7 @@ export const biographic = (part: string): Question[] => [
       id: 'race',
       kind: 'choice',
       multiple: true,
-      formRef: `${part} · Item 2 · Race`,
+      formRef: `${item(2)} · Race`,
       question: bt('¿Cuál es su raza?', 'What is your race?'),
       why: bt('Elija todas las que apliquen.', 'Choose all that apply.'),
       options: [
@@ -128,19 +130,19 @@ export const biographic = (part: string): Question[] => [
     {
       id: 'body',
       kind: 'fields',
-      formRef: `${part} · Items 3–6`,
+      formRef: `${part} · Items ${2 + first}–${5 + first}`,
       question: bt('Su estatura, peso y color de ojos y cabello', 'Your height, weight, and eye and hair color'),
       why: bt('1.60 m son 5 pies 3 pulgadas; 70 kg son 154 libras.', 'In feet, inches and pounds.'),
       fields: [
-        { id: 'heightFeet', type: 'select', required: true, label: { es: 'Estatura: pies', en: 'Height: feet' }, formRef: `${part} · Item 3 · Feet`, options: ['2', '3', '4', '5', '6', '7', '8'].map((v) => ({ value: v, label: { es: v, en: v } })) },
-        { id: 'heightInches', type: 'select', required: true, label: { es: 'Estatura: pulgadas', en: 'Height: inches' }, formRef: `${part} · Item 3 · Inches`, options: [...Array(12)].map((_, i) => ({ value: String(i), label: { es: String(i), en: String(i) } })) },
-        { id: 'weight', type: 'number', required: true, label: { es: 'Peso en libras', en: 'Weight in pounds' }, formRef: `${part} · Item 4`, maxLength: 3 },
+        { id: 'heightFeet', type: 'select', required: true, label: { es: 'Estatura: pies', en: 'Height: feet' }, formRef: `${item(3)} · Feet`, options: ['2', '3', '4', '5', '6', '7', '8'].map((v) => ({ value: v, label: { es: v, en: v } })) },
+        { id: 'heightInches', type: 'select', required: true, label: { es: 'Estatura: pulgadas', en: 'Height: inches' }, formRef: `${item(3)} · Inches`, options: [...Array(12)].map((_, i) => ({ value: String(i), label: { es: String(i), en: String(i) } })) },
+        { id: 'weight', type: 'number', required: true, label: { es: 'Peso en libras', en: 'Weight in pounds' }, formRef: item(4), maxLength: 3 },
         {
           id: 'eyes',
           type: 'select',
           required: true,
           label: { es: 'Color de ojos', en: 'Eye color' },
-          formRef: `${part} · Item 5`,
+          formRef: item(5),
           options: [
             { value: 'BN', label: bt('Café', 'Brown') },
             { value: 'BL', label: bt('Negro', 'Black') },
@@ -158,7 +160,7 @@ export const biographic = (part: string): Question[] => [
           type: 'select',
           required: true,
           label: { es: 'Color de cabello', en: 'Hair color' },
-          formRef: `${part} · Item 6`,
+          formRef: item(6),
           options: [
             { value: 'BL', label: bt('Negro', 'Black') },
             { value: 'BR', label: bt('Café', 'Brown') },
@@ -172,4 +174,6 @@ export const biographic = (part: string): Question[] => [
           ],
         },
       ],
-    },];
+    },
+  ];
+};

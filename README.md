@@ -1,6 +1,6 @@
 # Camino — formularios de inmigración, una pregunta a la vez
 
-Camino ayuda a inmigrantes a llenar los formularios de USCIS en español (o inglés), paso a paso, sin jerga legal. Por ahora tiene ocho:
+Camino ayuda a inmigrantes a llenar los formularios de USCIS en español (o inglés), paso a paso, sin jerga legal. Por ahora tiene nueve:
 
 | Formulario | Edición | Qué es |
 | --- | --- | --- |
@@ -11,6 +11,7 @@ Camino ayuda a inmigrantes a llenar los formularios de USCIS en español (o ingl
 | **I-131** | 01/20/25 | Permiso de viaje: advance parole, permiso de reingreso, documento de viaje de refugiado o de TPS |
 | **I-864** | 08/24/26 | Declaración de patrocinio económico (la presenta el patrocinador) |
 | **I-864A** | 08/24/26 | Contrato entre el patrocinador y un familiar del hogar que suma sus ingresos |
+| **I-90** | 01/20/25 | Renovación o reemplazo de la tarjeta de residente (green card) |
 | **N-400** | 01/20/25 | Solicitud de ciudadanía (naturalización) |
 
 ## Qué hace
@@ -54,11 +55,11 @@ npm run build
 | Ruta | Qué es |
 | --- | --- |
 | `src/design/` | Tokens y componentes del sistema de diseño Camino (Button, TextField, ChoiceGroup, ProgressSteps, QuestionCard, Notice, LanguageToggle, FormBadge) |
-| `src/forms/` | El contenido de cada formulario (`i765.ts`, `i130.ts`, `i130a.ts`, `i485.ts` con `i485Part9.ts`, `i131.ts`, `i864.ts`, `i864a.ts`, `n400.ts`): secciones, preguntas en ES/EN, referencias al formulario y condiciones; `helpers.ts` con piezas comunes |
+| `src/forms/` | El contenido de cada formulario (`i765.ts`, `i130.ts`, `i130a.ts`, `i485.ts` con `i485Part9.ts`, `i131.ts`, `i864.ts`, `i864a.ts`, `i90.ts`, `n400.ts`): secciones, preguntas en ES/EN, referencias al formulario y condiciones; `helpers.ts` con piezas comunes |
 | `src/engine/` | Qué preguntas se muestran, validación y normalización (con pruebas) |
 | `src/pdf/` | Llenado de cada PDF oficial (con pruebas sobre los PDF reales) |
 | `src/screens/` | Inicio, bienvenida, preguntas y revisión |
 | `public/forms/` | Los PDF oficiales listos para llenar |
 | `scripts/` | Preparación de una nueva edición de un PDF |
 
-Para agregar otro formulario (I-693, I-90…), cree un `FormDefinition` como `src/forms/n400.ts`, su llenado en `src/pdf/`, y agréguelo a `src/forms/index.ts`.
+Para agregar otro formulario (I-751, I-693…), cree un `FormDefinition` como `src/forms/n400.ts`, su llenado en `src/pdf/`, y agréguelo a `src/forms/index.ts`.

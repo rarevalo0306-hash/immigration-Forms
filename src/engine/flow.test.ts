@@ -245,3 +245,32 @@ describe('I-131 flow', async () => {
     expect(ids({ replacement: 'yes', replacementReason: '4' })).toContain('corrections');
   });
 });
+
+describe('I-90 flow', async () => {
+  const { i90 } = await import('../forms/i90');
+  const ids = (a: Record<string, string>) => visibleScreens(i90, a).map((s) => s.question.id);
+
+  it('has unique answer ids', () => {
+    const seen = new Set<string>();
+    for (const s of i90.sections)
+      for (const q of s.questions) {
+        const own = q.kind === 'fields' ? q.fields.map((f) => f.id) : q.kind === 'yesNoList' ? q.items.map((i) => i.id) : [q.id];
+        for (const id of own) {
+          expect(seen.has(id), id).toBe(false);
+          seen.add(id);
+        }
+      }
+  });
+
+  it('asks the reasons that match the status', () => {
+    expect(ids({ status: '1a' })).toContain('reasonA');
+    expect(ids({ status: '1a' })).not.toContain('reasonB');
+    expect(ids({ status: '1c' })).toContain('reasonB');
+    expect(ids({ status: '1b', reasonA: '2h1' })).toContain('poe');
+    expect(ids({ nameChanged: 'Y' })).toContain('cardName');
+    expect(ids({ nameChanged: 'NA' })).not.toContain('cardName');
+    expect(ids({ abandoned: 'yes' })).toContain('explainHistory');
+    expect(ids({ enteredWithVisa: 'no' })).not.toContain('arrival');
+    expect(ids({ accommodation: 'yes' })).toContain('accommodationDetails');
+  });
+});
