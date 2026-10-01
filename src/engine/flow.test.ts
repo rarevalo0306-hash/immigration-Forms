@@ -147,3 +147,34 @@ describe('I-485 flow', async () => {
     expect(ids({ marital: 'married', timesMarried: '1' })).not.toContain('priorSpouse');
   });
 });
+
+describe('I-864 flow', async () => {
+  const { i864 } = await import('../forms/i864');
+  const ids = (a: Record<string, string>) => visibleScreens(i864, a).map((s) => s.question.id);
+
+  it('has unique answer ids', () => {
+    const seen = new Set<string>();
+    for (const s of i864.sections)
+      for (const q of s.questions) {
+        const own = q.kind === 'fields' ? q.fields.map((f) => f.id) : q.kind === 'yesNoList' ? q.items.map((i) => i.id) : [q.id];
+        for (const id of own) {
+          expect(seen.has(id), id).toBe(false);
+          seen.add(id);
+        }
+      }
+  });
+
+  it('follows the basis, family, income and assets answers', () => {
+    expect(ids({ basis: 'petitioner' })).toContain('activeDuty');
+    expect(ids({ basis: 'firstJoint' })).not.toContain('activeDuty');
+    expect(ids({ basis: 'substitute' })).toContain('substituteRelationship');
+    expect(ids({ familyTiming: 'none' })).not.toContain('member1');
+    expect(ids({ familyTiming: 'same', 'member.more1': 'yes' })).toContain('member2');
+    expect(ids({ employment: 'retired' })).toContain('retired');
+    expect(ids({ employment: 'retired' })).not.toContain('employed');
+    expect(ids({ 'hhIncome.more0': 'yes', i864aStatus: 'intending' })).toContain('i864aIntendingName');
+    expect(ids({ filedTaxes: 'no' })).toContain('notRequired');
+    expect(ids({ useAssets: 'yes', sponsorsPrincipal: 'no' })).not.toContain('principalAssets');
+    expect(ids({ readsEnglish: 'B' })).toContain('interpreterLanguage');
+  });
+});

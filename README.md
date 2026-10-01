@@ -1,6 +1,6 @@
 # Camino — formularios de inmigración, una pregunta a la vez
 
-Camino ayuda a inmigrantes a llenar los formularios de USCIS en español (o inglés), paso a paso, sin jerga legal. Por ahora tiene cinco:
+Camino ayuda a inmigrantes a llenar los formularios de USCIS en español (o inglés), paso a paso, sin jerga legal. Por ahora tiene seis:
 
 | Formulario | Edición | Qué es |
 | --- | --- | --- |
@@ -8,6 +8,7 @@ Camino ayuda a inmigrantes a llenar los formularios de USCIS en español (o ingl
 | **I-130** | 04/01/24 | Petición para un familiar (la presenta el ciudadano o residente) |
 | **I-130A** | 04/01/24 | Información del cónyuge beneficiario (acompaña al I-130 del cónyuge) |
 | **I-485** | 09/18/26 | Solicitud de residencia permanente desde EE.UU. (ajuste de estatus) |
+| **I-864** | 08/24/26 | Declaración de patrocinio económico (la presenta el patrocinador) |
 | **N-400** | 01/20/25 | Solicitud de ciudadanía (naturalización) |
 
 ## Qué hace
@@ -16,6 +17,7 @@ Camino ayuda a inmigrantes a llenar los formularios de USCIS en español (o ingl
 - Muestra solo las preguntas que aplican: sigue las respuestas de Sí/No, la categoría de elegibilidad y la base de la solicitud. Las tablas (direcciones, trabajos, viajes, hijos, delitos) se llenan fila por fila preguntando "¿hay otra?".
 - En el N-400 y el I-485, pide una explicación para cada respuesta que el formulario manda explicar y la escribe en la Parte 14.
 - Valida y normaliza fechas (MM/DD/AAAA), A-Number, Seguro Social, código postal, teléfono, estado, recibos, I-94, SEVIS y el largo de cada campo del PDF.
+- En el I-864 suma solo el tamaño del hogar, el ingreso del hogar y el total de bienes.
 - Guarda el progreso solo en el dispositivo (`localStorage`); nada se envía a ningún servidor.
 - Termina con el **PDF oficial ya lleno**, generado en el navegador con [pdf-lib](https://pdf-lib.js.org), y una hoja de respuestas imprimible.
 
@@ -48,11 +50,11 @@ npm run build
 | Ruta | Qué es |
 | --- | --- |
 | `src/design/` | Tokens y componentes del sistema de diseño Camino (Button, TextField, ChoiceGroup, ProgressSteps, QuestionCard, Notice, LanguageToggle, FormBadge) |
-| `src/forms/` | El contenido de cada formulario (`i765.ts`, `i130.ts`, `i130a.ts`, `i485.ts` con `i485Part9.ts`, `n400.ts`): secciones, preguntas en ES/EN, referencias al formulario y condiciones; `helpers.ts` con piezas comunes |
+| `src/forms/` | El contenido de cada formulario (`i765.ts`, `i130.ts`, `i130a.ts`, `i485.ts` con `i485Part9.ts`, `i864.ts`, `n400.ts`): secciones, preguntas en ES/EN, referencias al formulario y condiciones; `helpers.ts` con piezas comunes |
 | `src/engine/` | Qué preguntas se muestran, validación y normalización (con pruebas) |
 | `src/pdf/` | Llenado de cada PDF oficial (con pruebas sobre los PDF reales) |
 | `src/screens/` | Inicio, bienvenida, preguntas y revisión |
 | `public/forms/` | Los PDF oficiales listos para llenar |
 | `scripts/` | Preparación de una nueva edición de un PDF |
 
-Para agregar otro formulario (I-864, I-131…), cree un `FormDefinition` como `src/forms/n400.ts`, su llenado en `src/pdf/`, y agréguelo a `src/forms/index.ts`.
+Para agregar otro formulario (I-131, I-864A…), cree un `FormDefinition` como `src/forms/n400.ts`, su llenado en `src/pdf/`, y agréguelo a `src/forms/index.ts`.
