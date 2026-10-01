@@ -116,3 +116,34 @@ describe('I-130 flow', async () => {
     expect(ids({ 'pet.marital': 'single' })).not.toContain('pet.spouse1');
   });
 });
+
+describe('I-485 flow', async () => {
+  const { i485 } = await import('../forms/i485');
+  const ids = (a: Record<string, string>) => visibleScreens(i485, a).map((s) => s.question.id);
+
+  it('has unique answer ids', () => {
+    const seen = new Set<string>();
+    for (const s of i485.sections)
+      for (const q of s.questions) {
+        const own = q.kind === 'fields' ? q.fields.map((f) => f.id) : q.kind === 'yesNoList' ? q.items.map((i) => i.id) : [q.id];
+        for (const id of own) {
+          expect(seen.has(id), id).toBe(false);
+          seen.add(id);
+        }
+      }
+  });
+
+  it('follows entry, category and public charge', () => {
+    expect(ids({ arrivalHow: 'ewi' })).not.toContain('i94');
+    expect(ids({ arrivalHow: 'admitted' })).toContain('arrivalAs');
+    expect(ids({ category: 'asylee' })).toContain('asylumDateQ');
+    expect(ids({ category: 'ir-spouse' })).not.toContain('asylumDateQ');
+    expect(ids({ 'publicCharge.exemption': '23' })).toContain('pc.income');
+    expect(ids({ 'publicCharge.exemption': '3' })).not.toContain('pc.income');
+    expect(ids({ 'publicCharge.exemption': '23', 'pc.benefits': 'yes', 'pc.benefit.more1': 'yes' })).toContain('pc.benefit2');
+    expect(ids({ 'p9.22': 'yes' })).toContain('explain.22');
+    expect(ids({ 'p9.20': 'yes' })).not.toContain('explain.20');
+    expect(ids({ marital: 'divorced', timesMarried: '1' })).toContain('priorSpouse');
+    expect(ids({ marital: 'married', timesMarried: '1' })).not.toContain('priorSpouse');
+  });
+});
