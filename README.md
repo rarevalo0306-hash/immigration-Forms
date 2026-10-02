@@ -1,6 +1,6 @@
 # Camino — formularios de inmigración, una pregunta a la vez
 
-Camino ayuda a inmigrantes a llenar los formularios de USCIS en español (o inglés), paso a paso, sin jerga legal. Por ahora tiene treinta y siete:
+Camino ayuda a inmigrantes a llenar los formularios de USCIS en español (o inglés), paso a paso, sin jerga legal. Está publicado en **https://camino-formularios.vercel.app**. Por ahora tiene treinta y siete:
 
 | Formulario | Edición | Qué es |
 | --- | --- | --- |
@@ -79,6 +79,12 @@ npm test           # pruebas (vitest)
 npm run typecheck
 npm run build
 ```
+
+Cada push y cada pull request corren en GitHub Actions el chequeo de tipos, las pruebas y el build (`.github/workflows/ci.yml`).
+
+## Publicación
+
+El sitio está en Vercel (proyecto `camino-formularios`, conectado a este repositorio). Cada push a `main` publica la versión nueva en https://camino-formularios.vercel.app; los pushes a otras ramas crean una vista previa privada. Es un sitio estático: no hay servidor ni base de datos, y las respuestas nunca salen del navegador de la persona.
 
 ## Estructura
 
