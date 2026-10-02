@@ -12,6 +12,7 @@ import { i131 } from './i131';
 import { i485 } from './i485';
 import { i864 } from './i864';
 import { i864a } from './i864a';
+import { i865 } from './i865';
 import { i864ez } from './i864ez';
 import { i821d } from './i821d';
 import { i821 } from './i821';
@@ -28,7 +29,7 @@ import { i918 } from './i918';
 import { i914 } from './i914';
 import { i601 } from './i601';
 
-export const forms: FormDefinition[] = [i765, i765ws, i821d, i821, i130, i130a, i129f, i485, i131, i864, i864ez, i864a, i751, i90, ar11, i912, i134, i589, i730, i601a, i601, i212, i918, i914, i360, g1145, n400, n600];
+export const forms: FormDefinition[] = [i765, i765ws, i821d, i821, i130, i130a, i129f, i485, i131, i864, i864ez, i864a, i865, i751, i90, ar11, i912, i134, i589, i730, i601a, i601, i212, i918, i914, i360, g1145, n400, n600];
 
 export function formById(id: string): FormDefinition | null {
   return forms.find((f) => f.id === id) ?? null;

@@ -5,10 +5,11 @@ import { lastSegment } from './common';
 
 // The fillers check Apt./Ste./Flr. boxes by export value. That only works when each box exports
 // the value printed next to it, so every unit group must read APT, STE, FLR from left to right.
-// The exceptions are filled by position (I-129F) or not filled at all (I-765 Parts 5-6).
+// The exceptions are filled by position (I-129F) or not filled at all (I-765 Parts 5-6, I-865 Parts 4-5).
 const BY_POSITION: Record<string, RegExp> = {
   'i-129f.pdf': /^Pt[12]Line(8|9|11|12|14|17|18|21)_Unit$/,
   'i-765.pdf': /^Pt[56]Line3b_Unit$/,
+  'i-865.pdf': /^P[45]_Line3b_Unit$/,
 };
 
 // The I-589 asks for an "Apt. Number" as text, and the G-1145 and I-765WS have no address: none has unit boxes.

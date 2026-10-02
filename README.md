@@ -1,6 +1,6 @@
 # Camino — formularios de inmigración, una pregunta a la vez
 
-Camino ayuda a inmigrantes a llenar los formularios de USCIS en español (o inglés), paso a paso, sin jerga legal. Por ahora tiene veintiocho:
+Camino ayuda a inmigrantes a llenar los formularios de USCIS en español (o inglés), paso a paso, sin jerga legal. Por ahora tiene veintinueve:
 
 | Formulario | Edición | Qué es |
 | --- | --- | --- |
@@ -16,6 +16,7 @@ Camino ayuda a inmigrantes a llenar los formularios de USCIS en español (o ingl
 | **I-864** | 08/24/26 | Declaración de patrocinio económico (la presenta el patrocinador) |
 | **I-864EZ** | 08/24/26 | Versión corta del I-864 (peticionario que patrocina a una sola persona con ingresos de W-2) |
 | **I-864A** | 08/24/26 | Contrato entre el patrocinador y un familiar del hogar que suma sus ingresos |
+| **I-865** | 11/10/20 | Cambio de dirección del patrocinador (I-864) |
 | **I-751** | 04/01/24 | Quitar las condiciones de la residencia (tarjeta de 2 años por matrimonio) |
 | **I-90** | 01/20/25 | Renovación o reemplazo de la tarjeta de residente (green card) |
 | **AR-11** | 11/02/22 | Cambio de dirección (obligatorio dentro de 10 días) |
@@ -74,7 +75,7 @@ npm run build
 | Ruta | Qué es |
 | --- | --- |
 | `src/design/` | Tokens y componentes del sistema de diseño Camino (Button, TextField, ChoiceGroup, ProgressSteps, QuestionCard, Notice, LanguageToggle, FormBadge) |
-| `src/forms/` | El contenido de cada formulario (`i765.ts`, `i765ws.ts`, `i821d.ts`, `i821.ts` con `i821Part7.ts`, `i130.ts`, `i130a.ts`, `i129f.ts`, `i485.ts` con `i485Part9.ts`, `i131.ts`, `i864.ts`, `i864ez.ts`, `i864a.ts`, `i751.ts`, `i90.ts`, `ar11.ts`, `i912.ts`, `i134.ts`, `i589.ts`, `i730.ts`, `i601a.ts`, `i601.ts`, `i212.ts`, `i918.ts`, `i914.ts`, `i360.ts`, `g1145.ts`, `n400.ts`, `n600.ts`): secciones, preguntas en ES/EN, referencias al formulario y condiciones; `helpers.ts` con piezas comunes |
+| `src/forms/` | El contenido de cada formulario (`i765.ts`, `i765ws.ts`, `i821d.ts`, `i821.ts` con `i821Part7.ts`, `i130.ts`, `i130a.ts`, `i129f.ts`, `i485.ts` con `i485Part9.ts`, `i131.ts`, `i864.ts`, `i864ez.ts`, `i864a.ts`, `i865.ts`, `i751.ts`, `i90.ts`, `ar11.ts`, `i912.ts`, `i134.ts`, `i589.ts`, `i730.ts`, `i601a.ts`, `i601.ts`, `i212.ts`, `i918.ts`, `i914.ts`, `i360.ts`, `g1145.ts`, `n400.ts`, `n600.ts`): secciones, preguntas en ES/EN, referencias al formulario y condiciones; `helpers.ts` con piezas comunes |
 | `src/engine/` | Qué preguntas se muestran, validación y normalización (con pruebas) |
 | `src/pdf/` | Llenado de cada PDF oficial (con pruebas sobre los PDF reales) |
 | `src/screens/` | Inicio, bienvenida, preguntas y revisión |
