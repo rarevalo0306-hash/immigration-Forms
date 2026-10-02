@@ -490,3 +490,37 @@ describe('I-864EZ flow', async () => {
     expect(ids({ employment: 'retired' })).not.toContain('employed');
   });
 });
+
+describe('N-600 flow', async () => {
+  const { n600 } = await import('../forms/n600');
+  const ids = (a: Record<string, string>) => visibleScreens(n600, a).map((s) => s.question.id);
+
+  it('has unique answer ids', () => {
+    const seen = new Set<string>();
+    for (const s of n600.sections)
+      for (const q of s.questions) {
+        const own = q.kind === 'fields' ? q.fields.map((f) => f.id) : q.kind === 'yesNoList' ? q.items.map((i) => i.id) : [q.id];
+        for (const id of own) {
+          expect(seen.has(id), id).toBe(false);
+          seen.add(id);
+        }
+      }
+  });
+
+  it('follows the answers', () => {
+    expect(ids({})).not.toContain('guardianInfo');
+    expect(ids({ filer: 'guardian' })).toContain('guardianInfo');
+    expect(ids({ adopted: 'yes', adoptionFinal: 'no' })).toContain('readoption');
+    expect(ids({ adopted: 'yes', adoptionFinal: 'yes' })).toContain('adoptionRecognized');
+    expect(ids({ adopted: 'yes', adoptionFinal: 'yes', adoptionRecognized: 'yes' })).not.toContain('readoption');
+    expect(ids({ adopted: 'no' })).toContain('parentsMarriedAtBirth');
+    expect(ids({ dob: '01/01/2010' })).not.toContain('absent');
+    expect(ids({ dob: '01/01/1950' })).toContain('absent');
+    expect(ids({ 'parent1.citizenBy': 'naturalization' })).toContain('parent1Naturalization');
+    expect(ids({ 'parent1.marital': 'M', 'parent1.spouseIsParent': 'no' })).toContain('parent1Spouse');
+    expect(ids({ 'parent2.known': 'yes', 'parent2.isCitizen': 'no' })).not.toContain('parent2.citizenBy');
+    expect(ids({ 'parent2.known': 'yes', 'parent2.isCitizen': 'yes' })).toContain('parent2.citizenBy');
+    expect(ids({ atBirth: 'yes' })).toContain('presence1');
+    expect(ids({})).not.toContain('presence1');
+  });
+});
