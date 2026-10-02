@@ -37,6 +37,26 @@ export const ui = {
   backToPackage: { es: 'Volver al paquete', en: 'Back to the package' },
   nextInPackage: { es: 'Siguiente del paquete: {form}', en: 'Next in the package: {form}' },
   packageDone: { es: 'Ya llenó todos los formularios necesarios del paquete.', en: 'You filled in every required form in the package.' },
+  writeEnglish: { es: 'Escríbalo en inglés.', en: 'Write it in English.' },
+  looksSpanishTitle: { es: 'Parece que esto está en español', en: 'This looks like Spanish' },
+  looksSpanishBody: {
+    es: 'USCIS pide que el formulario se llene en inglés. Si no puede escribirlo en inglés, pida ayuda a alguien que lo traduzca; esa persona debe llenar y firmar a mano la parte del intérprete del formulario. Puede continuar y cambiarlo después.',
+    en: 'USCIS asks for the form to be filled in in English. If you can’t write it in English, ask someone to translate it; that person must fill in and sign the interpreter part of the form by hand. You can continue and change it later.',
+  },
+  englishTitle: { es: 'Lo que escriba, en inglés', en: 'What you write, in English' },
+  englishBody: {
+    es: 'Casi todo se responde eligiendo opciones o con datos como fechas y direcciones. Lo que escriba con sus propias palabras (explicaciones, declaraciones) debe ir en inglés, porque USCIS pide los formularios en inglés. Sus nombres y los de lugares se escriben tal como son, sin traducirlos.',
+    en: 'Most answers are choices or details like dates and addresses. Anything you write in your own words (explanations, statements) must be in English, because USCIS asks for forms in English. Write names of people and places as they are, without translating them.',
+  },
+  spanishInReviewOne: {
+    es: 'Una respuesta parece estar en español. Está marcada abajo: cámbiela al inglés antes de descargar el PDF, o pida a alguien que la traduzca y firme la parte del intérprete.',
+    en: 'One answer looks like Spanish. It is marked below: change it to English before downloading the PDF, or ask someone to translate it and sign the interpreter part.',
+  },
+  spanishInReview: {
+    es: '{n} respuestas parecen estar en español. Están marcadas abajo: cámbielas al inglés antes de descargar el PDF, o pida a alguien que las traduzca y firme la parte del intérprete.',
+    en: '{n} answers look like Spanish. They are marked below: change them to English before downloading the PDF, or ask someone to translate them and sign the interpreter part.',
+  },
+  spanishMark: { es: 'Parece estar en español', en: 'Looks like Spanish' },
   reuseTitle: { es: 'Ya tenemos algunos datos', en: 'We already have some details' },
   reuseBody: {
     es: 'Usted ya nos dio nombres, fechas, direcciones y otros datos en: {forms}. Podemos ponerlos aquí para que no los escriba otra vez. Igual verá cada pregunta y podrá cambiar lo que quiera.',
@@ -53,11 +73,6 @@ export const ui = {
   missingBody: { es: 'Revise los campos marcados antes de continuar.', en: 'Check the marked fields before continuing.' },
   required: { es: 'Esta respuesta es necesaria.', en: 'This answer is required.' },
   pickOne: { es: 'Elija una opción.', en: 'Choose an option.' },
-  englishTitle: { es: 'Responda en inglés', en: 'Answer in English' },
-  englishBody: {
-    es: 'USCIS lee el formulario en inglés: escriba nombres, direcciones y lugares con letras latinas, sin traducir sus nombres.',
-    en: 'USCIS reads the form in English: write names, addresses and places in Latin letters, without translating your names.',
-  },
   legalTitle: { es: 'Esto no es asesoría legal', en: 'This is not legal advice' },
   legalBody: {
     es: 'Camino le ayuda a organizar sus respuestas. Si tiene dudas sobre su caso, hable con un abogado de inmigración o un representante acreditado por el Departamento de Justicia (DOJ).',

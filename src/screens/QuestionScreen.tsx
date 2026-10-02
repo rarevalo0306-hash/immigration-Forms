@@ -2,6 +2,7 @@ import { ChoiceGroup, FormBadge, Notice, QuestionCard, SelectField, TextField, Y
 import { ui, type Lang } from '../i18n';
 import type { Answers, FieldType, FormDefinition, Question } from '../forms/types';
 import { visibleItems, type Errors } from '../engine/flow';
+import { isOwnWords, looksSpanish } from '../engine/language';
 
 interface Props {
   form: FormDefinition;
@@ -105,7 +106,7 @@ export function QuestionScreen({ form, question: q, part, answers, errors, lang,
                 </>
               }
               labelEn={f.formRef}
-              hint={f.hint?.[lang]}
+              hint={f.hint?.[lang] ?? (f.type === 'longText' && !/ingl[eé]s/i.test(f.label.es) ? ui.writeEnglish[lang] : undefined)}
               placeholder={f.placeholder}
               error={errors[f.id]?.[lang]}
               value={String(answers[f.id] ?? '')}
@@ -114,6 +115,9 @@ export function QuestionScreen({ form, question: q, part, answers, errors, lang,
               autoComplete="off"
             />
             ),
+          )}
+          {q.fields.some((f) => isOwnWords(f) && looksSpanish(String(answers[f.id] ?? ''))) && (
+            <Notice tone="legal" title={ui.looksSpanishTitle[lang]}>{ui.looksSpanishBody[lang]}</Notice>
           )}
           {/* Lets Enter submit from any field. */}
           <button type="submit" hidden />

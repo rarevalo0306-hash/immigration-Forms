@@ -3,6 +3,7 @@ import { Button, FormBadge, Notice } from '../design/components';
 import { fmt, ui, type Lang } from '../i18n';
 import type { Answers, FormDefinition } from '../forms/types';
 import { visibleItems, type Screen } from '../engine/flow';
+import { spanishAnswers } from '../engine/language';
 
 interface Props {
   form: FormDefinition;
@@ -51,6 +52,7 @@ export function Review({ form, screens, answers, lang, onEdit, onBack }: Props) 
     }
   };
   const vars = { edition: form.edition, sign: form.pdf.signHere[lang] };
+  const spanish = new Set(spanishAnswers(screens, answers).map((a) => a.fieldId));
 
   return (
     <section className="cm-card app-review">
@@ -64,6 +66,11 @@ export function Review({ form, screens, answers, lang, onEdit, onBack }: Props) 
           : 'These are your answers, in the order of the official form. Under each question it says where it goes on the form.'}
       </p>
       <div className="app-pdf no-print">
+        {spanish.size > 0 && (
+          <Notice tone="legal" title={ui.looksSpanishTitle[lang]}>
+            {spanish.size === 1 ? ui.spanishInReviewOne[lang] : fmt(ui.spanishInReview[lang], { n: spanish.size })}
+          </Notice>
+        )}
         <Notice tone="info" title={ui.pdfTitle[lang]}>
           {fmt(ui.pdfBody[lang], vars)}
         </Notice>
@@ -112,7 +119,10 @@ export function Review({ form, screens, answers, lang, onEdit, onBack }: Props) 
                       {!it.value ? (
                         <span className="app-empty">{ui.notAnswered[lang]}</span>
                       ) : typeof it.value === 'string' ? (
-                        it.value
+                        <>
+                          {it.value}
+                          {spanish.has(it.key) && <span className="app-spanish no-print">{ui.spanishMark[lang]}</span>}
+                        </>
                       ) : (
                         // Choices print in English (what goes on the form) with the chosen-language label beside it.
                         <>

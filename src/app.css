@@ -32,6 +32,7 @@ html, body { margin: 0; background: var(--surface); color: var(--ink); font-fami
 .app-form-card .cm-badge { align-self: flex-start; }
 .app-form-title { font: 700 22px/30px var(--font-sans); }
 .app-form-meta { font: 400 14px/20px var(--font-sans); color: var(--ink-muted); }
+.app-spanish { display: block; border-left: 4px solid var(--marigold); padding-left: var(--space-2); margin-top: var(--space-1); font: 600 14px/20px var(--font-sans); color: var(--ink); }
 .app-back-link { align-self: flex-start; font: 600 16px/24px var(--font-sans); color: var(--pine); }
 .app-stage { display: flex; flex-direction: column; gap: var(--space-4); }
 .app-home-h { margin: var(--space-4) 0 0; font: 700 22px/30px var(--font-sans); }

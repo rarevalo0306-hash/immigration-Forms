@@ -1,6 +1,7 @@
 import { Button, FormBadge, Notice } from '../design/components';
 import { fmt, ui, type Lang } from '../i18n';
 import type { FormDefinition } from '../forms/types';
+import { isOwnWords } from '../engine/language';
 
 interface Props {
   form: FormDefinition;
@@ -26,6 +27,9 @@ const steps = (form: FormDefinition) => ({
   ],
 });
 
+const asksOwnWords = (form: FormDefinition) =>
+  form.sections.some((s) => s.questions.some((q) => q.kind === 'fields' && q.fields.some(isOwnWords)));
+
 export function Welcome({ form, lang, hasProgress, onStart, onStartOver, reuseFrom, onStartWithData }: Props) {
   const reuse = !hasProgress && !!reuseFrom?.length && !!onStartWithData;
   return (
@@ -45,6 +49,7 @@ export function Welcome({ form, lang, hasProgress, onStart, onStartOver, reuseFr
           {fmt(ui.reuseBody[lang], { forms: reuseFrom!.join(', ') })}
         </Notice>
       )}
+      {asksOwnWords(form) && <Notice tone="info" title={ui.englishTitle[lang]}>{ui.englishBody[lang]}</Notice>}
       <Notice tone="info" title={ui.savedTitle[lang]}>{ui.savedBody[lang]}</Notice>
       <Notice tone="legal" title={ui.legalTitle[lang]}>{ui.legalBody[lang]}</Notice>
       <div className="cm-card-actions">
