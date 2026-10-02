@@ -5,7 +5,11 @@ import type { Answers, FormDefinition } from '../forms/types';
 import { normalizeQuestion, pruneHidden, validateQuestion, visibleScreens, type Errors } from '../engine/flow';
 import { clear, load, loadAll, save } from '../storage';
 import { buildProfile, prefillFor } from '../engine/profile';
-import { forms } from '../forms';
+import { forms, formById } from '../forms';
+import { stepsOf, type PackageDefinition } from '../forms/packages';
+import { nextStep } from '../engine/packages';
+import { formInPackageHref, packageHref, statusOf } from './Package';
+import { Button } from '../design/components';
 import { Welcome } from './Welcome';
 import { QuestionScreen } from './QuestionScreen';
 import { Review } from './Review';
@@ -13,7 +17,7 @@ import { Review } from './Review';
 const WELCOME = -1;
 
 /** One form, from its welcome screen through the questions to the review page. */
-export function FormFlow({ form, lang }: { form: FormDefinition; lang: Lang }) {
+export function FormFlow({ form, pkg, lang }: { form: FormDefinition; pkg?: PackageDefinition | null; lang: Lang }) {
   const saved = useMemo(() => load(form.id), [form.id]);
   // What the person already told Camino on other forms, to start this one with.
   const prefill = useMemo(() => {
@@ -21,6 +25,12 @@ export function FormFlow({ form, lang }: { form: FormDefinition; lang: Lang }) {
     const p = prefillFor(form, buildProfile(forms, loadAll(forms.map((f) => f.id), form.id)));
     return Object.keys(p.answers).length ? p : null;
   }, [form, saved]);
+  // What the package already answers for this form (the I-130 is for a spouse, …).
+  const preset = useMemo(() => (pkg && stepsOf(pkg).find((s) => s.formId === form.id)?.preset) ?? {}, [pkg, form.id]);
+  const startFresh = (answers: Answers) => {
+    setAnswers({ ...answers, ...preset });
+    go(0);
+  };
   const [answers, setAnswers] = useState<Answers>(saved?.answers ?? {});
   const [position, setPosition] = useState(WELCOME);
   const [errors, setErrors] = useState<Errors>({});
@@ -71,8 +81,16 @@ export function FormFlow({ form, lang }: { form: FormDefinition; lang: Lang }) {
     if (errors[id]) setErrors(({ [id]: _, ...rest }) => rest);
   };
 
+  const upNext = pkg && pos === reviewPos ? nextStep(pkg, form.id, statusOf) : undefined;
+  const nextForm = upNext && formById(upNext.formId);
+
   return (
     <>
+      {pkg && (
+        <a className="app-back-link no-print" href={packageHref(pkg)}>
+          ← {ui.backToPackage[lang]}: {pkg.title[lang]}
+        </a>
+      )}
       {screen && (
         <div className="no-print">
           <ProgressSteps
@@ -89,18 +107,14 @@ export function FormFlow({ form, lang }: { form: FormDefinition; lang: Lang }) {
           form={form}
           lang={lang}
           hasProgress={Object.keys(answers).length > 0}
-          onStart={() => go(Object.keys(answers).length ? Math.min(resumeAt, reviewPos) : 0)}
+          onStart={() => (Object.keys(answers).length ? go(Math.min(resumeAt, reviewPos)) : startFresh({}))}
           reuseFrom={prefill?.sources}
-          onStartWithData={() => {
-            if (prefill) setAnswers(prefill.answers);
-            go(0);
-          }}
+          onStartWithData={() => startFresh(prefill?.answers ?? {})}
           onStartOver={() => {
             if (!window.confirm(ui.confirmStartOver[lang])) return;
             clear(form.id);
-            setAnswers({});
             setResumeAt(0);
-            go(0);
+            startFresh({});
           }}
         />
       )}
@@ -130,6 +144,15 @@ export function FormFlow({ form, lang }: { form: FormDefinition; lang: Lang }) {
           }}
           onBack={() => go(reviewPos - 1)}
         />
+      )}
+      {pkg && pos === reviewPos && (
+        <section className="cm-card no-print">
+          <p className="cm-card-why">{nextForm ? fmt(ui.nextInPackage[lang], { form: `${nextForm.number}, ${nextForm.title[lang]}` }) : ui.packageDone[lang]}</p>
+          <div className="cm-card-actions">
+            <Button variant="quiet" onClick={() => (window.location.hash = packageHref(pkg).slice(1))}>{ui.backToPackage[lang]}</Button>
+            {nextForm && <Button onClick={() => (window.location.hash = formInPackageHref(nextForm.id, pkg).slice(1))}>{nextForm.number}</Button>}
+          </div>
+        </section>
       )}
     </>
   );

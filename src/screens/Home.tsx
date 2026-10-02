@@ -1,7 +1,10 @@
 import { FormBadge, Notice } from '../design/components';
-import { ui, type Lang } from '../i18n';
+import { fmt, ui, type Lang } from '../i18n';
 import type { FormDefinition } from '../forms/types';
 import { load } from '../storage';
+import { packages } from '../forms/packages';
+import { progressOf } from '../engine/packages';
+import { packageHref, statusOf } from './Package';
 
 export function Home({ forms, lang }: { forms: FormDefinition[]; lang: Lang }) {
   return (
@@ -14,6 +17,27 @@ export function Home({ forms, lang }: { forms: FormDefinition[]; lang: Lang }) {
             : 'We ask one question at a time, in Spanish or English, and at the end you download the official USCIS form already filled in.'}
         </p>
       </section>
+      <h2 className="app-home-h">{lang === 'es' ? 'Paquetes: todo lo de un trámite' : 'Packages: everything for one case'}</h2>
+      <p className="cm-card-why">
+        {lang === 'es'
+          ? 'Los formularios que su caso necesita, en orden. Lo que escriba en uno ya aparece en los siguientes.'
+          : 'The forms your case needs, in order. What you write in one already shows up in the next ones.'}
+      </p>
+      <ul className="app-form-list">
+        {packages.map((p) => {
+          const { done, total } = progressOf(p, statusOf);
+          return (
+            <li key={p.id}>
+              <a className="cm-card app-form-card" href={packageHref(p)}>
+                <FormBadge form={ui.packageWord[lang]} title={done ? fmt(ui.packageProgress[lang], { done, total }) : undefined} tone={done ? 'soft' : 'ink'} />
+                <span className="app-form-title">{p.title[lang]}</span>
+                <span className="cm-card-why">{p.summary[lang]}</span>
+              </a>
+            </li>
+          );
+        })}
+      </ul>
+      <h2 className="app-home-h">{lang === 'es' ? 'Formularios uno por uno' : 'Forms one by one'}</h2>
       <ul className="app-form-list">
         {forms.map((f) => {
           const started = Object.keys(load(f.id)?.answers ?? {}).length > 0;

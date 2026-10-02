@@ -5,15 +5,22 @@ import { forms, formById } from './forms';
 import { loadLang, saveLang } from './storage';
 import { Home } from './screens/Home';
 import { FormFlow } from './screens/FormFlow';
+import { Package } from './screens/Package';
+import { packageById } from './forms/packages';
 
-/** The form in the URL hash (#n-400), so a link or the back button lands on the right form. */
-function formFromHash() {
-  return formById(window.location.hash.replace(/^#\/?/, ''));
+/**
+ * What the URL hash points to, so a link or the back button lands on the right screen:
+ * a form (#n-400), a package (#paquete/matrimonio) or a form opened from a package (#i-130?paquete=matrimonio).
+ */
+function routeFromHash() {
+  const [path, query = ''] = window.location.hash.replace(/^#\/?/, '').split('?');
+  const pkg = path.startsWith('paquete/') ? packageById(path.slice(8)) : packageById(new URLSearchParams(query).get('paquete') ?? '');
+  return { form: formById(path), pkg: pkg ?? null };
 }
 
 export function App() {
   const [lang, setLang] = useState<Lang>(() => loadLang() ?? 'es');
-  const [form, setForm] = useState(formFromHash);
+  const [{ form, pkg }, setRoute] = useState(routeFromHash);
 
   useEffect(() => {
     document.documentElement.lang = lang;
@@ -21,7 +28,10 @@ export function App() {
   }, [lang]);
 
   useEffect(() => {
-    const onHash = () => setForm(formFromHash());
+    const onHash = () => {
+      setRoute(routeFromHash());
+      window.scrollTo({ top: 0 });
+    };
     window.addEventListener('hashchange', onHash);
     return () => window.removeEventListener('hashchange', onHash);
   }, []);
@@ -42,7 +52,13 @@ export function App() {
         />
       </header>
       <main className="app-main">
-        {form ? <FormFlow key={form.id} form={form} lang={lang} /> : <Home forms={forms} lang={lang} />}
+        {form ? (
+          <FormFlow key={`${form.id}:${pkg?.id ?? ''}`} form={form} pkg={pkg} lang={lang} />
+        ) : pkg ? (
+          <Package key={pkg.id} pkg={pkg} lang={lang} />
+        ) : (
+          <Home forms={forms} lang={lang} />
+        )}
       </main>
     </div>
   );
