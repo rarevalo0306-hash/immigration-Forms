@@ -1,6 +1,6 @@
 # Camino — formularios de inmigración, una pregunta a la vez
 
-Camino ayuda a inmigrantes a llenar los formularios de USCIS en español (o inglés), paso a paso, sin jerga legal. Por ahora tiene treinta y cinco:
+Camino ayuda a inmigrantes a llenar los formularios de USCIS en español (o inglés), paso a paso, sin jerga legal. Por ahora tiene treinta y siete:
 
 | Formulario | Edición | Qué es |
 | --- | --- | --- |
@@ -13,6 +13,7 @@ Camino ayuda a inmigrantes a llenar los formularios de USCIS en español (o ingl
 | **I-129F** | 01/20/25 | Petición para prometido/a (visa K-1) o cónyuge (K-3) |
 | **I-485** | 09/18/26 | Solicitud de residencia permanente desde EE.UU. (ajuste de estatus) |
 | **I-131** | 01/20/25 | Permiso de viaje: advance parole, permiso de reingreso, documento de viaje de refugiado o de TPS |
+| **I-131A** | 01/20/25 | Documento para volver si perdió la tarjeta de residente estando fuera del país |
 | **I-864** | 08/24/26 | Declaración de patrocinio económico (la presenta el patrocinador) |
 | **I-864EZ** | 08/24/26 | Versión corta del I-864 (peticionario que patrocina a una sola persona con ingresos de W-2) |
 | **I-864A** | 08/24/26 | Contrato entre el patrocinador y un familiar del hogar que suma sus ingresos |
@@ -32,6 +33,7 @@ Camino ayuda a inmigrantes a llenar los formularios de USCIS en español (o ingl
 | **I-360** | 01/20/25 | Viudos de ciudadanos, víctimas de abuso (VAWA) y jóvenes inmigrantes especiales (SIJ) |
 | **I-290B** | 05/31/24 | Apelación o moción contra una decisión de USCIS |
 | **I-539** | 08/28/24 | Extender o cambiar una visa de no inmigrante (turista, estudiante, etc.) |
+| **I-102** | 04/01/24 | Reemplazar el I-94 perdido, dañado o con errores |
 | **I-824** | 04/01/24 | Otra copia de una aprobación, o enviarla al consulado (incluye seguir al familiar) |
 | **I-407** | 09/25/24 | Renunciar a la residencia permanente |
 | **G-1145** | 09/26/14 | Aviso por correo o texto cuando USCIS acepta su solicitud |
@@ -81,11 +83,11 @@ npm run build
 | Ruta | Qué es |
 | --- | --- |
 | `src/design/` | Tokens y componentes del sistema de diseño Camino (Button, TextField, ChoiceGroup, ProgressSteps, QuestionCard, Notice, LanguageToggle, FormBadge) |
-| `src/forms/` | El contenido de cada formulario (`i765.ts`, `i765ws.ts`, `i821d.ts`, `i821.ts` con `i821Part7.ts`, `i130.ts`, `i130a.ts`, `i129f.ts`, `i485.ts` con `i485Part9.ts`, `i131.ts`, `i864.ts`, `i864ez.ts`, `i864a.ts`, `i865.ts`, `i751.ts`, `i90.ts`, `ar11.ts`, `i912.ts`, `i134.ts`, `i589.ts`, `i730.ts`, `i601a.ts`, `i601.ts`, `i212.ts`, `i918.ts`, `i914.ts`, `i360.ts`, `i290b.ts`, `i539.ts` con `i539Status.ts`, `i824.ts`, `i407.ts`, `g1145.ts`, `n400.ts`, `n336.ts`, `n600.ts`, `n565.ts`): secciones, preguntas en ES/EN, referencias al formulario y condiciones; `helpers.ts` con piezas comunes |
+| `src/forms/` | El contenido de cada formulario (`i765.ts`, `i765ws.ts`, `i821d.ts`, `i821.ts` con `i821Part7.ts`, `i130.ts`, `i130a.ts`, `i129f.ts`, `i485.ts` con `i485Part9.ts`, `i131.ts`, `i131a.ts`, `i864.ts`, `i864ez.ts`, `i864a.ts`, `i865.ts`, `i751.ts`, `i90.ts`, `ar11.ts`, `i912.ts`, `i134.ts`, `i589.ts`, `i730.ts`, `i601a.ts`, `i601.ts`, `i212.ts`, `i918.ts`, `i914.ts`, `i360.ts`, `i290b.ts`, `i539.ts` con `i539Status.ts`, `i102.ts`, `i824.ts`, `i407.ts`, `g1145.ts`, `n400.ts`, `n336.ts`, `n600.ts`, `n565.ts`): secciones, preguntas en ES/EN, referencias al formulario y condiciones; `helpers.ts` con piezas comunes |
 | `src/engine/` | Qué preguntas se muestran, validación y normalización (con pruebas) |
 | `src/pdf/` | Llenado de cada PDF oficial (con pruebas sobre los PDF reales) |
 | `src/screens/` | Inicio, bienvenida, preguntas y revisión |
 | `public/forms/` | Los PDF oficiales listos para llenar |
 | `scripts/` | Preparación de una nueva edición de un PDF |
 
-Para agregar otro formulario (I-360, I-601…), cree un `FormDefinition` como `src/forms/n400.ts`, su llenado en `src/pdf/`, y agréguelo a `src/forms/index.ts`.
+Para agregar otro formulario (por ejemplo, otro de USCIS), cree un `FormDefinition` como `src/forms/n400.ts`, su llenado en `src/pdf/`, y agréguelo a `src/forms/index.ts`.
