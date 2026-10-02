@@ -1,6 +1,6 @@
 # Camino — formularios de inmigración, una pregunta a la vez
 
-Camino ayuda a inmigrantes a llenar los formularios de USCIS en español (o inglés), paso a paso, sin jerga legal. Por ahora tiene treinta y tres:
+Camino ayuda a inmigrantes a llenar los formularios de USCIS en español (o inglés), paso a paso, sin jerga legal. Por ahora tiene treinta y cuatro:
 
 | Formulario | Edición | Qué es |
 | --- | --- | --- |
@@ -37,6 +37,7 @@ Camino ayuda a inmigrantes a llenar los formularios de USCIS en español (o ingl
 | **N-400** | 01/20/25 | Solicitud de ciudadanía (naturalización) |
 | **N-336** | 04/01/24 | Pedir audiencia si le negaron la ciudadanía |
 | **N-600** | 01/20/25 | Certificado de ciudadanía para hijos de ciudadanos |
+| **N-565** | 02/27/25 | Reemplazo del certificado de naturalización o ciudadanía |
 
 ## Qué hace
 
@@ -79,7 +80,7 @@ npm run build
 | Ruta | Qué es |
 | --- | --- |
 | `src/design/` | Tokens y componentes del sistema de diseño Camino (Button, TextField, ChoiceGroup, ProgressSteps, QuestionCard, Notice, LanguageToggle, FormBadge) |
-| `src/forms/` | El contenido de cada formulario (`i765.ts`, `i765ws.ts`, `i821d.ts`, `i821.ts` con `i821Part7.ts`, `i130.ts`, `i130a.ts`, `i129f.ts`, `i485.ts` con `i485Part9.ts`, `i131.ts`, `i864.ts`, `i864ez.ts`, `i864a.ts`, `i865.ts`, `i751.ts`, `i90.ts`, `ar11.ts`, `i912.ts`, `i134.ts`, `i589.ts`, `i730.ts`, `i601a.ts`, `i601.ts`, `i212.ts`, `i918.ts`, `i914.ts`, `i360.ts`, `i290b.ts`, `i539.ts` con `i539Status.ts`, `i407.ts`, `g1145.ts`, `n400.ts`, `n336.ts`, `n600.ts`): secciones, preguntas en ES/EN, referencias al formulario y condiciones; `helpers.ts` con piezas comunes |
+| `src/forms/` | El contenido de cada formulario (`i765.ts`, `i765ws.ts`, `i821d.ts`, `i821.ts` con `i821Part7.ts`, `i130.ts`, `i130a.ts`, `i129f.ts`, `i485.ts` con `i485Part9.ts`, `i131.ts`, `i864.ts`, `i864ez.ts`, `i864a.ts`, `i865.ts`, `i751.ts`, `i90.ts`, `ar11.ts`, `i912.ts`, `i134.ts`, `i589.ts`, `i730.ts`, `i601a.ts`, `i601.ts`, `i212.ts`, `i918.ts`, `i914.ts`, `i360.ts`, `i290b.ts`, `i539.ts` con `i539Status.ts`, `i407.ts`, `g1145.ts`, `n400.ts`, `n336.ts`, `n600.ts`, `n565.ts`): secciones, preguntas en ES/EN, referencias al formulario y condiciones; `helpers.ts` con piezas comunes |
 | `src/engine/` | Qué preguntas se muestran, validación y normalización (con pruebas) |
 | `src/pdf/` | Llenado de cada PDF oficial (con pruebas sobre los PDF reales) |
 | `src/screens/` | Inicio, bienvenida, preguntas y revisión |
