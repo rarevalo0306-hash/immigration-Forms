@@ -1,10 +1,11 @@
 # Camino — formularios de inmigración, una pregunta a la vez
 
-Camino ayuda a inmigrantes a llenar los formularios de USCIS en español (o inglés), paso a paso, sin jerga legal. Por ahora tiene veinte:
+Camino ayuda a inmigrantes a llenar los formularios de USCIS en español (o inglés), paso a paso, sin jerga legal. Por ahora tiene veintiún:
 
 | Formulario | Edición | Qué es |
 | --- | --- | --- |
 | **I-765** | 08/21/25 | Solicitud de permiso de trabajo (EAD) |
+| **I-765WS** | 08/21/25 | Hoja de ingresos y gastos que acompaña al I-765 en DACA y otras categorías |
 | **I-821D** | 01/20/25 | DACA: renovación o solicitud inicial (va con el I-765) |
 | **I-821** | 01/20/25 | TPS: solicitud inicial o nuevo registro (va con el I-765) |
 | **I-130** | 04/01/24 | Petición para un familiar (la presenta el ciudadano o residente) |
@@ -66,7 +67,7 @@ npm run build
 | Ruta | Qué es |
 | --- | --- |
 | `src/design/` | Tokens y componentes del sistema de diseño Camino (Button, TextField, ChoiceGroup, ProgressSteps, QuestionCard, Notice, LanguageToggle, FormBadge) |
-| `src/forms/` | El contenido de cada formulario (`i765.ts`, `i821d.ts`, `i821.ts` con `i821Part7.ts`, `i130.ts`, `i130a.ts`, `i129f.ts`, `i485.ts` con `i485Part9.ts`, `i131.ts`, `i864.ts`, `i864ez.ts`, `i864a.ts`, `i751.ts`, `i90.ts`, `ar11.ts`, `i912.ts`, `i589.ts`, `i601a.ts`, `g1145.ts`, `n400.ts`, `n600.ts`): secciones, preguntas en ES/EN, referencias al formulario y condiciones; `helpers.ts` con piezas comunes |
+| `src/forms/` | El contenido de cada formulario (`i765.ts`, `i765ws.ts`, `i821d.ts`, `i821.ts` con `i821Part7.ts`, `i130.ts`, `i130a.ts`, `i129f.ts`, `i485.ts` con `i485Part9.ts`, `i131.ts`, `i864.ts`, `i864ez.ts`, `i864a.ts`, `i751.ts`, `i90.ts`, `ar11.ts`, `i912.ts`, `i589.ts`, `i601a.ts`, `g1145.ts`, `n400.ts`, `n600.ts`): secciones, preguntas en ES/EN, referencias al formulario y condiciones; `helpers.ts` con piezas comunes |
 | `src/engine/` | Qué preguntas se muestran, validación y normalización (con pruebas) |
 | `src/pdf/` | Llenado de cada PDF oficial (con pruebas sobre los PDF reales) |
 | `src/screens/` | Inicio, bienvenida, preguntas y revisión |

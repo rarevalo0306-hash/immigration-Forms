@@ -11,8 +11,8 @@ const BY_POSITION: Record<string, RegExp> = {
   'i-765.pdf': /^Pt[56]Line3b_Unit$/,
 };
 
-// The I-589 asks for an "Apt. Number" as text and the G-1145 has no address: neither has unit boxes.
-const NO_UNITS = new Set(['i-589.pdf', 'g-1145.pdf']);
+// The I-589 asks for an "Apt. Number" as text, and the G-1145 and I-765WS have no address: none has unit boxes.
+const NO_UNITS = new Set(['i-589.pdf', 'g-1145.pdf', 'i-765ws.pdf']);
 
 const dir = new URL('../../public/forms/', import.meta.url);
 
