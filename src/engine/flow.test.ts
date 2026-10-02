@@ -465,3 +465,28 @@ describe('I-589 flow', async () => {
     expect(ids({ familyHelped: 'yes' })).toContain('helpers');
   });
 });
+
+describe('I-864EZ flow', async () => {
+  const { i864ez } = await import('../forms/i864ez');
+  const ids = (a: Record<string, string>) => visibleScreens(i864ez, a).map((s) => s.question.id);
+
+  it('has unique answer ids', () => {
+    const seen = new Set<string>();
+    for (const s of i864ez.sections)
+      for (const q of s.questions) {
+        const own = q.kind === 'fields' ? q.fields.map((f) => f.id) : q.kind === 'yesNoList' ? q.items.map((i) => i.id) : [q.id];
+        for (const id of own) {
+          expect(seen.has(id), id).toBe(false);
+          seen.add(id);
+        }
+      }
+  });
+
+  it('sends sponsors who do not qualify to the I-864', () => {
+    expect(ids({ 'ez.petitioner': 'yes', 'ez.w2': 'yes', 'ez.onlyOne': 'yes' })).not.toContain('useI864');
+    expect(ids({ 'ez.w2': 'no' })).toContain('useI864');
+    expect(ids({ mailingSame: 'no' })).toContain('home');
+    expect(ids({ employment: 'retired' })).toContain('retired');
+    expect(ids({ employment: 'retired' })).not.toContain('employed');
+  });
+});
