@@ -1,7 +1,7 @@
-import { PDFCheckBox, PDFDocument, PDFTextField, StandardFonts, type PDFFont } from 'pdf-lib';
+import { PDFCheckBox, PDFDocument, PDFTextField, StandardFonts } from 'pdf-lib';
 import type { Answers } from '../forms/types';
 import { NARRATIVES } from '../forms/i589';
-import { fieldIndex, optionBoxes, setFieldText, toFormText } from './common';
+import { fieldIndex, optionBoxes, setFieldText, toFormText, wrap } from './common';
 
 // Fields of USCIS Form I-589, edition 07/28/26 (public/forms/i-589.pdf), named by the last segment
 // of their full name. Most names are generic ("TextField13[n]", "DateTimeField24[0]"), so they were
@@ -351,24 +351,6 @@ export function planI589(a: Answers): I589Plan {
   yn('ckboxynd3', a.counselList);
 
   return { text, check, checkValue, narratives };
-}
-
-/** Breaks text into the lines a box of `width` points shows at `size`. */
-function wrap(s: string, font: PDFFont, size: number, width: number): string[] {
-  const lines: string[] = [];
-  for (const paragraph of s.split('\n')) {
-    let line = '';
-    for (const word of paragraph.split(/\s+/).filter(Boolean)) {
-      const next = line ? `${line} ${word}` : word;
-      if (font.widthOfTextAtSize(next, size) <= width) line = next;
-      else {
-        if (line) lines.push(line);
-        line = word;
-      }
-    }
-    lines.push(line);
-  }
-  return lines;
 }
 
 const NARRATIVE_SIZE = 8;

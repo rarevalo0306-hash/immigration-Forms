@@ -524,3 +524,32 @@ describe('N-600 flow', async () => {
     expect(ids({})).not.toContain('presence1');
   });
 });
+
+describe('I-601A flow', async () => {
+  const { i601a } = await import('../forms/i601a');
+  const ids = (a: Record<string, string | string[]>) => visibleScreens(i601a, a).map((s) => s.question.id);
+
+  it('has unique answer ids', () => {
+    const seen = new Set<string>();
+    for (const s of i601a.sections)
+      for (const q of s.questions) {
+        const own = q.kind === 'fields' ? q.fields.map((f) => f.id) : q.kind === 'yesNoList' ? q.items.map((i) => i.id) : [q.id];
+        for (const id of own) {
+          expect(seen.has(id), id).toBe(false);
+          seen.add(id);
+        }
+      }
+  });
+
+  it('follows the answers', () => {
+    expect(ids({ proceedings: 'yes' })).toContain('proceedingsStatus');
+    expect(ids({ finalOrder: 'yes' })).toContain('i212');
+    expect(ids({ i871: 'yes' })).toContain('reinstated');
+    expect(ids({ 'p1.34': 'yes' })).toContain('backgroundExplain');
+    expect(ids({})).not.toContain('backgroundExplain');
+    expect(ids({ basis: '1' })).toContain('dv');
+    expect(ids({ basis: '2' })).toContain('petition');
+    expect(ids({ 'prevEntry.more0': 'yes', 'prevEntry.more1': 'yes', 'prevEntry.more2': 'yes' })).toContain('otherEntriesExplain');
+    expect(ids({ 'qualifying.more1': 'yes' })).toContain('qualifying2');
+  });
+});

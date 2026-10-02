@@ -1,4 +1,4 @@
-import { PDFCheckBox, type PDFDropdown, type PDFField, type PDFForm, type PDFTextField } from 'pdf-lib';
+import { PDFCheckBox, type PDFDropdown, type PDFField, type PDFFont, type PDFForm, type PDFTextField } from 'pdf-lib';
 
 /**
  * The PDF's standard font covers Latin-1 only, and USCIS reads its forms in English: drop accents
@@ -71,4 +71,22 @@ export function fieldsBySegment(fields: PDFField[]) {
     out.set(s, [...(out.get(s) ?? []), f]);
   }
   return out;
+}
+
+/** Breaks text into the lines a box of `width` points shows at `size`. */
+export function wrap(s: string, font: PDFFont, size: number, width: number): string[] {
+  const lines: string[] = [];
+  for (const paragraph of s.split('\n')) {
+    let line = '';
+    for (const word of paragraph.split(/\s+/).filter(Boolean)) {
+      const next = line ? `${line} ${word}` : word;
+      if (font.widthOfTextAtSize(next, size) <= width) line = next;
+      else {
+        if (line) lines.push(line);
+        line = word;
+      }
+    }
+    lines.push(line);
+  }
+  return lines;
 }
