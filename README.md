@@ -50,6 +50,7 @@ Camino ayuda a inmigrantes a llenar los formularios de USCIS en español (o ingl
 - Valida y normaliza fechas (MM/DD/AAAA), A-Number, Seguro Social, código postal, teléfono, estado, recibos, I-94, SEVIS y el largo de cada campo del PDF.
 - En el I-864 suma solo el tamaño del hogar, el ingreso del hogar y el total de bienes.
 - Guarda el progreso solo en el dispositivo (`localStorage`); nada se envía a ningún servidor.
+- Reutiliza los datos entre formularios: al abrir un formulario nuevo ofrece "Usar mis datos" con lo que la persona ya contestó en otros (nombre, A-Number, fecha y lugar de nacimiento, teléfono, correo, direcciones, datos biográficos). Cada formulario dice quién es quién (`src/engine/profile.ts`): el beneficiario del I-130 es quien llena el I-485 y el inmigrante principal del I-864; el peticionario del I-130 es el patrocinador del I-864. Solo pasa valores que el formulario acepta, y siempre se pueden cambiar.
 - Termina con el **PDF oficial ya lleno**, generado en el navegador con [pdf-lib](https://pdf-lib.js.org), y una hoja de respuestas imprimible.
 
 Camino **no es asesoría legal** y no envía nada a USCIS: la persona revisa el PDF, lo firma a mano y lo presenta. Lo que se llena a mano: las partes del intérprete y de quien prepara el formulario, y lo que no cabe en el PDF (más filas o explicaciones, en la Parte 14 del N-400).

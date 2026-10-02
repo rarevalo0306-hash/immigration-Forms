@@ -29,6 +29,13 @@ export const ui = {
   notAnswered: { es: 'Sin respuesta', en: 'Not answered' },
   step: { es: 'Paso {c} de {t}', en: 'Step {c} of {t}' },
   progress: { es: 'Progreso', en: 'Progress' },
+  reuseTitle: { es: 'Ya tenemos algunos datos', en: 'We already have some details' },
+  reuseBody: {
+    es: 'Usted ya nos dio nombres, fechas, direcciones y otros datos en: {forms}. Podemos ponerlos aquí para que no los escriba otra vez. Igual verá cada pregunta y podrá cambiar lo que quiera.',
+    en: 'You already gave us names, dates, addresses and other details in: {forms}. We can put them here so you don’t type them again. You’ll still see every question and can change anything.',
+  },
+  reuseYes: { es: 'Usar mis datos', en: 'Use my details' },
+  reuseNo: { es: 'Empezar en blanco', en: 'Start blank' },
   savedTitle: { es: 'Su progreso se guarda solo', en: 'Your progress saves automatically' },
   savedBody: {
     es: 'Las respuestas se guardan solo en este dispositivo. Puede cerrar la app y continuar después.',

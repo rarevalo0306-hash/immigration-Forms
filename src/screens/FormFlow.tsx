@@ -3,7 +3,9 @@ import { ProgressSteps } from '../design/components';
 import { fmt, ui, type Lang } from '../i18n';
 import type { Answers, FormDefinition } from '../forms/types';
 import { normalizeQuestion, pruneHidden, validateQuestion, visibleScreens, type Errors } from '../engine/flow';
-import { clear, load, save } from '../storage';
+import { clear, load, loadAll, save } from '../storage';
+import { buildProfile, prefillFor } from '../engine/profile';
+import { forms } from '../forms';
 import { Welcome } from './Welcome';
 import { QuestionScreen } from './QuestionScreen';
 import { Review } from './Review';
@@ -13,6 +15,12 @@ const WELCOME = -1;
 /** One form, from its welcome screen through the questions to the review page. */
 export function FormFlow({ form, lang }: { form: FormDefinition; lang: Lang }) {
   const saved = useMemo(() => load(form.id), [form.id]);
+  // What the person already told Camino on other forms, to start this one with.
+  const prefill = useMemo(() => {
+    if (saved && Object.keys(saved.answers).length) return null;
+    const p = prefillFor(form, buildProfile(forms, loadAll(forms.map((f) => f.id), form.id)));
+    return Object.keys(p.answers).length ? p : null;
+  }, [form, saved]);
   const [answers, setAnswers] = useState<Answers>(saved?.answers ?? {});
   const [position, setPosition] = useState(WELCOME);
   const [errors, setErrors] = useState<Errors>({});
@@ -82,6 +90,11 @@ export function FormFlow({ form, lang }: { form: FormDefinition; lang: Lang }) {
           lang={lang}
           hasProgress={Object.keys(answers).length > 0}
           onStart={() => go(Object.keys(answers).length ? Math.min(resumeAt, reviewPos) : 0)}
+          reuseFrom={prefill?.sources}
+          onStartWithData={() => {
+            if (prefill) setAnswers(prefill.answers);
+            go(0);
+          }}
           onStartOver={() => {
             if (!window.confirm(ui.confirmStartOver[lang])) return;
             clear(form.id);

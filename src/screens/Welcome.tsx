@@ -1,5 +1,5 @@
 import { Button, FormBadge, Notice } from '../design/components';
-import { ui, type Lang } from '../i18n';
+import { fmt, ui, type Lang } from '../i18n';
 import type { FormDefinition } from '../forms/types';
 
 interface Props {
@@ -8,6 +8,9 @@ interface Props {
   hasProgress: boolean;
   onStart: () => void;
   onStartOver: () => void;
+  /** Forms whose answers can start this one, when there is no progress yet. */
+  reuseFrom?: string[];
+  onStartWithData?: () => void;
 }
 
 const steps = (form: FormDefinition) => ({
@@ -23,7 +26,8 @@ const steps = (form: FormDefinition) => ({
   ],
 });
 
-export function Welcome({ form, lang, hasProgress, onStart, onStartOver }: Props) {
+export function Welcome({ form, lang, hasProgress, onStart, onStartOver, reuseFrom, onStartWithData }: Props) {
+  const reuse = !hasProgress && !!reuseFrom?.length && !!onStartWithData;
   return (
     <section className="cm-card">
       <div className="cm-card-eyebrow">
@@ -36,6 +40,11 @@ export function Welcome({ form, lang, hasProgress, onStart, onStartOver }: Props
           <li key={s}>{s}</li>
         ))}
       </ol>
+      {reuse && (
+        <Notice tone="info" title={ui.reuseTitle[lang]}>
+          {fmt(ui.reuseBody[lang], { forms: reuseFrom!.join(', ') })}
+        </Notice>
+      )}
       <Notice tone="info" title={ui.savedTitle[lang]}>{ui.savedBody[lang]}</Notice>
       <Notice tone="legal" title={ui.legalTitle[lang]}>{ui.legalBody[lang]}</Notice>
       <div className="cm-card-actions">
@@ -43,6 +52,11 @@ export function Welcome({ form, lang, hasProgress, onStart, onStartOver }: Props
           <>
             <Button variant="quiet" onClick={onStartOver}>{ui.startOver[lang]}</Button>
             <Button onClick={onStart}>{ui.resume[lang]}</Button>
+          </>
+        ) : reuse ? (
+          <>
+            <Button variant="quiet" onClick={onStart}>{ui.reuseNo[lang]}</Button>
+            <Button onClick={onStartWithData}>{ui.reuseYes[lang]}</Button>
           </>
         ) : (
           <>
