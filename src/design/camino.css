@@ -1,0 +1,103 @@
+/* Camino — component styles. Reads tokens.css custom properties only. */
+.cm, .cm * { box-sizing: border-box; }
+.cm { font-family: var(--font-sans); color: var(--ink); }
+.cm-row { display: flex; flex-wrap: wrap; gap: var(--space-4); align-items: center; padding: var(--space-4); font-family: var(--font-sans); }
+.cm-stack { display: flex; flex-direction: column; gap: var(--space-4); padding: var(--space-4); font-family: var(--font-sans); }
+.cm-focus:focus-visible, .cm-btn:focus-visible, .cm-input:focus-visible, .cm-choice input:focus-visible + .cm-choice-box, .cm-lang button:focus-visible {
+  outline: 3px solid var(--marigold); outline-offset: 2px;
+}
+
+/* Button */
+.cm-btn { display: inline-flex; align-items: center; justify-content: center; gap: var(--space-2);
+  min-height: 48px; padding: 0 var(--space-6); border-radius: var(--radius-md);
+  font: 700 16px/22px var(--font-sans); cursor: pointer; border: 2px solid transparent; text-decoration: none; }
+.cm-btn--primary { background: var(--pine); color: var(--surface-raised); }
+.cm-btn--primary:hover { background: var(--ink); }
+.cm-btn--secondary { background: var(--surface-raised); color: var(--pine); border-color: var(--pine); }
+.cm-btn--secondary:hover { background: var(--pine-soft); }
+.cm-btn--quiet { background: transparent; color: var(--pine); padding: 0 var(--space-2); text-decoration: underline; text-underline-offset: 3px; }
+.cm-btn--block { width: 100%; }
+.cm-btn[disabled] { background: var(--surface); color: var(--ink-muted); border-color: var(--line); cursor: not-allowed; }
+
+/* TextField */
+.cm-field { display: flex; flex-direction: column; gap: var(--space-2); max-width: 420px; }
+.cm-label { font: 700 16px/22px var(--font-sans); color: var(--ink); }
+.cm-label-en { display: block; font: 400 14px/20px var(--font-sans); color: var(--ink-muted); }
+.cm-input { min-height: 48px; padding: 0 var(--space-4); border: 2px solid var(--line); border-radius: var(--radius-md);
+  background: var(--surface-raised); color: var(--ink); font: 400 18px/28px var(--font-sans); width: 100%; }
+.cm-input::placeholder { color: var(--ink-muted); }
+.cm-input:focus { border-color: var(--pine); }
+.cm-field--error .cm-input { border-color: var(--danger); }
+.cm-hint { font: 400 14px/20px var(--font-sans); color: var(--ink-muted); }
+.cm-error { font: 700 14px/20px var(--font-sans); color: var(--danger); }
+
+/* ChoiceGroup */
+.cm-choices { display: flex; flex-direction: column; gap: var(--space-2); border: 0; margin: 0; padding: 0; max-width: 420px; }
+.cm-choices legend { font: 700 16px/22px var(--font-sans); margin-bottom: var(--space-2); padding: 0; }
+.cm-choice { position: relative; display: flex; align-items: center; gap: var(--space-4); min-height: 56px;
+  padding: var(--space-2) var(--space-4); border: 2px solid var(--line); border-radius: var(--radius-md);
+  background: var(--surface-raised); color: var(--ink); cursor: pointer; font: 400 18px/28px var(--font-sans); }
+.cm-choice input { position: absolute; opacity: 0; width: 1px; height: 1px; }
+.cm-choice-box { flex: none; width: 24px; height: 24px; border: 2px solid var(--line); border-radius: var(--radius-pill); background: var(--surface-raised); }
+.cm-choice--checkbox .cm-choice-box { border-radius: var(--radius-sm); }
+.cm-choice:has(input:checked) { border-color: var(--pine); background: var(--pine-soft); }
+.cm-choice input:checked + .cm-choice-box { border: 7px solid var(--pine); }
+.cm-choice--checkbox input:checked + .cm-choice-box { border: 0; background: var(--pine);
+  box-shadow: inset 0 0 0 5px var(--pine), inset 0 0 0 12px var(--surface-raised); }
+
+/* ProgressSteps */
+.cm-progress { display: flex; flex-direction: column; gap: var(--space-2); }
+.cm-progress-meta { font: 400 14px/20px var(--font-sans); color: var(--ink-muted); }
+.cm-progress-meta strong { color: var(--ink); }
+.cm-steps { display: flex; align-items: center; gap: 4px; list-style: none; margin: 0; padding: 0; }
+.cm-step { width: 16px; height: 16px; border-radius: var(--radius-pill); border: 2px solid var(--line); background: var(--surface-raised); flex: none; }
+.cm-step--done { background: var(--pine); border-color: var(--pine); }
+.cm-step--current { background: var(--marigold); border-color: var(--ink); width: 24px; height: 24px; }
+.cm-step-bar { flex: 1; height: 2px; background: var(--line); min-width: 4px; }
+.cm-step-bar--done { background: var(--pine); }
+
+/* QuestionCard */
+.cm-card { background: var(--surface-raised); border: 1px solid var(--line); border-radius: var(--radius-md);
+  padding: var(--space-6); display: flex; flex-direction: column; gap: var(--space-4); max-width: 560px; }
+.cm-card-eyebrow { font: 400 14px/20px var(--font-sans); color: var(--ink-muted); }
+.cm-card-q { margin: 0; font: 700 22px/30px var(--font-sans); color: var(--ink); }
+.cm-card-why { margin: 0; font: 400 16px/24px var(--font-sans); color: var(--ink-muted); }
+.cm-card-actions { display: flex; flex-wrap: wrap; gap: var(--space-4); align-items: center; justify-content: space-between; padding-top: var(--space-2); }
+
+/* Notice */
+.cm-notice { display: flex; gap: var(--space-4); padding: var(--space-4); border-radius: var(--radius-md); max-width: 560px;
+  font: 400 16px/24px var(--font-sans); color: var(--ink); border: 2px solid var(--line); background: var(--surface-raised); }
+.cm-notice-mark { flex: none; width: 24px; height: 24px; border-radius: var(--radius-pill); display: grid; place-items: center;
+  font: 700 14px/1 var(--font-sans); }
+.cm-notice-title { display: block; font-weight: 700; }
+.cm-notice--info { background: var(--pine-soft); border-color: var(--pine-soft); }
+.cm-notice--info .cm-notice-mark { background: var(--pine); color: var(--surface-raised); }
+.cm-notice--legal { border-color: var(--marigold); }
+.cm-notice--legal .cm-notice-mark { background: var(--marigold); color: var(--ink); }
+.cm-notice--error { border-color: var(--danger); }
+.cm-notice--error .cm-notice-mark { background: var(--danger); color: var(--surface-raised); }
+
+/* LanguageToggle */
+.cm-lang { display: inline-flex; padding: 4px; gap: 4px; border: 2px solid var(--line); border-radius: var(--radius-pill); background: var(--surface-raised); }
+.cm-lang button { min-height: 40px; min-width: 56px; padding: 0 var(--space-4); border: 0; border-radius: var(--radius-pill);
+  background: transparent; color: var(--ink); font: 700 16px/22px var(--font-sans); cursor: pointer; }
+.cm-lang button[aria-pressed="true"] { background: var(--pine); color: var(--surface-raised); }
+
+/* FormBadge */
+.cm-badge { white-space: nowrap; display: inline-flex; align-items: baseline; gap: var(--space-2); padding: 4px var(--space-2);
+  border-radius: var(--radius-sm); background: var(--ink); color: var(--surface-raised); font: 700 14px/20px var(--font-sans); }
+.cm-badge span { font-weight: 400; }
+.cm-badge--soft { background: var(--pine-soft); color: var(--ink); }
+
+/* TextField, multiline */
+.cm-textarea { min-height: 120px; padding: var(--space-2) var(--space-4); resize: vertical; }
+
+/* YesNoRow */
+.cm-yn { border: 0; margin: 0; padding: var(--space-4) 0 0; display: flex; flex-direction: column; gap: var(--space-2); border-top: 1px solid var(--line); }
+.cm-yn-q { padding: 0; font: 400 18px/28px var(--font-sans); color: var(--ink); margin-bottom: var(--space-2); }
+.cm-yn-opts { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-2); }
+.cm-yn-opt { min-height: 48px; }
+.cm-yn--error .cm-yn-opt { border-color: var(--danger); }
+.cm-select { appearance: none; padding-right: var(--space-8);
+  background-image: linear-gradient(45deg, transparent 50%, var(--ink) 50%), linear-gradient(135deg, var(--ink) 50%, transparent 50%);
+  background-position: calc(100% - 22px) 50%, calc(100% - 16px) 50%; background-size: 6px 6px; background-repeat: no-repeat; }
