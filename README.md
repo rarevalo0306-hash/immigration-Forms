@@ -87,6 +87,8 @@ npm run build
 
 Cada push y cada pull request corren en GitHub Actions el chequeo de tipos, las pruebas y el build (`.github/workflows/ci.yml`).
 
+Cada lunes, el flujo "Ediciones USCIS" (`.github/workflows/editions.yml`) compara la edición de cada formulario con la que muestra su página en uscis.gov (`npm run check-editions`) y, si alguna cambió, abre un issue con la etiqueta `ediciones-uscis` que dice cuáles y cómo actualizarlas. También se puede correr a mano desde la pestaña Actions.
+
 ## Publicación
 
 El sitio está en Vercel (proyecto `camino-formularios`, conectado a este repositorio). Cada push a `main` publica la versión nueva en https://camino-formularios.vercel.app; los pushes a otras ramas crean una vista previa privada. Es un sitio estático: no hay servidor ni base de datos, y las respuestas nunca salen del navegador de la persona.

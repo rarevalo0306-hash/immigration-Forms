@@ -52,8 +52,11 @@ const NOTES: Record<string, T> = {
   'i-864a': t('Va junto con el I-864 del patrocinador, a donde se envíe ese formulario.', 'It goes with the sponsor’s I-864, wherever that form is sent.'),
 };
 
+/** The uscis.gov page (path after the domain) that carries a form's edition and filing details. */
+export const pageFor = (formId: string) => PAGE[formId] ?? formId;
+
 export function filingLinks(formId: string, formNumber: string): { links: FilingLink[]; note?: T } {
-  const page = PAGE[formId] ?? formId;
+  const page = pageFor(formId);
   const links: FilingLink[] = [
     {
       label: t(`Dónde enviarlo: página oficial del ${page.toUpperCase()}`, `Where to file: the official ${page.toUpperCase()} page`),
