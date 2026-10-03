@@ -97,6 +97,7 @@ export const packages: PackageDefinition[] = [
         'El I-485 necesita el examen médico I-693, sellado por un médico civil autorizado (Camino no lo llena).',
         'El I-864 va con la declaración de impuestos más reciente del ciudadano.',
         'Cada persona firma a mano su propio formulario.',
+        'Envíe todo junto a la dirección del I-485: búsquela en uscis.gov/i-485, sección "Where to File".',
       ],
       en: [
         feesTip.en,
@@ -104,6 +105,7 @@ export const packages: PackageDefinition[] = [
         'The I-485 needs the I-693 medical exam, sealed by an authorized civil surgeon (Camino doesn’t fill it).',
         'The I-864 goes with the citizen’s most recent tax return.',
         'Each person signs their own form by hand.',
+        'Send everything together to the I-485 address: find it at uscis.gov/i-485, "Where to File" section.',
       ],
     },
   },
@@ -199,8 +201,8 @@ export const packages: PackageDefinition[] = [
       },
     ],
     tips: {
-      es: [feesTip.es, 'Envíe la renovación entre 120 y 150 días antes de que venza su DACA.', 'Incluya una copia de su permiso de trabajo actual (frente y reverso).'],
-      en: [feesTip.en, 'File the renewal 120 to 150 days before your DACA expires.', 'Include a copy of your current work permit (front and back).'],
+      es: [feesTip.es, 'Envíe la renovación entre 120 y 150 días antes de que venza su DACA.', 'Incluya una copia de su permiso de trabajo actual (frente y reverso).', 'Envíe los tres juntos a la dirección del I-821D: uscis.gov/i-821d, sección "Where to File".'],
+      en: [feesTip.en, 'File the renewal 120 to 150 days before your DACA expires.', 'Include a copy of your current work permit (front and back).', 'Send all three together to the I-821D address: uscis.gov/i-821d, "Where to File" section.'],
     },
   },
   {
@@ -232,8 +234,8 @@ export const packages: PackageDefinition[] = [
       },
     ],
     tips: {
-      es: [feesTip.es, 'Revise en uscis.gov/tps que su país siga designado y las fechas para registrarse.'],
-      en: [feesTip.en, 'Check at uscis.gov/tps that your country is still designated and the dates to register.'],
+      es: [feesTip.es, 'Revise en uscis.gov/tps que su país siga designado y las fechas para registrarse.', 'Si los envía por correo, van juntos a la dirección del I-821 (uscis.gov/i-821, "Where to File"), que depende de su país.'],
+      en: [feesTip.en, 'Check at uscis.gov/tps that your country is still designated and the dates to register.', 'If you mail them, they go together to the I-821 address (uscis.gov/i-821, "Where to File"), which depends on your country.'],
     },
   },
   {

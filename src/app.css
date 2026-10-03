@@ -46,6 +46,10 @@ html, body { margin: 0; background: var(--surface); color: var(--ink); font-fami
 .app-doc-label { display: block; font: 600 17px/24px var(--font-sans); }
 .app-doc-detail { display: block; font: 400 15px/22px var(--font-sans); color: var(--ink-muted); }
 .app-doc-forms { display: block; font: 600 13px/18px var(--font-sans); color: var(--pine); }
+.app-filing { display: flex; flex-direction: column; gap: var(--space-2); }
+.app-filing-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--space-4); }
+.app-filing-link { font: 600 17px/24px var(--font-sans); color: var(--pine); }
+.app-filing-url { display: block; font: 400 13px/18px var(--font-sans); color: var(--ink-muted); overflow-wrap: anywhere; }
 .app-back-link { align-self: flex-start; font: 600 16px/24px var(--font-sans); color: var(--pine); }
 .app-stage { display: flex; flex-direction: column; gap: var(--space-4); }
 .app-home-h { margin: var(--space-4) 0 0; font: 700 22px/30px var(--font-sans); }

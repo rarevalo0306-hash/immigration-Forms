@@ -6,6 +6,7 @@ import { visibleItems, type Screen } from '../engine/flow';
 import { spanishAnswers } from '../engine/language';
 import { documentsFor } from '../forms/documents';
 import { DocChecklist } from './DocChecklist';
+import { filingLinks } from '../forms/filing';
 
 interface Props {
   form: FormDefinition;
@@ -39,6 +40,28 @@ async function downloadFilledPdf(form: FormDefinition, answers: Answers) {
   link.click();
   link.remove();
   setTimeout(() => URL.revokeObjectURL(url), 60_000);
+}
+
+/** Where and how to file, as links to the official pages (addresses and fees change often). */
+function FilingSection({ form, lang }: { form: FormDefinition; lang: Lang }) {
+  const { links, note } = filingLinks(form.id, form.number);
+  return (
+    <div className="app-filing">
+      <h2 className="app-review-h">{ui.filingTitle[lang]}</h2>
+      {note && <p className="cm-card-why">{note[lang]}</p>}
+      <ul className="app-filing-list">
+        {links.map((l) => (
+          <li key={l.url}>
+            <a href={l.url} target="_blank" rel="noopener noreferrer" className="app-filing-link">
+              {l.label[lang]}
+            </a>
+            <span className="app-filing-url">{l.url.replace(/^https:\/\//, '')}</span>
+            {l.detail && <span className="app-doc-detail">{l.detail[lang]}</span>}
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
 }
 
 export function Review({ form, screens, answers, lang, onEdit, onBack }: Props) {
@@ -153,6 +176,8 @@ export function Review({ form, screens, answers, lang, onEdit, onBack }: Props) 
           .filter((d) => !d.when || d.when(answers))
           .map((item) => ({ item }))}
       />
+
+      <FilingSection form={form} lang={lang} />
 
       <h2 className="app-review-h">{lang === 'es' ? 'Siguientes pasos' : 'Next steps'}</h2>
       <ol className="app-steps">

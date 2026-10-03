@@ -108,6 +108,7 @@ export const ui = {
   importBad: { es: 'Ese archivo no es una copia de respaldo de Camino.', en: 'That file is not a Camino backup copy.' },
   importFailed: { es: 'No se pudo guardar la copia en este navegador.', en: 'The copy couldn’t be saved in this browser.' },
   clearDone: { es: 'Se borraron todos sus datos de este dispositivo.', en: 'All your data on this device was erased.' },
+  filingTitle: { es: 'Dónde y cómo enviarlo', en: 'Where and how to file' },
   docsTitle: { es: 'Documentos para juntar', en: 'Documents to gather' },
   docsIntro: {
     es: 'Según sus respuestas, esto es lo que suelen pedir las instrucciones oficiales. Envíe copias, no originales, salvo que USCIS los pida. Confirme la lista en las instrucciones del formulario en uscis.gov: su caso puede necesitar más.',
