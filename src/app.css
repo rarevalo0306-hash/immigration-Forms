@@ -36,6 +36,9 @@ html, body { margin: 0; background: var(--surface); color: var(--ink); font-fami
 .app-home { display: flex; flex-direction: column; gap: var(--space-6); }
 .app-mydata { gap: var(--space-4); }
 .app-mydata-actions { display: flex; flex-wrap: wrap; gap: var(--space-2) var(--space-4); align-items: center; }
+.app-cases { gap: var(--space-4); }
+.app-case-banner { margin: 0; font: 600 15px/22px var(--font-sans); color: var(--ink-muted); }
+.app-case-banner a { color: var(--pine); }
 .app-back-link { align-self: flex-start; font: 600 16px/24px var(--font-sans); color: var(--pine); }
 .app-stage { display: flex; flex-direction: column; gap: var(--space-4); }
 .app-home-h { margin: var(--space-4) 0 0; font: 700 22px/30px var(--font-sans); }

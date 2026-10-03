@@ -3,7 +3,8 @@ import { ProgressSteps } from '../design/components';
 import { fmt, ui, type Lang } from '../i18n';
 import type { Answers, FormDefinition } from '../forms/types';
 import { normalizeQuestion, pruneHidden, validateQuestion, visibleScreens, type Errors } from '../engine/flow';
-import { clear, load, loadAll, save } from '../storage';
+import { activeCase, clear, listCases, load, loadAll, save } from '../storage';
+import { caseName } from './Cases';
 import { buildProfile, prefillFor } from '../engine/profile';
 import { forms, formById } from '../forms';
 import { stepsOf, type PackageDefinition } from '../forms/packages';
@@ -86,6 +87,11 @@ export function FormFlow({ form, pkg, lang }: { form: FormDefinition; pkg?: Pack
 
   return (
     <>
+      {listCases().length > 1 && (
+        <p className="app-case-banner no-print">
+          {fmt(ui.caseActive[lang], { name: caseName(activeCase(), lang) })} · <a href="#">{ui.caseChange[lang]}</a>
+        </p>
+      )}
       {pkg && (
         <a className="app-back-link no-print" href={packageHref(pkg)}>
           ← {ui.backToPackage[lang]}: {pkg.title[lang]}

@@ -1,27 +1,11 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { backupFileName, makeBackup, parseBackup } from './backup';
 import { clearAll, exportAll, importAll, load, loadLang, save, saveLang } from '../storage';
-
-// A tiny in-memory localStorage for the storage functions.
-class MemoryStorage {
-  private m = new Map<string, string>();
-  get length() { return this.m.size; }
-  key(i: number) { return [...this.m.keys()][i] ?? null; }
-  getItem(k: string) { return this.m.get(k) ?? null; }
-  setItem(k: string, v: string) { this.m.set(k, String(v)); }
-  removeItem(k: string) { this.m.delete(k); }
-  clear() { this.m.clear(); }
-}
+import { useMemoryStorage } from '../test/memoryStorage';
 
 describe('backup files', () => {
   beforeEach(() => {
-    const store = new MemoryStorage();
-    // Object.keys(localStorage) lists the saved keys, as in a browser.
-    const proxy = new Proxy(store, {
-      ownKeys: (t) => [...(t as unknown as { m: Map<string, string> }).m.keys()],
-      getOwnPropertyDescriptor: () => ({ enumerable: true, configurable: true }),
-    });
-    (globalThis as unknown as { localStorage: Storage }).localStorage = proxy as unknown as Storage;
+    useMemoryStorage();
   });
 
   it('round-trips every form with its position and save time', () => {
@@ -74,5 +58,6 @@ describe('backup files', () => {
 
   it('names the file with the date', () => {
     expect(backupFileName(new Date('2026-10-03T12:00:00Z'))).toBe('camino-respaldo-2026-10-03.json');
+    expect(backupFileName(new Date('2026-10-03T12:00:00Z'), 'Ana López Núñez')).toBe('camino-respaldo-ana-lopez-nunez-2026-10-03.json');
   });
 });

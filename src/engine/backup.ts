@@ -55,4 +55,15 @@ export function parseBackup(text: string, knownFormIds: string[]): ParseResult {
   return { ok: true, forms, skipped };
 }
 
-export const backupFileName = (now = new Date()) => `camino-respaldo-${now.toISOString().slice(0, 10)}.json`;
+const slug = (s: string) =>
+  s
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-|-$/g, '')
+    .slice(0, 40);
+
+/** `camino-respaldo-ana-lopez-2026-10-03.json`; the case name is left out when it has none. */
+export const backupFileName = (now = new Date(), caseName = '') =>
+  ['camino-respaldo', slug(caseName), now.toISOString().slice(0, 10)].filter(Boolean).join('-') + '.json';

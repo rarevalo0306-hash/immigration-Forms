@@ -2,7 +2,7 @@ import { useRef, useState } from 'react';
 import { Button, Notice } from '../design/components';
 import { fmt, ui, type Lang } from '../i18n';
 import { backupFileName, makeBackup, parseBackup } from '../engine/backup';
-import { clearAll, exportAll, importAll } from '../storage';
+import { activeCase, clearAll, exportAll, importAll } from '../storage';
 
 /** Backup, restore and erase every form's answers on this device. */
 const formsWord = (n: number, lang: Lang) => (n === 1 ? ui.formsOne[lang] : fmt(ui.formsCount[lang], { n }));
@@ -18,7 +18,7 @@ export function MyData({ formIds, lang, onChange }: { formIds: string[]; lang: L
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
-    link.download = backupFileName();
+    link.download = backupFileName(new Date(), activeCase().name);
     document.body.appendChild(link);
     link.click();
     link.remove();

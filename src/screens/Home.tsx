@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { FormBadge, Notice } from '../design/components';
 import { MyData } from './MyData';
+import { Cases } from './Cases';
 import { fmt, ui, type Lang } from '../i18n';
 import type { FormDefinition } from '../forms/types';
 import { load } from '../storage';
@@ -21,6 +22,7 @@ export function Home({ forms, lang }: { forms: FormDefinition[]; lang: Lang }) {
             : 'We ask one question at a time, in Spanish or English, and at the end you download the official USCIS form already filled in.'}
         </p>
       </section>
+      <Cases lang={lang} onChange={() => setVersion((v) => v + 1)} />
       <h2 className="app-home-h">{lang === 'es' ? 'Paquetes: todo lo de un trámite' : 'Packages: everything for one case'}</h2>
       <p className="cm-card-why">
         {lang === 'es'
