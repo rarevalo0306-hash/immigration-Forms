@@ -1,4 +1,6 @@
+import { useState } from 'react';
 import { FormBadge, Notice } from '../design/components';
+import { MyData } from './MyData';
 import { fmt, ui, type Lang } from '../i18n';
 import type { FormDefinition } from '../forms/types';
 import { load } from '../storage';
@@ -7,8 +9,10 @@ import { progressOf } from '../engine/packages';
 import { packageHref, statusOf } from './Package';
 
 export function Home({ forms, lang }: { forms: FormDefinition[]; lang: Lang }) {
+  // Re-rendering after a backup is loaded or the data is erased re-reads what is saved.
+  const [, setVersion] = useState(0);
   return (
-    <>
+    <div className="app-home">
       <section className="app-home-intro">
         <h1 className="app-title">{lang === 'es' ? '¿Qué formulario necesita llenar?' : 'Which form do you need to fill in?'}</h1>
         <p className="cm-card-why">
@@ -55,7 +59,8 @@ export function Home({ forms, lang }: { forms: FormDefinition[]; lang: Lang }) {
           );
         })}
       </ul>
+      <MyData formIds={forms.map((f) => f.id)} lang={lang} onChange={() => setVersion((v) => v + 1)} />
       <Notice tone="legal" title={ui.legalTitle[lang]}>{ui.legalBody[lang]}</Notice>
-    </>
+    </div>
   );
 }

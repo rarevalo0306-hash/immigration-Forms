@@ -49,6 +49,35 @@ export function clear(formId: string) {
   }
 }
 
+/** Every form's saved answers, for a backup file. */
+export function exportAll(formIds: string[]): Record<string, Saved> {
+  const out: Record<string, Saved> = {};
+  for (const id of formIds) {
+    const s = load(id);
+    if (s && Object.keys(s.answers).length) out[id] = s;
+  }
+  return out;
+}
+
+/** Restores forms from a backup as they were saved, keeping their own "last saved" time. */
+export function importAll(forms: Record<string, Saved>): boolean {
+  try {
+    for (const [id, s] of Object.entries(forms)) localStorage.setItem(key(id), JSON.stringify(s));
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/** Erases every form's answers on this device. The language choice stays. */
+export function clearAll() {
+  try {
+    for (const k of Object.keys(localStorage)) if (/^camino:.+:v1$/.test(k)) localStorage.removeItem(k);
+  } catch {
+    // ignore
+  }
+}
+
 const LANG_KEY = 'camino:lang';
 
 export function loadLang(): Lang | null {
