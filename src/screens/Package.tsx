@@ -4,6 +4,8 @@ import { formById } from '../forms';
 import type { PackageDefinition } from '../forms/packages';
 import { formStatus, progressOf, type StepStatus } from '../engine/packages';
 import { load } from '../storage';
+import { documentsFor } from '../forms/documents';
+import { DocChecklist, type ChecklistRow } from './DocChecklist';
 
 export const statusOf = (formId: string): StepStatus => {
   const form = formById(formId);
@@ -18,6 +20,26 @@ const STATUS: Record<StepStatus, { es: string; en: string }> = {
   started: { es: 'En progreso', en: 'In progress' },
   done: { es: 'Listo para descargar', en: 'Ready to download' },
 };
+
+/** The documents of the package's required forms and the optional ones already started, once each. */
+function packageDocs(pkg: PackageDefinition): ChecklistRow[] {
+  const rows = new Map<string, ChecklistRow>();
+  for (const step of pkg.stages.flatMap((s) => s.steps)) {
+    const form = formById(step.formId);
+    if (!form || (step.optional && statusOf(step.formId) === 'new')) continue;
+    // A form not started yet still knows what the package presets (an I-130 for a spouse, …).
+    const answers = { ...step.preset, ...load(step.formId)?.answers };
+    for (const item of documentsFor(step.formId)) {
+      if (item.when && !item.when(answers)) continue;
+      // Shared ids merge only when they say the same thing (two photos vs. one photo stay apart).
+      const k = `${item.id}|${item.label.es}`;
+      const row = rows.get(k);
+      if (row) row.forms!.push(form.number);
+      else rows.set(k, { item, forms: [form.number] });
+    }
+  }
+  return [...rows.values()];
+}
 
 /** One package: its forms in order, who fills each one, and how far along each is. */
 export function Package({ pkg, lang }: { pkg: PackageDefinition; lang: Lang }) {
@@ -55,6 +77,7 @@ export function Package({ pkg, lang }: { pkg: PackageDefinition; lang: Lang }) {
           </ol>
         </div>
       ))}
+      <DocChecklist listId={`pkg-${pkg.id}`} lang={lang} rows={packageDocs(pkg)} intro={ui.docsPackageIntro[lang]} />
       <h2 className="app-review-h">{ui.packageTips[lang]}</h2>
       <ul className="app-steps">
         {pkg.tips[lang].map((s) => (

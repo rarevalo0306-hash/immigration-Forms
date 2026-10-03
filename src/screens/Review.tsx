@@ -4,6 +4,8 @@ import { fmt, ui, type Lang } from '../i18n';
 import type { Answers, FormDefinition } from '../forms/types';
 import { visibleItems, type Screen } from '../engine/flow';
 import { spanishAnswers } from '../engine/language';
+import { documentsFor } from '../forms/documents';
+import { DocChecklist } from './DocChecklist';
 
 interface Props {
   form: FormDefinition;
@@ -143,6 +145,14 @@ export function Review({ form, screens, answers, lang, onEdit, onBack }: Props) 
           </div>
         );
       })}
+
+      <DocChecklist
+        listId={form.id}
+        lang={lang}
+        rows={documentsFor(form.id)
+          .filter((d) => !d.when || d.when(answers))
+          .map((item) => ({ item }))}
+      />
 
       <h2 className="app-review-h">{lang === 'es' ? 'Siguientes pasos' : 'Next steps'}</h2>
       <ol className="app-steps">

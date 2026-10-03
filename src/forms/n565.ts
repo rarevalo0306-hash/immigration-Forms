@@ -71,14 +71,14 @@ export const n565: FormDefinition = {
   nextSteps: {
     es: [
       'Confirme en uscis.gov/n-565 que la edición {edition} sigue vigente y revise la tarifa. Si el error fue de USCIS, no se paga tarifa. Si no puede pagar, puede pedir exención con el I-912 en esta app. También se puede presentar en línea.',
-      'Adjunte dos fotos tipo pasaporte iguales y recientes (escriba su nombre y A-Number a lápiz por detrás) y una copia de su identificación con foto.',
+      'Adjunte una copia de su identificación con foto. Si vive fuera de EE.UU., agregue dos fotos tipo pasaporte iguales y recientes (escriba su nombre y A-Number a lápiz por detrás).',
       'Si se le perdió o se lo robaron, adjunte una copia del certificado si la tiene y el reporte de policía o una declaración jurada. Si está dañado, tiene un error, o cambió su nombre, fecha de nacimiento o sexo, envíe el certificado ORIGINAL junto con la prueba (acta de matrimonio, divorcio, orden de la corte o acta de nacimiento).',
       'Imprima el PDF y firme la Parte 9, Ítem 4, a mano con tinta negra. Si un intérprete o preparador le ayudó, ellos llenan y firman a mano las Partes 10 y 11.',
       'Guarde una copia de todo lo que envía. USCIS puede citarle para tomarle huellas o hacerle una entrevista.',
     ],
     en: [
       'Check at uscis.gov/n-565 that edition {edition} is still current and check the fee. There is no fee when the error was made by USCIS. If you cannot pay, you can request a waiver with Form I-912 in this app. It can also be filed online.',
-      'Attach two identical, recent passport-style photos (write your name and A-Number in pencil on the back) and a copy of your photo ID.',
+      'Attach a copy of your photo ID. If you live outside the U.S., add two identical recent passport-style photos (write your name and A-Number in pencil on the back).',
       'If it was lost or stolen, attach a copy of the certificate if you have one and a police report or sworn statement. If it is damaged, has an error, or your name, date of birth or sex changed, send the ORIGINAL certificate with the evidence (marriage, divorce or court order, or birth certificate).',
       'Print the PDF and sign Part 9, Item 4, by hand in black ink. If an interpreter or preparer helped you, they complete and sign Parts 10 and 11 by hand.',
       'Keep a copy of everything you send. USCIS may schedule you for fingerprints or an interview.',

@@ -113,6 +113,27 @@ export function save(formId: string, s: Saved) {
   }
 }
 
+/**
+ * Which checklist documents the person ticked, per form (or `pkg-<id>` for a package), in the
+ * active case. Kept apart from the answers so the form flow never drops them.
+ */
+export function loadChecked(listId: string): string[] {
+  try {
+    const v = JSON.parse(localStorage.getItem(key(`${listId}.docs`)) ?? '[]');
+    return Array.isArray(v) ? v.filter((x) => typeof x === 'string') : [];
+  } catch {
+    return [];
+  }
+}
+
+export function saveChecked(listId: string, ids: string[]) {
+  try {
+    localStorage.setItem(key(`${listId}.docs`), JSON.stringify(ids));
+  } catch {
+    // ignore
+  }
+}
+
 /** Every form with saved answers on this device, except `skip`. */
 export function loadAll(formIds: string[], skip?: string): { formId: string; answers: Answers; updated: number }[] {
   const out = [];

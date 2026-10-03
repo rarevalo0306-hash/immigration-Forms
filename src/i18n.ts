@@ -108,6 +108,16 @@ export const ui = {
   importBad: { es: 'Ese archivo no es una copia de respaldo de Camino.', en: 'That file is not a Camino backup copy.' },
   importFailed: { es: 'No se pudo guardar la copia en este navegador.', en: 'The copy couldn’t be saved in this browser.' },
   clearDone: { es: 'Se borraron todos sus datos de este dispositivo.', en: 'All your data on this device was erased.' },
+  docsTitle: { es: 'Documentos para juntar', en: 'Documents to gather' },
+  docsIntro: {
+    es: 'Según sus respuestas, esto es lo que suelen pedir las instrucciones oficiales. Envíe copias, no originales, salvo que USCIS los pida. Confirme la lista en las instrucciones del formulario en uscis.gov: su caso puede necesitar más.',
+    en: 'Based on your answers, this is what the official instructions usually ask for. Send copies, not originals, unless USCIS asks for them. Confirm the list in the form’s instructions at uscis.gov: your case may need more.',
+  },
+  docsPackageIntro: {
+    es: 'Los documentos de todos los formularios del paquete, juntos. Si dos formularios piden lo mismo, puede necesitar una copia para cada uno. Confirme cada lista en las instrucciones en uscis.gov.',
+    en: 'The documents for every form in the package, together. If two forms ask for the same thing, you may need a copy for each. Confirm each list in the instructions at uscis.gov.',
+  },
+  docsProgress: { es: '{done} de {total} listos', en: '{done} of {total} ready' },
   reuseTitle: { es: 'Ya tenemos algunos datos', en: 'We already have some details' },
   reuseBody: {
     es: 'Usted ya nos dio nombres, fechas, direcciones y otros datos en: {forms}. Podemos ponerlos aquí para que no los escriba otra vez. Igual verá cada pregunta y podrá cambiar lo que quiera.',
