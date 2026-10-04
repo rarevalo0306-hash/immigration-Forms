@@ -111,7 +111,8 @@ La app no usa cifrado propio. `Info.plist` ya tiene `ITSAppUsesNonExemptEncrypti
 > Camino is a free app that helps Spanish-speaking immigrants fill in official U.S. immigration forms (USCIS and EOIR). It asks one question at a time in plain Spanish or English and fills the official public-domain PDF on the device.
 >
 > - No account or login is needed. No data is collected: answers are stored only on the device, and the app works offline (all forms are bundled).
-> - To try it: tap a form (for example "Solicitud de permiso de trabajo", I-765), answer a few questions, go to the review page and tap "Descargar formulario lleno (PDF)". The iOS share sheet opens to save or share the filled PDF. The "Estudie para el examen de ciudadanía" section has flash cards and a practice interview with audio.
+> - To try it: on the home screen type a situation in the box (for example "permiso de trabajo") and tap "Empezar" on the recommendation, or open "Todos los trámites" and tap a form (for example I-765). Answer a few questions, go to the review page and tap "Descargar formulario lleno (PDF)". The iOS share sheet opens to save or share the filled PDF. The "Estudiar" tab has flash cards and a practice interview with audio.
+> - The assistant that recommends forms runs on the device with fixed word rules; nothing typed is sent anywhere.
 > - The app is not affiliated with any government agency and says so on its home screen and store page. It links to the official sources (uscis.gov, justice.gov/eoir) for every form, and it does not provide legal advice.
 > - Language toggle (ES/EN) is at the top right.
 

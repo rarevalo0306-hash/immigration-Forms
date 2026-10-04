@@ -10,7 +10,7 @@ const precache = (): Plugin => ({
   name: 'camino-precache',
   apply: 'build',
   generateBundle(_, bundle) {
-    const files = Object.keys(bundle).filter((f) => /\.(js|css)$/.test(f));
+    const files = Object.keys(bundle).filter((f) => /\.(js|css|woff2)$/.test(f));
     const statics = ['manifest.webmanifest', 'icons/icon.svg', 'icons/icon-192.png', 'icons/icon-512.png'];
     this.emitFile({ type: 'asset', fileName: 'precache.json', source: JSON.stringify([...files, ...statics].sort()) });
   },
