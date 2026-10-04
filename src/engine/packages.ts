@@ -4,10 +4,13 @@ import { visibleScreens } from './flow';
 
 export type StepStatus = 'new' | 'started' | 'done';
 
-/** A form is done once the person reached its review page. */
-export function formStatus(form: FormDefinition, saved: { answers: Answers; position: number } | null): StepStatus {
+/** Whether a position is the form's review page, i.e. the person got to the end. */
+export const isDone = (form: FormDefinition, answers: Answers, position: number) => position >= visibleScreens(form, answers).length;
+
+/** A form is done once the person reached its review page (saved as `done`, so no form needs loading). */
+export function formStatus(saved: { answers: Answers; done?: boolean } | null): StepStatus {
   if (!saved || !Object.keys(saved.answers).length) return 'new';
-  return saved.position >= visibleScreens(form, saved.answers).length ? 'done' : 'started';
+  return saved.done ? 'done' : 'started';
 }
 
 /** The next required form to work on after `currentFormId`, or the first one still pending. */

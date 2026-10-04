@@ -3,13 +3,13 @@ import { FormBadge, Notice } from '../design/components';
 import { MyData } from './MyData';
 import { Cases } from './Cases';
 import { fmt, ui, type Lang } from '../i18n';
-import type { FormDefinition } from '../forms/types';
+import type { FormMeta } from '../forms/catalog';
 import { load } from '../storage';
 import { packages } from '../forms/packages';
 import { progressOf } from '../engine/packages';
 import { packageHref, statusOf } from './Package';
 
-export function Home({ forms, lang }: { forms: FormDefinition[]; lang: Lang }) {
+export function Home({ forms, lang }: { forms: FormMeta[]; lang: Lang }) {
   // Re-rendering after a backup is loaded or the data is erased re-reads what is saved.
   const [, setVersion] = useState(0);
   return (

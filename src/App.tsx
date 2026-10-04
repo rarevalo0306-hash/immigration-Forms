@@ -1,10 +1,10 @@
 import { useEffect, useState } from 'react';
 import { LanguageToggle } from './design/components';
 import { ui, type Lang } from './i18n';
-import { forms, formById } from './forms';
+import { catalog, metaById } from './forms/catalog';
 import { loadLang, saveLang } from './storage';
 import { Home } from './screens/Home';
-import { FormFlow } from './screens/FormFlow';
+import { FormLoader } from './screens/FormLoader';
 import { Package } from './screens/Package';
 import { packageById } from './forms/packages';
 
@@ -15,7 +15,7 @@ import { packageById } from './forms/packages';
 function routeFromHash() {
   const [path, query = ''] = window.location.hash.replace(/^#\/?/, '').split('?');
   const pkg = path.startsWith('paquete/') ? packageById(path.slice(8)) : packageById(new URLSearchParams(query).get('paquete') ?? '');
-  return { form: formById(path), pkg: pkg ?? null };
+  return { form: metaById(path), pkg: pkg ?? null };
 }
 
 export function App() {
@@ -53,11 +53,11 @@ export function App() {
       </header>
       <main className="app-main">
         {form ? (
-          <FormFlow key={`${form.id}:${pkg?.id ?? ''}`} form={form} pkg={pkg} lang={lang} />
+          <FormLoader key={`${form.id}:${pkg?.id ?? ''}`} meta={form} pkg={pkg} lang={lang} />
         ) : pkg ? (
           <Package key={pkg.id} pkg={pkg} lang={lang} />
         ) : (
-          <Home forms={forms} lang={lang} />
+          <Home forms={catalog} lang={lang} />
         )}
       </main>
     </div>

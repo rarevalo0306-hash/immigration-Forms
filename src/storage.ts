@@ -7,6 +7,8 @@ export interface Saved {
   position: number;
   /** When it was last saved (ms since 1970). Older saves don't have it. */
   updated?: number;
+  /** Whether the person got to the review page, so lists can show "ready" without loading the form. */
+  done?: boolean;
 }
 
 /**
@@ -171,6 +173,16 @@ export function importAll(forms: Record<string, Saved>): boolean {
   } catch {
     return false;
   }
+}
+
+/** Ticked checklist documents in the active case, for a backup file. */
+export function exportChecked(listIds: string[]): Record<string, string[]> {
+  const out: Record<string, string[]> = {};
+  for (const id of listIds) {
+    const ticks = loadChecked(id);
+    if (ticks.length) out[id] = ticks;
+  }
+  return out;
 }
 
 /** Erases every case and every form's answers on this device. The language choice stays. */

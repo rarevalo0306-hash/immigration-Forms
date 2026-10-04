@@ -1,5 +1,5 @@
 import type { T } from '../i18n';
-import { documentsFor } from './documents';
+import { metaById } from './catalog';
 
 /**
  * Where and how to file each form, as links to the official pages instead of copied addresses and
@@ -67,7 +67,7 @@ export function filingLinks(formId: string, formNumber: string): { links: Filing
       ),
     },
   ];
-  if (documentsFor(formId).some((d) => d.id === 'fee'))
+  if (metaById(formId)?.fee)
     links.push({
       label: t('Cuánto pagar: calculadora de tarifas de USCIS', 'How much to pay: the USCIS fee calculator'),
       url: `${USCIS}/feecalculator`,

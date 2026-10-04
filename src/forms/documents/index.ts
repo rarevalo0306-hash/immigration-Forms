@@ -1,11 +1,14 @@
 import type { DocItem } from './types';
 
-/** Every form's checklist, from the files next to this one (`export const formId`, `export const docs`). */
-const modules = import.meta.glob<{ formId?: string; docs?: DocItem[] }>(['./*.ts', '!./*.test.ts', '!./index.ts', '!./types.ts', '!./common.ts'], { eager: true });
+/**
+ * Each form's checklist, loaded when it's shown. A checklist lives in `./<id without dashes>.ts`
+ * (`export const formId`, `export const docs`); all.ts loads every one at once for tests.
+ */
+const modules = import.meta.glob<{ formId?: string; docs?: DocItem[] }>(['./*.ts', '!./*.test.ts', '!./index.ts', '!./all.ts', '!./types.ts', '!./common.ts']);
 
-const byForm = new Map<string, DocItem[]>();
-for (const m of Object.values(modules)) if (m.formId && m.docs) byForm.set(m.formId, m.docs);
+export async function loadDocuments(formId: string): Promise<DocItem[]> {
+  const load = modules[`./${formId.replace(/-/g, '')}.ts`];
+  return load ? ((await load()).docs ?? []) : [];
+}
 
-export const documentsFor = (formId: string): DocItem[] => byForm.get(formId) ?? [];
-export const formsWithDocuments = () => [...byForm.keys()];
 export type { DocItem };

@@ -10,6 +10,7 @@ export interface SavedForm {
   answers: Answers;
   position: number;
   updated?: number;
+  done?: boolean;
 }
 
 export interface Backup {
@@ -17,10 +18,12 @@ export interface Backup {
   version: 1;
   exported: string;
   forms: Record<string, SavedForm>;
+  /** Ticked documents per checklist (a form id, or `pkg-<id>` for a package). Older backups lack it. */
+  checklists?: Record<string, string[]>;
 }
 
-export function makeBackup(forms: Record<string, SavedForm>, now = new Date()): Backup {
-  return { app: 'camino', version: 1, exported: now.toISOString(), forms };
+export function makeBackup(forms: Record<string, SavedForm>, now = new Date(), checklists: Record<string, string[]> = {}): Backup {
+  return { app: 'camino', version: 1, exported: now.toISOString(), forms, ...(Object.keys(checklists).length ? { checklists } : {}) };
 }
 
 const isAnswers = (a: unknown): a is Answers =>
@@ -29,10 +32,12 @@ const isAnswers = (a: unknown): a is Answers =>
   !Array.isArray(a) &&
   Object.values(a).every((v) => typeof v === 'string' || (Array.isArray(v) && v.every((x) => typeof x === 'string')));
 
-export type ParseResult = { ok: true; forms: Record<string, SavedForm>; skipped: string[] } | { ok: false };
+export type ParseResult =
+  | { ok: true; forms: Record<string, SavedForm>; checklists: Record<string, string[]>; skipped: string[] }
+  | { ok: false };
 
 /** Reads a backup file, keeping only forms this version of Camino knows and well-formed answers. */
-export function parseBackup(text: string, knownFormIds: string[]): ParseResult {
+export function parseBackup(text: string, knownFormIds: string[], knownListIds: string[] = knownFormIds): ParseResult {
   let data: unknown;
   try {
     data = JSON.parse(text);
@@ -50,9 +55,14 @@ export function parseBackup(text: string, knownFormIds: string[]): ParseResult {
       skipped.push(id);
       continue;
     }
-    forms[id] = { answers: s.answers, position: s.position, ...(typeof s.updated === 'number' ? { updated: s.updated } : {}) };
+    forms[id] = { answers: s.answers, position: s.position, ...(typeof s.updated === 'number' ? { updated: s.updated } : {}), ...(s.done === true ? { done: true } : {}) };
   }
-  return { ok: true, forms, skipped };
+  const lists = new Set(knownListIds);
+  const checklists: Record<string, string[]> = {};
+  if (b.checklists && typeof b.checklists === 'object')
+    for (const [id, ticks] of Object.entries(b.checklists))
+      if (lists.has(id) && Array.isArray(ticks) && ticks.every((x) => typeof x === 'string')) checklists[id] = ticks;
+  return { ok: true, forms, checklists, skipped };
 }
 
 const slug = (s: string) =>

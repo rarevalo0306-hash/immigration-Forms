@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { forms, formById } from '../forms';
 import { packages, packageById, stepsOf } from '../forms/packages';
-import { formStatus, nextStep, progressOf, type StepStatus } from './packages';
+import { formStatus, isDone, nextStep, progressOf, type StepStatus } from './packages';
 import { visibleScreens } from './flow';
 import { buildProfile, prefillFor } from './profile';
 
@@ -31,11 +31,13 @@ describe('packages', () => {
 
   it('a form is done once its review page is reached', () => {
     const g = formById('g-1145')!;
-    expect(formStatus(g, null)).toBe('new');
-    expect(formStatus(g, { answers: {}, position: 0 })).toBe('new');
-    expect(formStatus(g, { answers: { 'name.family': 'Ruiz' }, position: 0 })).toBe('started');
+    expect(formStatus(null)).toBe('new');
+    expect(formStatus({ answers: {} })).toBe('new');
+    expect(formStatus({ answers: { 'name.family': 'Ruiz' } })).toBe('started');
+    expect(formStatus({ answers: { 'name.family': 'Ruiz' }, done: true })).toBe('done');
     const answers = { 'name.family': 'Ruiz' };
-    expect(formStatus(g, { answers, position: visibleScreens(g, answers).length })).toBe('done');
+    expect(isDone(g, answers, visibleScreens(g, answers).length)).toBe(true);
+    expect(isDone(g, answers, 0)).toBe(false);
   });
 
   it('points to the next required form, skipping optional and finished ones', () => {

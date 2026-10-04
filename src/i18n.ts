@@ -119,6 +119,9 @@ export const ui = {
     en: 'The documents for every form in the package, together. If two forms ask for the same thing, you may need a copy for each. Confirm each list in the instructions at uscis.gov.',
   },
   docsProgress: { es: '{done} de {total} listos', en: '{done} of {total} ready' },
+  loading: { es: 'Cargando el formulario…', en: 'Loading the form…' },
+  loadFailed: { es: 'No pudimos cargar el formulario. Revise su conexión e intente de nuevo.', en: 'We couldn’t load the form. Check your connection and try again.' },
+  retry: { es: 'Intentar de nuevo', en: 'Try again' },
   reuseTitle: { es: 'Ya tenemos algunos datos', en: 'We already have some details' },
   reuseBody: {
     es: 'Usted ya nos dio nombres, fechas, direcciones y otros datos en: {forms}. Podemos ponerlos aquí para que no los escriba otra vez. Igual verá cada pregunta y podrá cambiar lo que quiera.',

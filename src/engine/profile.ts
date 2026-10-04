@@ -104,7 +104,19 @@ interface Fact {
   updated: number;
 }
 
-export type Profile = Partial<Record<Role, Record<string, Fact>>>;
+/**
+ * The interpreter's and preparer's details (forms/assistance.ts) use the same ids on every form, so
+ * someone who helped on one form starts the next. They only show when the person says they had help.
+ */
+const HELPER_KEYS = ['family', 'given', 'business', 'street', 'unit', 'city', 'state', 'zip', 'province', 'postal', 'country', 'phone', 'mobile', 'email'];
+export const HELPER_FIELDS = [
+  ...HELPER_KEYS.map((k) => `interp.${k}`),
+  'interp.language',
+  ...HELPER_KEYS.map((k) => `prep.${k}`),
+  'prep.statement',
+];
+
+export type Profile = Partial<Record<Role | 'helpers', Record<string, Fact>>>;
 
 /** Everything known about each person, from the most recently saved form that has it. */
 export function buildProfile(forms: FormDefinition[], saved: SavedForm[]): Profile {
@@ -128,6 +140,14 @@ export function buildProfile(forms: FormDefinition[], saved: SavedForm[]): Profi
       const same = s.answers[prefix ? `${prefix}.mailingSame` : SAME_ID[form.id] ?? 'mailingSame'] === 'yes' && SAME_MEANS_SAME(form.id);
       const facts = profile[role];
       if (same && facts) copyAddress(facts, s, form.number);
+    }
+    for (const id of HELPER_FIELDS) {
+      const value = s.answers[id];
+      const t = ids.get(id);
+      if (!t || value === undefined || value === '' || Array.isArray(value)) continue;
+      const known = (profile.helpers ??= {})[id];
+      if (known && known.updated > s.updated) continue;
+      profile.helpers[id] = { value, type: t.kind === 'field' ? t.field.type : undefined, from: form.number, updated: s.updated };
     }
   }
   return profile;
@@ -170,6 +190,13 @@ export function prefillFor(form: FormDefinition, profile: Profile): Prefill {
       answers[id] = known.value;
       sources.add(known.from);
     }
+  }
+  for (const id of HELPER_FIELDS) {
+    const known = profile.helpers?.[id];
+    const t = ids.get(id);
+    if (!known || !t || !fits(t, known.value, known.type)) continue;
+    answers[id] = known.value;
+    sources.add(known.from);
   }
   return { answers, sources: [...sources].sort() };
 }

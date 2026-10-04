@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { backupFileName, makeBackup, parseBackup } from './backup';
-import { clearAll, exportAll, importAll, load, loadLang, save, saveLang } from '../storage';
+import { clearAll, exportAll, exportChecked, importAll, load, loadChecked, loadLang, save, saveChecked, saveLang } from '../storage';
 import { useMemoryStorage } from '../test/memoryStorage';
 
 describe('backup files', () => {
@@ -24,6 +24,19 @@ describe('backup files', () => {
     importAll(parsed.forms);
     expect(load('i-485')).toEqual(backup.forms['i-485']);
     expect(load('i-765')?.answers.category).toBe('(c)(9)');
+  });
+
+  it('carries the ticked checklist documents', () => {
+    saveChecked('i-485', ['photos', 'fee']);
+    saveChecked('pkg-matrimonio', ['marriageCert']);
+    const text = JSON.stringify(makeBackup({}, new Date(), exportChecked(['i-485', 'pkg-matrimonio', 'i-765'])));
+    clearAll();
+    expect(loadChecked('i-485')).toEqual([]);
+    const parsed = parseBackup(text, ['i-485'], ['i-485', 'pkg-matrimonio']);
+    expect(parsed.ok && parsed.checklists).toEqual({ 'i-485': ['photos', 'fee'], 'pkg-matrimonio': ['marriageCert'] });
+    // Older backups have no checklists.
+    const old = parseBackup(JSON.stringify({ app: 'camino', version: 1, exported: '', forms: {} }), ['i-485']);
+    expect(old.ok && old.checklists).toEqual({});
   });
 
   it('clearing keeps the language choice', () => {
@@ -53,7 +66,7 @@ describe('backup files', () => {
       },
     });
     const parsed = parseBackup(text, ['i-485', 'i-765', 'i-90']);
-    expect(parsed).toEqual({ ok: true, forms: { 'i-485': { answers: { 'name.family': 'Ruiz' }, position: 2 } }, skipped: ['x-1', 'i-765', 'i-90'] });
+    expect(parsed).toEqual({ ok: true, forms: { 'i-485': { answers: { 'name.family': 'Ruiz' }, position: 2 } }, checklists: {}, skipped: ['x-1', 'i-765', 'i-90'] });
   });
 
   it('names the file with the date', () => {

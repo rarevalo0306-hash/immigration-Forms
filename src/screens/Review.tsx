@@ -1,10 +1,10 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Button, FormBadge, Notice } from '../design/components';
 import { fmt, ui, type Lang } from '../i18n';
 import type { Answers, FormDefinition } from '../forms/types';
 import { visibleItems, type Screen } from '../engine/flow';
 import { spanishAnswers } from '../engine/language';
-import { documentsFor } from '../forms/documents';
+import { loadDocuments, type DocItem } from '../forms/documents';
 import { DocChecklist } from './DocChecklist';
 import { filingLinks } from '../forms/filing';
 
@@ -65,6 +65,16 @@ function FilingSection({ form, lang }: { form: FormDefinition; lang: Lang }) {
 }
 
 export function Review({ form, screens, answers, lang, onEdit, onBack }: Props) {
+  const [docs, setDocs] = useState<DocItem[] | null>(null);
+  useEffect(() => {
+    let live = true;
+    loadDocuments(form.id)
+      .then((d) => live && setDocs(d))
+      .catch(() => {});
+    return () => {
+      live = false;
+    };
+  }, [form.id]);
   const [pdfState, setPdfState] = useState<'idle' | 'working' | 'error'>('idle');
   const onDownload = async () => {
     setPdfState('working');
@@ -169,13 +179,13 @@ export function Review({ form, screens, answers, lang, onEdit, onBack }: Props) 
         );
       })}
 
-      <DocChecklist
-        listId={form.id}
-        lang={lang}
-        rows={documentsFor(form.id)
-          .filter((d) => !d.when || d.when(answers))
-          .map((item) => ({ item }))}
-      />
+      {docs && (
+        <DocChecklist
+          listId={form.id}
+          lang={lang}
+          rows={docs.filter((d) => !d.when || d.when(answers)).map((item) => ({ item }))}
+        />
+      )}
 
       <FilingSection form={form} lang={lang} />
 

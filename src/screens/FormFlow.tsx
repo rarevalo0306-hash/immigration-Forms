@@ -6,7 +6,8 @@ import { normalizeQuestion, pruneHidden, validateQuestion, visibleScreens, type 
 import { activeCase, clear, listCases, load, loadAll, save } from '../storage';
 import { caseName } from './Cases';
 import { buildProfile, prefillFor } from '../engine/profile';
-import { forms, formById } from '../forms';
+import { catalog, metaById } from '../forms/catalog';
+import { loadForms } from '../forms/load';
 import { stepsOf, type PackageDefinition } from '../forms/packages';
 import { nextStep } from '../engine/packages';
 import { formInPackageHref, packageHref, statusOf } from './Package';
@@ -21,10 +22,22 @@ const WELCOME = -1;
 export function FormFlow({ form, pkg, lang }: { form: FormDefinition; pkg?: PackageDefinition | null; lang: Lang }) {
   const saved = useMemo(() => load(form.id), [form.id]);
   // What the person already told Camino on other forms, to start this one with.
-  const prefill = useMemo(() => {
-    if (saved && Object.keys(saved.answers).length) return null;
-    const p = prefillFor(form, buildProfile(forms, loadAll(forms.map((f) => f.id), form.id)));
-    return Object.keys(p.answers).length ? p : null;
+  // Only the forms with saved answers are loaded for it.
+  const [prefill, setPrefill] = useState<ReturnType<typeof prefillFor> | null>(null);
+  useEffect(() => {
+    if (saved && Object.keys(saved.answers).length) return;
+    const others = loadAll(catalog.map((f) => f.id), form.id);
+    if (!others.length) return;
+    let live = true;
+    loadForms(others.map((s) => s.formId))
+      .then((defs) => {
+        const p = prefillFor(form, buildProfile([...defs, form], others));
+        if (live && Object.keys(p.answers).length) setPrefill(p);
+      })
+      .catch(() => {});
+    return () => {
+      live = false;
+    };
   }, [form, saved]);
   // What the package already answers for this form (the I-130 is for a spouse, …).
   const preset = useMemo(() => (pkg && stepsOf(pkg).find((s) => s.formId === form.id)?.preset) ?? {}, [pkg, form.id]);
@@ -51,8 +64,9 @@ export function FormFlow({ form, pkg, lang }: { form: FormDefinition; pkg?: Pack
     if (pos >= 0) setResumeAt(pos);
   }, [pos]);
   useEffect(() => {
-    save(form.id, { answers, position: pos >= 0 ? pos : resumeAt });
-  }, [form.id, answers, pos, resumeAt]);
+    const p = pos >= 0 ? pos : resumeAt;
+    save(form.id, { answers, position: p, done: p >= reviewPos });
+  }, [form.id, answers, pos, resumeAt, reviewPos]);
 
   const go = (p: number) => {
     setErrors({});
@@ -83,7 +97,7 @@ export function FormFlow({ form, pkg, lang }: { form: FormDefinition; pkg?: Pack
   };
 
   const upNext = pkg && pos === reviewPos ? nextStep(pkg, form.id, statusOf) : undefined;
-  const nextForm = upNext && formById(upNext.formId);
+  const nextForm = upNext && metaById(upNext.formId);
 
   return (
     <>

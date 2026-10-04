@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { forms } from '..';
-import { documentsFor } from '.';
+import { documentsFor } from './all';
 
 // Answers that make many `when` checks true, to exercise them.
 const busy: Record<string, string | string[]> = new Proxy({}, { get: () => 'yes' });

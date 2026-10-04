@@ -1,16 +1,14 @@
 import { FormBadge, Notice } from '../design/components';
 import { fmt, ui, type Lang } from '../i18n';
-import { formById } from '../forms';
+import { useEffect, useState } from 'react';
+import { metaById } from '../forms/catalog';
 import type { PackageDefinition } from '../forms/packages';
 import { formStatus, progressOf, type StepStatus } from '../engine/packages';
 import { load } from '../storage';
-import { documentsFor } from '../forms/documents';
+import { loadDocuments } from '../forms/documents';
 import { DocChecklist, type ChecklistRow } from './DocChecklist';
 
-export const statusOf = (formId: string): StepStatus => {
-  const form = formById(formId);
-  return form ? formStatus(form, load(formId)) : 'new';
-};
+export const statusOf = (formId: string): StepStatus => formStatus(load(formId));
 
 export const packageHref = (pkg: PackageDefinition) => `#paquete/${pkg.id}`;
 export const formInPackageHref = (formId: string, pkg: PackageDefinition) => `#${formId}?paquete=${pkg.id}`;
@@ -22,14 +20,15 @@ const STATUS: Record<StepStatus, { es: string; en: string }> = {
 };
 
 /** The documents of the package's required forms and the optional ones already started, once each. */
-function packageDocs(pkg: PackageDefinition): ChecklistRow[] {
+async function packageDocs(pkg: PackageDefinition): Promise<ChecklistRow[]> {
   const rows = new Map<string, ChecklistRow>();
-  for (const step of pkg.stages.flatMap((s) => s.steps)) {
-    const form = formById(step.formId);
-    if (!form || (step.optional && statusOf(step.formId) === 'new')) continue;
+  const steps = pkg.stages.flatMap((s) => s.steps).filter((step) => metaById(step.formId) && !(step.optional && statusOf(step.formId) === 'new'));
+  const lists = await Promise.all(steps.map((step) => loadDocuments(step.formId)));
+  for (const [i, step] of steps.entries()) {
+    const form = metaById(step.formId)!;
     // A form not started yet still knows what the package presets (an I-130 for a spouse, …).
     const answers = { ...step.preset, ...load(step.formId)?.answers };
-    for (const item of documentsFor(step.formId)) {
+    for (const item of lists[i]) {
       if (item.when && !item.when(answers)) continue;
       // Shared ids merge only when they say the same thing (two photos vs. one photo stay apart).
       const k = `${item.id}|${item.label.es}`;
@@ -44,6 +43,16 @@ function packageDocs(pkg: PackageDefinition): ChecklistRow[] {
 /** One package: its forms in order, who fills each one, and how far along each is. */
 export function Package({ pkg, lang }: { pkg: PackageDefinition; lang: Lang }) {
   const { done, total } = progressOf(pkg, statusOf);
+  const [docs, setDocs] = useState<ChecklistRow[] | null>(null);
+  useEffect(() => {
+    let live = true;
+    packageDocs(pkg)
+      .then((rows) => live && setDocs(rows))
+      .catch(() => {});
+    return () => {
+      live = false;
+    };
+  }, [pkg]);
   return (
     <section className="cm-card">
       <div className="cm-card-eyebrow">
@@ -58,7 +67,7 @@ export function Package({ pkg, lang }: { pkg: PackageDefinition; lang: Lang }) {
           {stage.body && <p className="cm-card-why">{stage.body[lang]}</p>}
           <ol className="app-form-list">
             {stage.steps.map((step) => {
-              const form = formById(step.formId)!;
+              const form = metaById(step.formId)!;
               const status = statusOf(step.formId);
               return (
                 <li key={step.formId}>
@@ -77,7 +86,7 @@ export function Package({ pkg, lang }: { pkg: PackageDefinition; lang: Lang }) {
           </ol>
         </div>
       ))}
-      <DocChecklist listId={`pkg-${pkg.id}`} lang={lang} rows={packageDocs(pkg)} intro={ui.docsPackageIntro[lang]} />
+      {docs && <DocChecklist listId={`pkg-${pkg.id}`} lang={lang} rows={docs} intro={ui.docsPackageIntro[lang]} />}
       <h2 className="app-review-h">{ui.packageTips[lang]}</h2>
       <ul className="app-steps">
         {pkg.tips[lang].map((s) => (
