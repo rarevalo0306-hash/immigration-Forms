@@ -101,9 +101,23 @@ Cada lunes, el flujo "Ediciones USCIS" (`.github/workflows/editions.yml`) compar
 
 `ios/` es la app de iPhone: el mismo sitio dentro de [Capacitor](https://capacitorjs.com) (`capacitor.config.ts`). `npm run ios` construye el sitio y lo copia al proyecto, y `npm run ios:open` lo abre en Xcode. En la app, el PDF y la copia de respaldo se entregan con el menú para compartir del iPhone (`src/native.ts`), y no se usa el service worker. `codemagic.yaml` compila la app en la nube y la sube a TestFlight, para quien no tiene Mac. Los pasos para publicarla, la ficha de la tienda y las capturas están en `store/apple/`. La política de privacidad está en `public/privacidad.html`.
 
+## Asistente con IA (opcional)
+
+En cada formulario, la persona puede elegir "Llenar conversando con el asistente". El asistente (Claude Sonnet 5.5, de Anthropic) hace las preguntas en palabras sencillas y propone las respuestas con la herramienta `answer_question`. La app las valida con las mismas reglas de siempre y las guarda en el dispositivo (`src/agent/spec.ts`, `src/screens/AgentChat.tsx`).
+
+- **Servidor:** `api/agent.ts`, una función de Vercel sin estado. No guarda ni registra las conversaciones. El mensaje de sistema y las herramientas están fijos ahí.
+- **Privacidad:** se pide permiso antes de usarlo. El Seguro Social, el A-Number y la cuenta de USCIS nunca se envían, y la app oculta los números parecidos que se escriban en el chat.
+- **Para activarlo:**
+  1. En Vercel → camino-formularios → Settings → Environment Variables, agregue `ANTHROPIC_API_KEY` (de console.anthropic.com) y vuelva a publicar.
+  2. Sin la clave, el botón no aparece.
+  3. `AGENT_ENABLED=false` lo apaga sin tocar el código.
+- **Para cuidar el gasto:**
+  - En la consola de Anthropic, ponga un límite de gasto mensual.
+  - En Vercel → Firewall, agregue una regla de límite de solicitudes para `/api/agent` (por ejemplo, 30 por minuto por IP).
+
 ## Publicación
 
-El sitio está en Vercel (proyecto `camino-formularios`, conectado a este repositorio). Cada push a `main` publica la versión nueva en https://caminoformularios.com (el dominio está en la misma cuenta de Vercel; www.caminoformularios.com y camino-formularios.vercel.app llevan al mismo sitio); los pushes a otras ramas crean una vista previa privada. Es un sitio estático: no hay servidor ni base de datos, y las respuestas nunca salen del navegador de la persona.
+El sitio está en Vercel (proyecto `camino-formularios`, conectado a este repositorio). Cada push a `main` publica la versión nueva en https://caminoformularios.com (el dominio está en la misma cuenta de Vercel; www.caminoformularios.com y camino-formularios.vercel.app llevan al mismo sitio); los pushes a otras ramas crean una vista previa privada. Es un sitio estático con una sola función de servidor, la del asistente opcional (`api/agent.ts`). No hay base de datos, y las respuestas de los formularios nunca salen del navegador de la persona.
 
 ## Estructura
 

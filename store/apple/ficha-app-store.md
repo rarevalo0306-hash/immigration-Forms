@@ -98,9 +98,16 @@ immigration,USCIS,forms,citizenship,green card,N-400,I-765,asylum,DACA,TPS,civic
 
 ## Privacidad de la app (App Store Connect → Privacidad de la app)
 
-- ¿Recoge datos de esta app? **No, no recogemos datos.** (Resultado: "Datos no recopilados".)
+- Mientras el asistente con IA esté apagado (sin `ANTHROPIC_API_KEY`):
+  - ¿Recoge datos de esta app? **No, no recogemos datos.** (Resultado: "Datos no recopilados".)
+- Con el asistente encendido, lo que la persona escribe en ese chat va a Anthropic, que lo guarda un tiempo limitado. Declare:
+  - **Contenido del usuario → Otro contenido del usuario**;
+  - uso: **Funcionalidad de la app**;
+  - **no vinculado** a la identidad;
+  - **sin rastreo**.
+  - Agregue también `NSPrivacyCollectedDataTypeOtherUserContent` en `ios/App/App/PrivacyInfo.xcprivacy`.
 - Rastreo: **No**.
-- El proyecto incluye `ios/App/App/PrivacyInfo.xcprivacy`, que declara lo mismo.
+- La app pide permiso antes de enviar datos a la IA, como exige la regla 5.1.2(i) de Apple.
 
 ## Cumplimiento de exportación
 
