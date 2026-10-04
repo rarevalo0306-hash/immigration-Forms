@@ -7,6 +7,7 @@ import { formStatus, progressOf, type StepStatus } from '../engine/packages';
 import { load } from '../storage';
 import { loadDocuments } from '../forms/documents';
 import { DocChecklist, type ChecklistRow } from './DocChecklist';
+import { StudyLink } from './study/StudyLink';
 
 export const statusOf = (formId: string): StepStatus => formStatus(load(formId));
 
@@ -93,6 +94,7 @@ export function Package({ pkg, lang }: { pkg: PackageDefinition; lang: Lang }) {
           <li key={s}>{s}</li>
         ))}
       </ul>
+      {pkg.id === 'ciudadania' && <StudyLink lang={lang} />}
       <Notice tone="legal" title={ui.legalTitle[lang]}>{ui.legalBody[lang]}</Notice>
     </section>
   );

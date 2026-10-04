@@ -2,7 +2,8 @@ import { useRef, useState } from 'react';
 import { Button, Notice } from '../design/components';
 import { fmt, ui, type Lang } from '../i18n';
 import { backupFileName, makeBackup, parseBackup } from '../engine/backup';
-import { activeCase, clearAll, exportAll, exportChecked, importAll, saveChecked } from '../storage';
+import { activeCase, clearAll, exportAll, exportChecked, importAll, loadStudy, saveChecked, saveStudy } from '../storage';
+import { parseStudy } from '../study/state';
 import { packages } from '../forms/packages';
 
 /** Backup, restore and erase every form's answers on this device. */
@@ -17,7 +18,7 @@ export function MyData({ formIds, lang, onChange }: { formIds: string[]; lang: L
   const count = Object.keys(saved).length;
 
   const download = () => {
-    const blob = new Blob([JSON.stringify(makeBackup(saved, new Date(), exportChecked(listIds)), null, 2)], { type: 'application/json' });
+    const blob = new Blob([JSON.stringify(makeBackup(saved, new Date(), exportChecked(listIds), parseStudy(loadStudy())), null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
@@ -32,12 +33,13 @@ export function MyData({ formIds, lang, onChange }: { formIds: string[]; lang: L
     const parsed = parseBackup(await file.text(), formIds, listIds);
     if (!parsed.ok) return setMessage({ tone: 'error', text: ui.importBad[lang] });
     const n = Object.keys(parsed.forms).length;
-    if (!n) return setMessage({ tone: 'error', text: ui.importBad[lang] });
-    if (!window.confirm(fmt(ui.confirmImport[lang], { forms: formsWord(n, lang) }))) return;
+    if (!n && !parsed.study) return setMessage({ tone: 'error', text: ui.importBad[lang] });
+    if (!window.confirm(n ? fmt(ui.confirmImport[lang], { forms: formsWord(n, lang) }) : ui.confirmImportStudy[lang])) return;
     if (!importAll(parsed.forms)) return setMessage({ tone: 'error', text: ui.importFailed[lang] });
     for (const [id, ticks] of Object.entries(parsed.checklists)) saveChecked(id, ticks);
+    if (parsed.study) saveStudy(parsed.study);
     const skipped = parsed.skipped.length ? ` ${fmt(ui.importSkipped[lang], { forms: formsWord(parsed.skipped.length, lang) })}` : '';
-    setMessage({ tone: 'info', text: fmt(ui.importDone[lang], { forms: formsWord(n, lang) }) + skipped });
+    setMessage({ tone: 'info', text: (n ? fmt(ui.importDone[lang], { forms: formsWord(n, lang) }) : ui.importStudyDone[lang]) + skipped });
     onChange();
   };
 

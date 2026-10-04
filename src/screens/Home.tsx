@@ -43,6 +43,15 @@ export function Home({ forms, lang }: { forms: FormMeta[]; lang: Lang }) {
           );
         })}
       </ul>
+      <a className="cm-card app-form-card app-study-home" href="#estudiar">
+        <FormBadge form={lang === 'es' ? 'Estudiar' : 'Study'} />
+        <span className="app-form-title">{lang === 'es' ? 'Estudie para el examen de ciudadanía' : 'Study for the citizenship test'}</span>
+        <span className="cm-card-why">
+          {lang === 'es'
+            ? 'Las preguntas oficiales de educación cívica con sus respuestas, tarjetas de estudio, un simulacro de la entrevista y práctica del examen de inglés.'
+            : 'The official civics questions with their answers, flash cards, a practice interview and English test practice.'}
+        </span>
+      </a>
       <h2 className="app-home-h">{lang === 'es' ? 'Formularios uno por uno' : 'Forms one by one'}</h2>
       <ul className="app-form-list">
         {forms.map((f) => {

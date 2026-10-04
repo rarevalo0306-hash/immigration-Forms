@@ -1,4 +1,5 @@
 import type { Answers } from '../forms/types';
+import { isEmptyStudy, parseStudy, type StudyState } from '../study/state';
 
 /**
  * A backup is one JSON file with every form's saved answers, so a person can move to another
@@ -20,10 +21,19 @@ export interface Backup {
   forms: Record<string, SavedForm>;
   /** Ticked documents per checklist (a form id, or `pkg-<id>` for a package). Older backups lack it. */
   checklists?: Record<string, string[]>;
+  /** The citizenship study section's settings and progress (study/state.ts). Older backups lack it. */
+  study?: unknown;
 }
 
-export function makeBackup(forms: Record<string, SavedForm>, now = new Date(), checklists: Record<string, string[]> = {}): Backup {
-  return { app: 'camino', version: 1, exported: now.toISOString(), forms, ...(Object.keys(checklists).length ? { checklists } : {}) };
+export function makeBackup(forms: Record<string, SavedForm>, now = new Date(), checklists: Record<string, string[]> = {}, study?: StudyState): Backup {
+  return {
+    app: 'camino',
+    version: 1,
+    exported: now.toISOString(),
+    forms,
+    ...(Object.keys(checklists).length ? { checklists } : {}),
+    ...(study && !isEmptyStudy(study) ? { study } : {}),
+  };
 }
 
 const isAnswers = (a: unknown): a is Answers =>
@@ -33,7 +43,7 @@ const isAnswers = (a: unknown): a is Answers =>
   Object.values(a).every((v) => typeof v === 'string' || (Array.isArray(v) && v.every((x) => typeof x === 'string')));
 
 export type ParseResult =
-  | { ok: true; forms: Record<string, SavedForm>; checklists: Record<string, string[]>; skipped: string[] }
+  | { ok: true; forms: Record<string, SavedForm>; checklists: Record<string, string[]>; study?: StudyState; skipped: string[] }
   | { ok: false };
 
 /** Reads a backup file, keeping only forms this version of Camino knows and well-formed answers. */
@@ -62,7 +72,8 @@ export function parseBackup(text: string, knownFormIds: string[], knownListIds: 
   if (b.checklists && typeof b.checklists === 'object')
     for (const [id, ticks] of Object.entries(b.checklists))
       if (lists.has(id) && Array.isArray(ticks) && ticks.every((x) => typeof x === 'string')) checklists[id] = ticks;
-  return { ok: true, forms, checklists, skipped };
+  const study = b.study === undefined ? undefined : parseStudy(b.study);
+  return { ok: true, forms, checklists, ...(study && !isEmptyStudy(study) ? { study } : {}), skipped };
 }
 
 const slug = (s: string) =>

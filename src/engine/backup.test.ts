@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import { backupFileName, makeBackup, parseBackup } from './backup';
 import { clearAll, exportAll, exportChecked, importAll, load, loadChecked, loadLang, save, saveChecked, saveLang } from '../storage';
 import { useMemoryStorage } from '../test/memoryStorage';
+import { parseStudy } from '../study/state';
 
 describe('backup files', () => {
   beforeEach(() => {
@@ -37,6 +38,26 @@ describe('backup files', () => {
     // Older backups have no checklists.
     const old = parseBackup(JSON.stringify({ app: 'camino', version: 1, exported: '', forms: {} }), ['i-485']);
     expect(old.ok && old.checklists).toEqual({});
+  });
+
+  it('carries the citizenship study progress, cleaned of anything malformed', () => {
+    const study = {
+      ready: true,
+      settings: { version: '2008', exemption: '65-20', state: 'TX', names: { senator: 'Jane Doe' } },
+      cards: { '2008:6': { box: 2, due: 5 }, 'bad:1': { box: 1, due: 1 }, '2025:9': { box: 9, due: 1 } },
+      attempts: [{ version: '2008', at: 1, right: 6, wrong: 1, passed: true }, { version: 'x' }],
+    };
+    const text = JSON.stringify(makeBackup({}, new Date(), {}, parseStudy(study)));
+    const parsed = parseBackup(text, []);
+    expect(parsed.ok && parsed.study).toEqual({
+      ready: true,
+      settings: { version: '2008', exemption: '65-20', state: 'TX', names: { senator: 'Jane Doe' } },
+      cards: { '2008:6': { box: 2, due: 5 } },
+      attempts: [{ version: '2008', at: 1, right: 6, wrong: 1, passed: true }],
+    });
+    // Nothing studied: nothing in the file.
+    expect(JSON.parse(JSON.stringify(makeBackup({}, new Date(), {}, parseStudy(null)))).study).toBeUndefined();
+    expect(parseStudy({ settings: { version: '1999', exemption: 'x', state: 'ZZ' } }).settings).toEqual({ version: '2025', exemption: 'none', state: '', names: {} });
   });
 
   it('clearing keeps the language choice', () => {
