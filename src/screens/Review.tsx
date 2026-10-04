@@ -7,6 +7,7 @@ import { spanishAnswers } from '../engine/language';
 import { loadDocuments, type DocItem } from '../forms/documents';
 import { DocChecklist } from './DocChecklist';
 import { filingLinks } from '../forms/filing';
+import { StudyLink } from './study/StudyLink';
 
 interface Props {
   form: FormDefinition;
@@ -197,6 +198,7 @@ export function Review({ form, screens, answers, lang, onEdit, onBack }: Props) 
           <li key={s}>{fmt(s, vars)}</li>
         ))}
       </ol>
+      {form.id === 'n-400' && <StudyLink lang={lang} />}
       <Notice tone="legal" title={ui.legalTitle[lang]}>{ui.legalBody[lang]}</Notice>
 
       <div className="cm-card-actions no-print">

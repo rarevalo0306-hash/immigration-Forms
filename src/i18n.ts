@@ -103,6 +103,11 @@ export const ui = {
     es: 'Esta copia trae {forms}. Se cargará en el caso en el que está trabajando; si ya tiene respuestas en alguno de esos formularios, se reemplazarán por las de la copia. ¿Continuar?',
     en: 'This copy has {forms}. It loads into the case you are working on; if you already have answers in any of those forms, they will be replaced by the copy’s. Continue?',
   },
+  confirmImportStudy: {
+    es: 'Esta copia trae su avance de estudio para la ciudadanía. Reemplazará el avance de este caso. ¿Continuar?',
+    en: 'This copy has your citizenship study progress. It will replace this case’s progress. Continue?',
+  },
+  importStudyDone: { es: 'Listo: se cargó su avance de estudio.', en: 'Done: your study progress was loaded.' },
   importDone: { es: 'Listo: copia cargada ({forms}).', en: 'Done: copy loaded ({forms}).' },
   importSkipped: { es: 'Quedaron sin cargar: {forms} del archivo.', en: 'Not loaded from the file: {forms}.' },
   importBad: { es: 'Ese archivo no es una copia de respaldo de Camino.', en: 'That file is not a Camino backup copy.' },

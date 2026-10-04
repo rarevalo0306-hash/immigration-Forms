@@ -136,6 +136,26 @@ export function saveChecked(listId: string, ids: string[]) {
   }
 }
 
+/**
+ * The citizenship study section's state in the active case: settings, flash-card boxes and past
+ * interview practices (see study/engine.ts). Stored as JSON; the study screen validates it.
+ */
+export function loadStudy(): unknown {
+  try {
+    return JSON.parse(localStorage.getItem(key('study')) ?? 'null');
+  } catch {
+    return null;
+  }
+}
+
+export function saveStudy(state: unknown) {
+  try {
+    localStorage.setItem(key('study'), JSON.stringify(state));
+  } catch {
+    // ignore
+  }
+}
+
 /** Every form with saved answers on this device, except `skip`. */
 export function loadAll(formIds: string[], skip?: string): { formId: string; answers: Answers; updated: number }[] {
   const out = [];
