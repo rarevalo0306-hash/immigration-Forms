@@ -167,9 +167,11 @@ export function Review({ form, screens, answers, lang, onEdit, onBack }: Props) 
                       )}
                     </dd>
                     {n === 0 && (
-                      <Button variant="quiet" className="app-edit no-print" onClick={() => onEdit(i)}>
-                        {ui.edit[lang]}
-                      </Button>
+                      <dd className="app-edit-dd no-print">
+                        <Button variant="quiet" className="app-edit" onClick={() => onEdit(i)}>
+                          {ui.edit[lang]}
+                        </Button>
+                      </dd>
                     )}
                   </div>
                 ));

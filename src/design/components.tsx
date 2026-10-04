@@ -1,5 +1,5 @@
 // Camino components — typed port of the Camino design system bundle.
-import { useId, type ButtonHTMLAttributes, type InputHTMLAttributes, type ReactNode } from 'react';
+import { useEffect, useId, useRef, type ButtonHTMLAttributes, type InputHTMLAttributes, type ReactNode } from 'react';
 import type * as React from 'react';
 
 function cx(...parts: (string | false | null | undefined)[]) {
@@ -168,10 +168,13 @@ export interface QuestionCardProps {
 }
 
 export function QuestionCard({ question, eyebrow, why, children, onBack, onNext, backLabel = 'Atrás', nextLabel = 'Continuar' }: QuestionCardProps) {
+  // Each question is a new screen: move focus to it so screen readers read the new question.
+  const heading = useRef<HTMLHeadingElement>(null);
+  useEffect(() => heading.current?.focus({ preventScroll: true }), []);
   return (
     <section className="cm-card">
       {eyebrow && <div className="cm-card-eyebrow">{eyebrow}</div>}
-      <h2 className="cm-card-q">{question}</h2>
+      <h1 className="cm-card-q" ref={heading} tabIndex={-1}>{question}</h1>
       {why && <p className="cm-card-why">{why}</p>}
       {children}
       {(onBack || onNext) && (
