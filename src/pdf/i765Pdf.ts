@@ -1,6 +1,7 @@
 import { PDFCheckBox, PDFDocument, PDFDropdown, PDFTextField } from 'pdf-lib';
 import type { Answers } from '../forms/types';
 import { CATEGORY_OTHER } from '../forms/i765';
+import { assistance, type HelperPerson } from '../forms/assistance';
 import { parseCategory, parseUnit } from '../engine/validation';
 import { selectOption, setFieldText, toFormText } from './common';
 
@@ -9,6 +10,8 @@ const P1 = 'form1[0].Page1[0].';
 const P2 = 'form1[0].Page2[0].';
 const P3 = 'form1[0].Page3[0].';
 const P4 = 'form1[0].Page4[0].';
+const P5 = 'form1[0].Page5[0].';
+const P6 = 'form1[0].Page6[0].';
 const P7 = 'form1[0].Page7[0].';
 
 type Plan = { text: Record<string, string>; check: string[]; select: Record<string, string> };
@@ -128,9 +131,70 @@ export function planI765(a: Answers): Plan {
     check.push(`${P4}Pt3Line1Checkbox[0]`);
     put(`${P4}Pt3Line1b_Language[0]`, str(a, 'fluentLanguage'));
   }
+  if (a.preparer === 'yes') {
+    check.push(`${P4}Part3_Checkbox[0]`);
+    put(`${P4}Pt3Line2_RepresentativeName[0]`, str(a, 'preparer.name'));
+  }
   put(`${P4}Pt3Line3_DaytimePhoneNumber1[0]`, digits(str(a, 'phone')).replace(/^1(?=\d{10}$)/, ''));
   put(`${P4}Pt3Line4_MobileNumber1[0]`, digits(str(a, 'mobile')).replace(/^1(?=\d{10}$)/, ''));
   put(`${P4}Pt3Line5_Email[0]`, str(a, 'email'));
+
+  // Parts 4–5 · the interpreter's and preparer's details. Their signatures and dates stay empty.
+  // The field names lie: the interpreter's address is named Pt5*, the preparer's Pt6*, and the
+  // Apt./Ste./Flr. boxes of both are in the order Flr, Apt, Ste by export value (picked by position here).
+  const phone = (s: string) => digits(s).replace(/^1(?=\d{10}$)/, '');
+  const helper = (p: HelperPerson, f: { family: string; given: string; business: string; addr: string; unit: string; phone: string; mobile: string; email: string }) => {
+    put(f.family, p.family);
+    put(f.given, p.given);
+    put(f.business, p.business);
+    put(`${f.addr}3a_StreetNumberName[0]`, p.street);
+    const unit = parseUnit(p.unit);
+    if (unit) {
+      check.push(`${f.unit}[${{ APT: 1, STE: 2, FLR: 0 }[unit.kind]}]`);
+      put(`${f.addr}3b_AptSteFlrNumber[0]`, unit.number);
+    }
+    put(`${f.addr}3c_CityOrTown[0]`, p.city);
+    if (p.state) select[`${f.addr}3d_State[0]`] = p.state.toUpperCase();
+    put(`${f.addr}3e_ZipCode[0]`, p.zip);
+    put(`${f.addr}3f_Province[0]`, p.province);
+    put(`${f.addr}3g_PostalCode[0]`, p.postal);
+    put(`${f.addr}3h_Country[0]`, p.country);
+    put(f.phone, phone(p.phone));
+    put(f.mobile, phone(p.mobile));
+    put(f.email, p.email);
+  };
+  const help = assistance(a, { interpreter: a.readsEnglish === 'interpreter', preparer: a.preparer === 'yes' });
+  if (help.interpreter) {
+    helper(help.interpreter, {
+      family: `${P4}Pt4Line1a_InterpreterFamilyName[0]`,
+      given: `${P4}Pt4Line1b_InterpreterGivenName[0]`,
+      business: `${P4}Pt4Line2_InterpreterBusinessorOrg[0]`,
+      addr: `${P5}Pt5Line`,
+      unit: `${P5}Pt5Line3b_Unit`,
+      phone: `${P5}Pt4Line4_InterpreterDaytimeTelephone[0]`,
+      mobile: `${P5}Pt4Line5_MobileNumber[0]`,
+      email: `${P5}Pt4Line6_Email[0]`,
+    });
+    put(`${P5}Part4_NameofLanguage[0]`, help.interpreter.language);
+  }
+  if (help.preparer) {
+    helper(help.preparer, {
+      family: `${P5}Pt5Line1a_PreparerFamilyName[0]`,
+      given: `${P5}Pt5Line1b_PreparerGivenName[0]`,
+      business: `${P5}Pt5Line2_BusinessName[0]`,
+      addr: `${P5}Pt6Line`,
+      unit: `${P5}Pt6Line3b_Unit`,
+      phone: `${P5}Pt5Line4_DaytimePhoneNumber1[0]`,
+      mobile: `${P5}Pt5Line5_PreparerFaxNumber[0]`,
+      email: `${P5}Pt5Line6_Email[0]`,
+    });
+    const st = help.preparer.statement;
+    if (st === 'notAttorney') check.push(`${P6}Part5Line7_Checkbox[0]`);
+    if (st === 'attorneyExtends' || st === 'attorneyNotExtends') {
+      check.push(`${P6}Part5Line7_Checkbox[1]`);
+      check.push(`${P6}Part5Line7b_Checkbox[${st === 'attorneyExtends' ? 0 : 1}]`);
+    }
+  }
 
   // Part 6 repeats the name and A-Number at the top of the additional-information page.
   put(`${P7}Line1a_FamilyName[0]`, str(a, 'name.family'));

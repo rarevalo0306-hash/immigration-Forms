@@ -2,6 +2,7 @@ import { PDFCheckBox, PDFDocument, PDFDropdown, type PDFField, type PDFFont, PDF
 import type { Answers } from '../forms/types';
 import { FACTORS, HOW_LEFT } from '../forms/i212';
 import { parseUnit } from '../engine/validation';
+import { assistance, usedInterpreter, usedPreparer } from '../forms/assistance';
 import { fieldsBySegment, optionBoxes, selectOption, setFieldText, toFormText, wrap } from './common';
 
 // Fields of USCIS Form I-212, edition 01/20/25 (public/forms/i-212.pdf), named by the last segment
@@ -9,7 +10,9 @@ import { fieldsBySegment, optionBoxes, selectOption, setFieldText, toFormText, w
 // - Many names carry another part's or item's number: Part 1, Item 11 (date of birth) is
 //   "p2Line14DateOfBirth", Items 8-20 are "p1Line11"-"p1Line23" (SSN "p1Line11SSN", sex
 //   "p1Line13Gender", Item 16 "p1Line19aDOSNumber", Item 19 "p1Line22YesNo"); Part 2, Item 13 is
-//   "p2Line3ReEnterDate"; Part 6 (applicant contact) is "p7Line*".
+//   "p2Line3ReEnterDate"; Part 6 (applicant contact) is "p7Line*", Part 7 (interpreter) "p8Line*" and
+//   "p8InterpreterLanguage", and Part 8 (preparer) "p9Line*". Parts 7 and 8 have no address or
+//   statement boxes, and their phone boxes hold 10 digits (a longer foreign number goes to Part 9).
 // - Part 9's name and A-Number reuse Part 1's segment names ("p1Line2FamilyName[0]",
 //   "p1Line1AlienNumber[0]") on another page: the filler fills every field sharing a name.
 // - Part 9's entries 3-7 are "p10Line3"-"p10Line7".
@@ -223,6 +226,35 @@ export function planI212(a: Answers): I212Plan {
   put('p7Line3DayPhone[0]', digits(str(a, 'phone')));
   put('p7Line4MobilePhone[0]', digits(str(a, 'mobile')));
   put('p7Line5Email[0]', str(a, 'email'));
+
+  // Parts 7 and 8 (page 8). Signatures and dates stay empty.
+  const helperPhones = (part: string, who: string, [day, mobile]: string[], h: { phone: string; mobile: string }) => {
+    const long: string[] = [];
+    for (const [field, raw, label] of [[day, h.phone, 'daytime'], [mobile, h.mobile, 'mobile']]) {
+      const n = digits(raw).replace(/^1(?=\d{10}$)/, '');
+      if (n.length <= 10) put(field, n);
+      else long.push(`${label} ${raw}`);
+    }
+    if (long.length) notes.push({ page: '8', part, item: '3-4', text: `${who} telephone: ${long.join('; ')}` });
+  };
+  const help = assistance(a, { interpreter: usedInterpreter(a), preparer: usedPreparer(a) });
+  if (help.interpreter) {
+    const h = help.interpreter;
+    put('p8Line1FamilyName[0]', h.family);
+    put('p8Line1GivenName[0]', h.given);
+    put('p8Line2BusinessorOrg[0]', h.business);
+    helperPhones('7', "Interpreter's", ['p8Line4DayPhone[0]', 'p8Line5MobilePhone[0]'], h);
+    put('p8Line6Email[0]', h.email);
+    put('p8InterpreterLanguage[0]', h.language);
+  }
+  if (help.preparer) {
+    const h = help.preparer;
+    put('p9Line1FamilyName[0]', h.family);
+    put('p9Line1GivenName[0]', h.given);
+    put('p9Line2BusinessorOrg[0]', h.business);
+    helperPhones('8', "Preparer's", ['p9Line4DayPhone[0]', 'p9Line5MobilePhone[0]'], h);
+    put('p9Line6Email[0]', h.email);
+  }
 
   return { text, check, checkValue, select, statement, notes: notes.filter((n) => n.text) };
 }

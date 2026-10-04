@@ -10,10 +10,13 @@ const BY_POSITION: Record<string, RegExp> = {
   'i-129f.pdf': /^Pt[12]Line(8|9|11|12|14|17|18|21)_Unit$/,
   'i-765.pdf': /^Pt[56]Line3b_Unit$/,
   'i-865.pdf': /^P[45]_Line3b_Unit$/,
+  // Not a unit group: the I-539A's "served in a military unit" yes/no question.
+  'i-539a.pdf': /^P3_Line10_MilUnit$/,
 };
 
-// The I-589 asks for an "Apt. Number" as text, and the G-1145 and I-765WS have no address: none has unit boxes.
-const NO_UNITS = new Set(['i-589.pdf', 'g-1145.pdf', 'i-765ws.pdf']);
+// The I-589 asks for an "Apt. Number" as text, the G-1145 and I-765WS have no address, the EOIR-33
+// takes free-text address lines and the I-485 Supplement A has unit boxes without "Unit" in their names.
+const NO_UNITS = new Set(['i-589.pdf', 'g-1145.pdf', 'i-765ws.pdf', 'eoir-33.pdf', 'i-485supa.pdf']);
 
 const dir = new URL('../../public/forms/', import.meta.url);
 

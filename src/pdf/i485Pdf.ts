@@ -3,6 +3,7 @@ import type { Answers } from '../forms/types';
 import { CATEGORIES, flaggedI485 } from '../forms/i485';
 import { P9_ITEMS } from '../forms/i485Part9';
 import { parseUnit } from '../engine/validation';
+import { assistance } from '../forms/assistance';
 import { fieldIndex, optionBoxes, selectOption, setFieldText } from './common';
 
 // Fields of USCIS Form I-485, edition 09/18/26 (public/forms/i-485.pdf), named by the last segment
@@ -324,6 +325,31 @@ export function planI485(a: Answers): I485Plan {
   put('Pt3Line3_DaytimePhoneNumber1[0]', digits(str(a, 'phone')).replace(/^1(?=\d{10}$)/, ''));
   put('Pt3Line4_MobileNumber1[0]', digits(str(a, 'mobile')).replace(/^1(?=\d{10}$)/, ''));
   put('Pt3Line5_Email[0]', str(a, 'email'));
+
+  // Parts 11–12: the interpreter and the preparer; their signatures and dates stay empty. This
+  // edition has no address or statement boxes for them. The interpreter's phones and email are
+  // named P3_Line4–6, and the preparer's given name Pt12Line1a.
+  const phone = (s: string) => digits(s).replace(/^1(?=\d{10}$)/, '');
+  const help = assistance(a, { interpreter: a.readsEnglish === 'B', preparer: a.preparer === 'yes' });
+  if (help.interpreter) {
+    const p = help.interpreter;
+    put('Pt11Line1a_FamilyName[0]', p.family);
+    put('Pt11Line1b_GivenName[0]', p.given);
+    put('Pt11Line2_OrgName[0]', p.business);
+    put('P3_Line4_DaytimeTelePhoneNumber[0]', phone(p.phone));
+    put('P3_Line5_MobileTelePhoneNumber[0]', phone(p.mobile));
+    put('P3_Line6_Email[0]', p.email);
+    put('Part11_NameofLanguage[0]', p.language);
+  }
+  if (help.preparer) {
+    const p = help.preparer;
+    put('Pt12Line1_PreparerFamilyName[0]', p.family);
+    put('Pt12Line1a_PreparerGivenName[0]', p.given);
+    put('Pt12Line2_BusinessName[0]', p.business);
+    put('Pt12Line3_PreparerDaytimePhoneNumber1[0]', phone(p.phone));
+    put('Pt12Line4_PreparerMobileNumber[0]', phone(p.mobile));
+    put('Pt12Line5_PreparerEmail[0]', p.email);
+  }
 
   // Part 14: the first explanations of Part 9 answers.
   flaggedI485(a)

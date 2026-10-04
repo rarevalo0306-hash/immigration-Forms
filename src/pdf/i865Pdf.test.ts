@@ -50,6 +50,41 @@ export const jorge: Answers = {
   email: 'jorge.ramirez@example.com',
 };
 
+/** An interpreter in Los Angeles and a preparer in Tijuana. */
+const helpers: Answers = {
+  readsEnglish: 'B',
+  fluentLanguage: 'Spanish',
+  preparer: 'yes',
+  'preparer.name': 'Luis Pérez',
+  'interp.family': 'Gómez',
+  'interp.given': 'Rosa',
+  'interp.business': 'Ayuda Hispana LLC',
+  'interp.street': '500 Oak St',
+  'interp.unit': 'Ste 210',
+  'interp.city': 'Los Angeles',
+  'interp.state': 'CA',
+  'interp.zip': '90012',
+  'interp.country': 'United States',
+  'interp.phone': '(213) 555-0111',
+  'interp.mobile': '213 555 0112',
+  'interp.email': 'rosa@example.com',
+  'interp.language': 'Spanish',
+  'prep.same': 'no',
+  'prep.family': 'Pérez',
+  'prep.given': 'Luis',
+  'prep.business': 'Pérez Law Office',
+  'prep.street': '77 Av Revolución',
+  'prep.unit': 'Flr 3',
+  'prep.city': 'Tijuana',
+  'prep.province': 'Baja California',
+  'prep.postal': '22000',
+  'prep.country': 'Mexico',
+  'prep.phone': '664 555 0100',
+  'prep.mobile': '664 555 0101',
+  'prep.email': 'luis@example.com',
+  'prep.statement': 'attorneyExtends',
+};
+
 describe('I-865 PDF', () => {
   it('plans only fields that exist, with the right kind', async () => {
     const index = fieldIndex((await PDFDocument.load(template)).getForm());
@@ -66,6 +101,9 @@ describe('I-865 PDF', () => {
       { ...jorge, ...many, 'home.unit': 'Floor 3', 'mailing.unit': 'Suite 200', readsEnglish: 'A', preparer: 'yes', 'preparer.name': 'Ana Ruiz', 'preparer.attorney': 'yes' },
       { ...jorge, mailingSame: 'yes', oldAddress: 'no', 'home.unit': 'Ste 4', 'mailing.unit': 'Apt 1', preparer: 'yes', 'preparer.name': 'Ana Ruiz', 'preparer.attorney': 'no' },
       { ...jorge, 'home.state': '', 'home.zip': '', 'home.province': 'Jalisco', 'home.postal': '44100', 'home.country': 'Mexico', mobile: '6195550199' },
+      { ...jorge, ...helpers },
+      { ...jorge, ...helpers, 'prep.same': 'yes', 'prep.statement': 'notAttorney' },
+      { ...jorge, ...helpers, readsEnglish: 'A', 'prep.statement': 'attorneyNotExtends', 'prep.unit': 'Apt 9', 'prep.state': 'TX' },
     ];
     for (const plan of variants.map(planI865)) {
       for (const name of Object.keys(plan.text)) expect(index.get(name), name).toBeInstanceOf(PDFTextField);
@@ -85,6 +123,32 @@ describe('I-865 PDF', () => {
     expect(same.text['P1_Line6b_StreetNumberName[0]']).toBeUndefined();
     expect(same.notes).toEqual([]);
     expect(planI865(variants[3]).text['P1_Line3f_Province[0]']).toBe('Jalisco');
+  });
+
+  it('fills the interpreter and preparer parts', async () => {
+    const f = fieldIndex((await PDFDocument.load(await fillI865(template, { ...jorge, ...helpers }))).getForm());
+    const text = (n: string) => (f.get(n) as PDFTextField).getText() ?? '';
+    const checked = (n: string) => (f.get(n) as PDFCheckBox).isChecked();
+    expect(text('P3_Line2_Attorney[0]')).toBe('Luis Perez');
+    expect(checked('P3_Line2_Who[0]')).toBe(true); // is an attorney
+    expect(text('P4_Line1a_InterpretersFamilyName[0]')).toBe('Gomez');
+    // Ste. sits on the box named "Unit[1]", whose export says FLR.
+    expect(checked('P4_Line3b_Unit[1]')).toBe(true);
+    expect(text('P4_Line3b_AptSteFlrNumber[0]')).toBe('210');
+    expect((f.get('P4_Line3d_State[0]') as PDFDropdown).getSelected().map((s) => s.trim())).toEqual(['CA']);
+    expect(text('P4_Language[0]')).toBe('Spanish');
+    expect(text('P5_Line1b_PreparersGivenName[0]')).toBe('Luis');
+    expect(checked('P5_Line3b_Unit[0]')).toBe(true); // Flr.
+    expect(text('P5_Line3f_Province[0]')).toBe('Baja California');
+    expect(text('P5_Line5_PreparersFaxNumber[0]')).toBe('');
+    expect(checked('P5_Line7_checkbox[1]')).toBe(true);
+    expect(checked('P5_Line7b_Extend[0]')).toBe(true);
+    expect(checked('P5_Line7_checkbox[0]')).toBe(false);
+    const notAttorney = planI865({ ...jorge, ...helpers, 'prep.statement': 'notAttorney' });
+    expect(notAttorney.check).toContain('P5_Line7_checkbox[0]');
+    expect(notAttorney.checkValue).toContainEqual(['P3_Line2_Who', 'N']);
+    expect(planI865({ ...jorge, ...helpers, 'prep.same': 'yes' }).text['P5_Line1a_PreparersFamilyName[0]']).toBe('Gómez');
+    expect(Object.keys(planI865(jorge).text).filter((k) => /^P[45]_/.test(k))).toEqual([]);
   });
 
   it('writes the answers into the official form', async () => {

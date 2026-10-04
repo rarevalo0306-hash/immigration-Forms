@@ -1,6 +1,7 @@
 import { PDFCheckBox, PDFDocument, PDFDropdown, type PDFField, PDFTextField } from 'pdf-lib';
 import type { Answers } from '../forms/types';
 import { flaggedI821, P7_ITEMS } from '../forms/i821Part7';
+import { assistance, type HelperPerson } from '../forms/assistance';
 import { parseUnit } from '../engine/validation';
 import { fieldIndex, fieldsBySegment, optionBoxes, selectOption, setFieldText } from './common';
 
@@ -10,6 +11,16 @@ import { fieldIndex, fieldsBySegment, optionBoxes, selectOption, setFieldText } 
 // one name repeats: the date of birth (Item 10) and the date of the current marriage (Item 18) are
 // both "Part2_Item10_DateOfBirth[0]". A name with "#n" picks the n-th field (from 0) with that
 // name; a plain name fills them all (the name and A-Number repeat at the top of Part 11).
+//
+// Parts 4-6 and 9-10 have more such names, matched by position:
+// - Part 4's online account number "Part4_Item1_USCISNumber[0]" is also Child 2's (Part 6, Item 9);
+//   Part 4, Item 11 is "_YesNoDontKnow"; Child 1's Item 7 is "Part5_Item7_ChildAppTPS" and Child 2's
+//   TPS dates are "Part6_Item13_ChildTPSFrom" / "Part6_Item12_ChildTPSTo".
+// - The interpreter's language (Part 9's certification) is "Part6_Item12_Province[0]" #1, after
+//   Child 2's province (#0). The interpreter's mobile is "Part10_Item5_MobilePhone[0]" #0 and the
+//   preparer's #1; the interpreter's given name is "Part9_Item1_GivenName[1]".
+// - Part 5's "I do not know" boxes export "I" or "D" depending on the item, so the Yes / No / Don't
+//   know boxes are picked by position.
 
 export interface I821Plan {
   text: Record<string, string>;
@@ -49,6 +60,49 @@ export function planI821(a: Answers): I821Plan {
     put(`${p}_ZipCode[0]`, str(a, `${prefix}.zip`));
   };
   const notes: { page: string; part: string; item: string; text: string }[] = [];
+  /** An address with province, postal code and country; `names` overrides a field's full name. */
+  const fullAddress = (src: Pick<HelperPerson, 'street' | 'unit' | 'city' | 'state' | 'zip' | 'province' | 'postal' | 'country'>, p: string, names: Partial<Record<'province', string>> = {}) => {
+    put(`${p}_StreetNumberName[0]`, src.street);
+    const unit = parseUnit(src.unit);
+    if (unit) {
+      checkValue.push([`${p}_Unit`, unit.kind]);
+      put(`${p}_AptSteFlrNumber[0]`, unit.number);
+    }
+    put(`${p}_CityOrTown[0]`, src.city);
+    if (src.state) select[`${p}_State[0]`] = src.state.toUpperCase();
+    put(`${p}_ZipCode[0]`, src.zip);
+    put(names.province ?? `${p}_Province[0]`, src.province);
+    put(`${p}_PostalCode[0]`, src.postal);
+    put(`${p}_Country[0]`, src.country);
+  };
+  const addressOf = (prefix: string) => ({
+    street: str(a, `${prefix}.street`),
+    unit: str(a, `${prefix}.unit`),
+    city: str(a, `${prefix}.city`),
+    state: str(a, `${prefix}.state`),
+    zip: str(a, `${prefix}.zip`),
+    province: str(a, `${prefix}.province`),
+    postal: str(a, `${prefix}.postal`),
+    country: str(a, `${prefix}.country`),
+  });
+  const aNum = (field: string, id: string) => {
+    const n = digits(str(a, id));
+    if (n) put(field, n.padStart(9, '0'));
+  };
+  /** Yes / No / I don't know boxes `base[0..2]`, by position. */
+  const ynd = (base: string, value: unknown, values: [string, string, string]) => {
+    const k = ['yes', 'no', 'unknown'].indexOf(String(value ?? ''));
+    if (k >= 0) checkValue.push([base, values[k]]);
+  };
+  /** TPS dates: "Present" when only the start is known, "I do not know the dates" when neither is. */
+  const tpsDates = (id: string, from: string, to: string, present: string, unknown: string) => {
+    const f = str(a, `${id}.tpsFrom`);
+    const t = str(a, `${id}.tpsTo`);
+    put(from, f);
+    put(to, t);
+    if (f && !t) check.push(present);
+    if (!f && !t) check.push(unknown);
+  };
 
   // Part 1: type of application.
   if (a.appType === '1a' || a.appType === '1b') checkValue.push(['Part1_Item1_ApplicationType', str(a, 'appType')]);
@@ -130,6 +184,79 @@ export function planI821(a: Answers): I821Plan {
   if (str(a, 'eyes')) checkValue.push(['Part3_Item5_Eyecolor', str(a, 'eyes')]);
   if (str(a, 'hair')) checkValue.push(['Part3_Item6_Haircolor', str(a, 'hair')]);
 
+  // Parts 4-6: only for late initial filers.
+  const late = a.appType === '1a' && a.lateInitial === 'yes';
+  if (late && (a.marital === 'M' || a.marital === 'E')) {
+    put('Part4_Item1_USCISNumber[0]#0', digits(str(a, 'spouse.uscisAccount')));
+    aNum('Part4_Item2_AlienNumber[0]', 'spouse.aNumber');
+    put('Part4_Item3_FamilyName[0]', str(a, 'spouse.family'));
+    put('Part4_Item3_GivenName[0]', str(a, 'spouse.given'));
+    put('Part4_Item3_MiddleName[0]', str(a, 'spouse.middle'));
+    fullAddress(addressOf('spouse'), 'Part4_Item4');
+    put('Part4_Item5_DateOfBirth[0]', str(a, 'spouse.dob'));
+    put('Part4_Item6_DateOfMarriage[0]', str(a, 'marriage.date'));
+    const city = str(a, 'spouse.marriageCity');
+    const country = str(a, 'spouse.marriageCountry');
+    put('Part4_Item7_PlaceofMarriage[0]', str(a, 'spouse.marriagePlace') || [city, country].filter(Boolean).join(', '));
+    put('Part4_Item8_CityOrTown[0]', city);
+    const st = str(a, 'spouse.marriageState').toUpperCase();
+    if (st) select['Part4_Item8_State[0]'] = st;
+    put('Part4_Item8_Province[0]', str(a, 'spouse.marriageProvince'));
+    put('Part4_Item8_Country[0]', country);
+    if (a['spouse.tps'] === 'yes') check.push('Part4_Item9_TPSY[0]');
+    if (a['spouse.tps'] === 'no') check.push('Part4_Item9_TPSN[0]');
+    if (a['spouse.tps'] === 'yes') {
+      tpsDates('spouse', 'Part4_Item10b_DateFrom[0]', 'Part4_Item10c_DateTo[0]', 'Part4_Item10d_Present[0]', 'Part4_Item10e_IDK[0]');
+      ynd('_YesNoDontKnow', a['spouse.tpsValid'], ['Y', 'N', 'D']);
+    }
+  }
+  if (late && a.marital !== 'S' && a['formerSpouse.more0'] === 'yes') {
+    const former = [
+      { p: 'former1', n: 1, aNum: 'Part5_Item3_AlienNumber[0]', tps: 'Part5_Item8_YDI', dates: 9, applying: 'Part5_Item10_YNI' },
+      { p: 'former2', n: 11, aNum: 'Part5_Item13_AlienNumber[0]', tps: 'Part5_Item18_YNI', dates: 19, applying: 'Part5_Item20_YNI' },
+    ];
+    former.forEach((f, i) => {
+      if (i > 0 && a['formerSpouse.more1'] !== 'yes') return;
+      const it = (k: number) => `Part5_Item${f.n + k}`;
+      put(`${it(0)}_FamilyName[0]`, str(a, `${f.p}.family`));
+      put(`${it(0)}_GivenName[0]`, str(a, `${f.p}.given`));
+      put(`${it(0)}_MiddleName[0]`, str(a, `${f.p}.middle`));
+      put(`${it(1)}_FSpouseNationalities[0]`, str(a, `${f.p}.nationality`));
+      aNum(f.aNum, `${f.p}.aNumber`);
+      put(`${it(3)}_FSpouseDOB[0]`, str(a, `${f.p}.dob`));
+      put(`${it(4)}_FSpouseDOD[0]`, str(a, `${f.p}.dod`));
+      put(`${it(5)}_MarriageFrom[0]`, str(a, `${f.p}.from`));
+      put(`${it(5)}_MarriageTo[0]`, str(a, `${f.p}.to`));
+      put(`${it(6)}_MarriageEnded[0]`, str(a, `${f.p}.ended`));
+      // The "I do not know" boxes export "I", except Item 10's, which exports "D".
+      ynd(f.tps, a[`${f.p}.tps`], ['Y', 'N', 'I']);
+      if (a[`${f.p}.tps`] === 'yes') {
+        const d = `Part5_Item${f.dates}`;
+        tpsDates(f.p, `${d}a_DateFrom[0]`, `${d}b_DateTo[0]`, `${d}c_Present[0]`, `${d}d_IDK[0]`);
+      }
+      ynd(f.applying, a[`${f.p}.applying`], ['Y', 'N', f.applying === 'Part5_Item10_YNI' ? 'D' : 'I']);
+    });
+  }
+  if (late && a['child.more0'] === 'yes') {
+    const children = [
+      { p: 'child1', name: 'Part6_Item1', account: 'Part6_Item2_USCISNumber[0]', aNum: 'Part6_Item3_AlienNumber[0]', dob: 'Part6_Item4_DateOfBirth[0]', addr: 'Part6_Item5', province: undefined, from: 'Part6_Item6_ChildTPSFrom[0]', to: 'Part6_Item6_ChildTPSTo[0]', applying: 'Part5_Item7_ChildAppTPS' },
+      { p: 'child2', name: 'Part6_Item8', account: 'Part4_Item1_USCISNumber[0]#1', aNum: 'Part6_Item10_AlienNumber[0]', dob: 'Part6_Item11_DateOfBirth[0]', addr: 'Part6_Item12', province: 'Part6_Item12_Province[0]#0', from: 'Part6_Item13_ChildTPSFrom[0]', to: 'Part6_Item12_ChildTPSTo[0]', applying: 'Part6_Item14_ChildAppTPS' },
+    ];
+    children.forEach((c, i) => {
+      if (i > 0 && a['child.more1'] !== 'yes') return;
+      put(`${c.name}_FamilyName[0]`, str(a, `${c.p}.family`));
+      put(`${c.name}_GivenName[0]`, str(a, `${c.p}.given`));
+      put(`${c.name}_MiddleName[0]`, str(a, `${c.p}.middle`));
+      put(c.account, digits(str(a, `${c.p}.uscisAccount`)));
+      aNum(c.aNum, `${c.p}.aNumber`);
+      put(c.dob, str(a, `${c.p}.dob`));
+      fullAddress(addressOf(c.p), c.addr, c.province ? { province: c.province } : {});
+      put(c.from, str(a, `${c.p}.tpsFrom`));
+      put(c.to, str(a, `${c.p}.tpsTo`));
+      yn(c.applying, a[`${c.p}.applying`]);
+    });
+  }
+
   // Part 7: eligibility.
   put('Part7_Item1_CountryResidence[0]', str(a, 'nationalOf'));
   put('Part7_Item1_EnterUS[0]', str(a, 'residingSince'));
@@ -155,6 +282,39 @@ export function planI821(a: Answers): I821Plan {
   put('Part8_Item3_DayPhone[0]', digits(str(a, 'phone')));
   put('Part8_Item4_MobilePhone[0]', digits(str(a, 'mobile')));
   put('Part8_Item5_Email[0]', str(a, 'email'));
+  if (a.preparer === 'yes') {
+    check.push('Part8_Item2_Preparer[0]');
+    put('Part8_Item2_PrepName[0]', str(a, 'preparer.name'));
+  }
+
+  // Parts 9-10: the interpreter's and preparer's details. Their signatures and dates stay empty.
+  const help = assistance(a, { interpreter: a.readsEnglish === '1b', preparer: a.preparer === 'yes' });
+  if (help.interpreter) {
+    const p = help.interpreter;
+    put('Part9_Item1_FamilyName[0]', p.family);
+    put('Part9_Item1_GivenName[1]', p.given);
+    put('Part9_Item2_OrgName[0]', p.business);
+    fullAddress(p, 'Part9_Item3');
+    put('Part9_Item4_DaytimePhone[0]', digits(p.phone));
+    put('Part10_Item5_MobilePhone[0]#0', digits(p.mobile));
+    put('Part9_Item5_Email[0]', p.email);
+    put('Part6_Item12_Province[0]#1', p.language);
+  }
+  if (help.preparer) {
+    const p = help.preparer;
+    put('Part10_Item1_FamilyName[0]', p.family);
+    put('Part10_Item1_GivenName[0]', p.given);
+    put('Part10_Item2_OrgName[0]', p.business);
+    fullAddress(p, 'Part10_Item3');
+    put('Part10_Item4_DaytimePhone[0]', digits(p.phone));
+    put('Part10_Item5_MobilePhone[0]#1', digits(p.mobile));
+    put('Part10_Item6_Email[0]', p.email);
+    if (p.statement === 'notAttorney') checkValue.push(['Part10_Item7_PreparerStmt', 'A']);
+    if (p.statement === 'attorneyExtends' || p.statement === 'attorneyNotExtends') {
+      checkValue.push(['Part10_Item7_PreparerStmt', 'B']);
+      check.push(p.statement === 'attorneyExtends' ? 'Part10_Item7b_Extend[0]' : 'Part10_Item7b_NotExtend[0]');
+    }
+  }
 
   // Part 11: additional information.
   notes.slice(0, 5).forEach((n, i) => {

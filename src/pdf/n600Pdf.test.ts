@@ -90,6 +90,41 @@ export const mateo: Answers = {
   phone: '312 555 0100',
 };
 
+/** An interpreter and a different preparer helped. */
+const helped: Answers = {
+  readsEnglish: 'B',
+  fluentLanguage: 'Spanish',
+  preparer: 'yes',
+  'preparer.name': 'Mario Ruiz',
+  'interp.family': 'Gómez',
+  'interp.given': 'Lucía',
+  'interp.business': 'Ayuda Legal',
+  'interp.street': '10 Elm St',
+  'interp.unit': 'Apt 7',
+  'interp.city': 'Chicago',
+  'interp.state': 'IL',
+  'interp.zip': '60601',
+  'interp.country': 'United States',
+  'interp.phone': '312 555 0100',
+  'interp.mobile': '312 555 0101',
+  'interp.email': 'lucia@example.com',
+  'interp.language': 'Spanish',
+  'prep.same': 'no',
+  'prep.family': 'Ruiz',
+  'prep.given': 'Mario',
+  'prep.business': 'Ruiz Forms',
+  'prep.street': 'Calle 5 de Mayo 12',
+  'prep.unit': 'Ste 3',
+  'prep.city': 'Monterrey',
+  'prep.province': 'Nuevo Leon',
+  'prep.postal': '64000',
+  'prep.country': 'Mexico',
+  'prep.phone': '312 555 0200',
+  'prep.mobile': '312 555 0201',
+  'prep.email': 'mario@example.com',
+  'prep.statement': 'notAttorney',
+};
+
 describe('N-600 PDF', () => {
   it('plans only fields that exist, with the right kind', async () => {
     const index = fieldIndex((await PDFDocument.load(template)).getForm());
@@ -115,6 +150,9 @@ describe('N-600 PDF', () => {
       { ...mateo, adopted: 'yes', adoptionFinal: 'no', dob: '01/01/1950', absent: 'yes', 'absence1.left': '01/01/1960', 'absence1.state': 'NY', 'absence.more1': 'yes', 'absence2.left': '01/01/1970', 'absence2.state': 'FL', lostLPR: 'yes', 'lostLPR.explain': 'x', prevN600: 'yes', prevPassport: 'yes', armedForces: 'yes' },
       ...['M', 'D', 'W', 'E', 'A'].map((marital) => ({ ...mateo, marital, 'parent1.marital': marital, 'parent2.marital': marital, discharge: 'H' })),
       ...['O', 'D'].map((discharge) => ({ ...mateo, atBirth: 'yes', parentMilitary: 'yes', discharge, presenceParent: 'mother', parentsMarriedAtBirth: 'no', parentsMarriedAfter: 'yes', 'parent1.spouse.status': 'US' })),
+      { ...mateo, ...helped },
+      { ...mateo, ...helped, 'prep.same': 'yes', 'prep.statement': 'attorneyExtends', 'interp.unit': 'Flr 2' },
+      { ...mateo, ...helped, 'prep.statement': 'attorneyNotExtends' },
     ];
     for (const plan of variants.map(planN600)) {
       for (const name of Object.keys(plan.text)) expect(index.get(name), name).toBeInstanceOf(PDFTextField);
@@ -158,5 +196,32 @@ describe('N-600 PDF', () => {
     expect(text('P8_Line1B_Language[0]')).toBe('Spanish');
     expect(text('P8_Line3[0]')).toBe('3125550100');
     expect(text('P8_Line6_Date[0]')).toBe('');
+  });
+
+  it('fills the interpreter’s and preparer’s parts', async () => {
+    const f = fieldIndex((await PDFDocument.load(await fillN600(template, { ...mateo, ...helped }))).getForm());
+    const text = (n: string) => (f.get(n) as PDFTextField).getText() ?? '';
+    const checked = (n: string) => (f.get(n) as PDFCheckBox).isChecked();
+    expect(text('P9_Line1_FamilyName[0]')).toBe('Gomez');
+    expect(text('P9_Line2[0]')).toBe('Ayuda Legal');
+    expect(checked('P9_Line3_Unit[2]')).toBe(true); // APT
+    expect(text('P9_Line3_Number[0]')).toBe('7');
+    expect((f.get('P9_Line3_State[0]') as PDFDropdown).getSelected()[0].trim()).toBe('IL');
+    expect(text('P8_Line4_Telephone[0]')).toBe('3125550100'); // the interpreter's daytime phone
+    expect(text('P9_Language[0]')).toBe('Spanish');
+    expect(text('P10_Line1_PreparerFamilyName[0]')).toBe('Ruiz');
+    expect(checked('P10_Line3_Unit[0]')).toBe(true); // STE
+    expect(text('P10_Line3_Province[0]')).toBe('Nuevo Leon');
+    expect(checked('Pt10Line7_chkbx[0]')).toBe(true); // A: not an attorney
+    expect(text('P10_Line8_Signature[0]')).toBe('');
+
+    const lawyer = fieldIndex((await PDFDocument.load(await fillN600(template, { ...mateo, ...helped, 'prep.same': 'yes', 'prep.statement': 'attorneyExtends' }))).getForm());
+    expect((lawyer.get('P10_Line1_PreparerFamilyName[0]') as PDFTextField).getText()).toBe('Gomez');
+    expect((lawyer.get('Pt10Line7_chkbx[1]') as PDFCheckBox).isChecked()).toBe(true);
+    expect((lawyer.get('Pt10Line7b_Extend[0]') as PDFCheckBox).isChecked()).toBe(true);
+    expect((lawyer.get('Pt10Line7b_DoesNotExtend[0]') as PDFCheckBox).isChecked()).toBe(false);
+
+    const alone = fieldIndex((await PDFDocument.load(await fillN600(template, mateo))).getForm());
+    expect((alone.get('P9_Line1_FamilyName[0]') as PDFTextField).getText()).toBeUndefined();
   });
 });

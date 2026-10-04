@@ -1,11 +1,13 @@
 import type { Answers, Field, FormDefinition, Option } from './types';
 import type { T } from '../i18n';
 import { all, anyAddress, date, is, nameFields, sexField, yesNo } from './helpers';
+import { assistanceSection, usedInterpreter, usedPreparer } from './assistance';
 
 // Questions follow USCIS Form I-131A, Application for Travel Document (Carrier Documentation),
 // edition 01/20/25. The PDF mapping lives in src/pdf/i131aPdf.ts.
-// Out of scope (left for hand): Part 4 signature and date (Item 6), Part 5 (interpreter),
-// Part 6 (preparer) and the "For USCIS Use Only" and attorney boxes at the top of page 1.
+// Out of scope (left for hand): Part 4 signature and date (Item 6), the interpreter's and
+// preparer's signatures and dates (Parts 5 and 6; the rest of those parts comes from the
+// "Who helped you" section) and the "For USCIS Use Only" and attorney boxes at the top of page 1.
 // The form has no box for the embassy or consulate: the applicant picks it when scheduling the
 // in-person appointment, so it is covered in the intro and next steps only.
 
@@ -63,14 +65,14 @@ export const i131a: FormDefinition = {
       'Confirme en uscis.gov/i-131a que la edición {edition} sigue vigente, la tarifa actual (hoy $575) y cómo se presenta: USCIS pide hacerlo en línea con su cuenta de USCIS, copiando las respuestas de esta hoja.',
       'Después de presentar, haga su cita en persona en la embajada o consulado de EE.UU. del país donde está (USCIS le indica cómo). Lleve su pasaporte, dos fotos tipo pasaporte idénticas, el recibo de USCIS y las pruebas.',
       'Pruebas: copia de su green card (o del I-512/I-766) si la tiene, denuncia policial si se la robaron, su boleto o itinerario de regreso, y prueba de cuándo salió de EE.UU. (sellos del pasaporte, pase de abordar). Si cambió de nombre, adjunte el documento legal.',
-      'Si lo hace en papel, imprima el PDF y firme la Parte 4, Ítem 6.a, a mano con tinta negra. Si un intérprete o preparador le ayudó, ellos llenan y firman las Partes 5 y 6.',
+      'Si lo hace en papel, imprima el PDF y firme la Parte 4, Ítem 6.a, a mano con tinta negra. Si un intérprete o preparador le ayudó, sus datos ya están en las Partes 5 y 6; ellos las revisan y las firman y fechan a mano.',
       'Al llegar a EE.UU., si perdió la green card, presente el I-90 para pedir una nueva. Si contestó Sí a procedimientos de deportación o abandono de residencia, hable con un abogado antes de viajar.',
     ],
     en: [
       'Check at uscis.gov/i-131a that edition {edition} is still current, the current fee (now $575) and how to file: USCIS asks that it be filed online with your USCIS account, copying the answers from this sheet.',
       'After filing, book your in-person appointment at the U.S. embassy or consulate in the country where you are (USCIS tells you how). Bring your passport, two identical passport-style photos, the USCIS receipt and your evidence.',
       'Evidence: a copy of your green card (or I-512/I-766) if you have one, a police report if it was stolen, your return ticket or itinerary, and proof of when you left the U.S. (passport stamps, boarding pass). If your name changed, attach the legal document.',
-      'If filing on paper, print the PDF and sign Part 4, Item 6.a, by hand in black ink. If an interpreter or preparer helped you, they complete and sign Parts 5 and 6.',
+      'If filing on paper, print the PDF and sign Part 4, Item 6.a, by hand in black ink. If an interpreter or preparer helped you, their details are already in Parts 5 and 6; they check them and sign and date by hand.',
       'Once back in the U.S., if your green card was lost, file Form I-90 to replace it. If you answered Yes about removal proceedings or abandonment of residence, talk to an attorney before traveling.',
     ],
   },
@@ -354,5 +356,6 @@ export const i131a: FormDefinition = {
         },
       ],
     },
+    assistanceSection({ usedInterpreter, usedPreparer, interpreterPart: 'Part 5', preparerPart: 'Part 6' }),
   ],
 };

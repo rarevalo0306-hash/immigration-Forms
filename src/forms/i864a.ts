@@ -1,10 +1,13 @@
 import type { Field, FormDefinition } from './types';
 import type { T } from '../i18n';
 import { all, anyAddress, date, is, nameFields, rows, yesNo } from './helpers';
+import { assistanceSection, usedPreparer } from './assistance';
 
 // Questions follow USCIS Form I-864A, Contract Between Sponsor and Household Member, edition
 // 08/24/26. The household member answers Parts 1-4 and 6; the sponsor answers Part 5. The PDF
-// mapping lives in src/pdf/i864aPdf.ts.
+// mapping lives in src/pdf/i864aPdf.ts. One interpreter (Part 7) and one preparer (Part 8) serve
+// both people; they are filled in from the last section and sign and date by hand. This edition
+// prints no mailing address or preparer's statement for them.
 
 export const I864A_EDITION = '08/24/26';
 
@@ -74,13 +77,13 @@ export const i864a: FormDefinition = {
     es: [
       'Confirme en uscis.gov/i-864a que la edición {edition} sigue vigente; si cambió, use la nueva y copie sus respuestas de esta hoja.',
       'Adjunte la declaración federal de impuestos más reciente del familiar (o su transcripción) y prueba de que vive con el patrocinador.',
-      'Imprima el PDF. El patrocinador firma la Parte 5, Ítem 10, y el familiar la Parte 6, Ítem 7, a mano con tinta negra.',
+      'Imprima el PDF. El patrocinador firma la Parte 5, Ítem 10, y el familiar la Parte 6, Ítem 7, a mano con tinta negra. Si un intérprete o preparador les ayudó, ellos firman y fechan a mano las Partes 7 y 8.',
       'Envíe el I-864A junto con el I-864 del patrocinador.',
     ],
     en: [
       'Check at uscis.gov/i-864a that edition {edition} is still current; if it changed, use the new one and copy your answers from this sheet.',
       'Attach the household member’s most recent federal tax return (or transcript) and proof that they live with the sponsor.',
-      'Print the PDF. The sponsor signs Part 5, Item 10, and the household member Part 6, Item 7, by hand in black ink.',
+      'Print the PDF. The sponsor signs Part 5, Item 10, and the household member Part 6, Item 7, by hand in black ink. If an interpreter or preparer helped you, they sign and date Parts 7 and 8 by hand.',
       'File Form I-864A together with the sponsor’s Form I-864.',
     ],
   },
@@ -363,6 +366,22 @@ export const i864a: FormDefinition = {
             : q,
         ),
         {
+          id: 'preparer',
+          kind: 'choice',
+          formRef: 'Part 5 · Item 6 · Part 6 · Item 2',
+          question: t('¿Alguien más (no ustedes) preparó este contrato?', 'Did someone else prepare this contract for you?'),
+          why: t('Se anota en la declaración del patrocinador y en la suya.', 'It goes in both the sponsor’s statement and yours.'),
+          options: yesNo,
+        },
+        {
+          id: 'preparerName',
+          kind: 'fields',
+          formRef: 'Part 5 · Item 6 · Part 6 · Item 2',
+          showIf: is('preparer', 'yes'),
+          question: t('¿Quién lo preparó?', 'Who prepared it?'),
+          fields: [{ id: 'preparer.name', type: 'text', required: true, label: { es: 'Nombre del preparador', en: 'Preparer’s name' }, formRef: 'Part 5 · Item 6 · Part 6 · Item 2' }],
+        },
+        {
           id: 'member.contact',
           kind: 'fields',
           formRef: 'Part 6 · Items 3–5 · Household Member’s Contact Information',
@@ -371,5 +390,14 @@ export const i864a: FormDefinition = {
         },
       ],
     },
+    assistanceSection({
+      // One interpreter serves the sponsor, the household member or both.
+      usedInterpreter: (a) => a.readsEnglish === 'B' || a['sponsor.readsEnglish'] === 'B',
+      usedPreparer,
+      interpreterPart: 'Part 7',
+      preparerPart: 'Part 8',
+      address: false,
+      statement: false,
+    }),
   ],
 };

@@ -1,11 +1,15 @@
 import { PDFCheckBox, PDFDocument, PDFDropdown, PDFTextField } from 'pdf-lib';
 import type { Answers } from '../forms/types';
 import { parseUnit } from '../engine/validation';
+import { assistance, usedInterpreter, usedPreparer, type HelperPerson } from '../forms/assistance';
 import { fieldIndex, optionBoxes, selectOption, setFieldText } from './common';
 
 // Fields of USCIS Form I-90, edition 01/20/25 (public/forms/i-90.pdf), named by the last segment of
 // their full name. This edition's names match the printed items, except that the weight boxes are
-// "P3_Line9_HeightInches1-3" and the Part 3 biographic items are numbered 6-11.
+// "P3_Line9_HeightInches1-3" and the Part 3 biographic items are numbered 6-11. In Part 7 the
+// preparer's printed "Mobile Telephone Number" is "P7_Line5_PreparersFaxNumber", the interpreter's
+// is "P6_Line4_InterpretersDaytimePhoneNumber[1]", and the extends / does not extend boxes are
+// "P7_checkbox7Extend" exporting E / D.
 
 export interface I90Plan {
   text: Record<string, string>;
@@ -132,6 +136,51 @@ export function planI90(a: Answers): I90Plan {
   put('P5_Line3_DaytimePhoneNumber[0]', digits(str(a, 'phone')));
   put('P5_Line4_MobilePhoneNumber[0]', digits(str(a, 'mobile')));
   put('P5_Line5_EmailAddress[0]', str(a, 'email'));
+  if (a.preparer === 'yes') {
+    check.push('P5_Checkbox2[0]');
+    put('P5_Line2_NameofRepresentative[0]', str(a, 'preparer.name'));
+  }
+
+  // Parts 6 and 7: who helped. Their signatures and dates stay empty.
+  const help = assistance(a, { interpreter: usedInterpreter(a), preparer: usedPreparer(a) });
+  const helper = (l: string, p: HelperPerson) => {
+    put(`${l}_Line3a_StreetNumberName[0]`, p.street);
+    const u = parseUnit(p.unit);
+    if (u) {
+      checkValue.push([`${l}_checkbox3b_Unit`, u.kind]);
+      put(`${l}_Line3b_AptSteFlrNumber[0]`, u.number);
+    }
+    put(`${l}_Line3c_CityTown[0]`, p.city);
+    if (p.state) select[`${l}_Line3d_State[0]`] = p.state.toUpperCase();
+    put(`${l}_Line3e_ZipCode[0]`, p.zip);
+    put(`${l}_Line3f_Province[0]`, p.province);
+    put(`${l}_Line3g_PostalCode[0]`, p.postal);
+    put(`${l}_Line3h_Country[0]`, p.country);
+  };
+  if (help.interpreter) {
+    const p = help.interpreter;
+    put('P6_Line1a_InterpretersFamilyName[0]', p.family);
+    put('P6_Line1b_InterpretersGivenName[0]', p.given);
+    put('P6_Line2_NameofBusinessor[0]', p.business);
+    helper('P6', p);
+    put('P6_Line4_InterpretersDaytimePhoneNumber[0]', digits(p.phone));
+    put('P6_Line4_InterpretersDaytimePhoneNumber[1]', digits(p.mobile));
+    put('P6_Line5_InterpretersEmailAddress[0]', p.email);
+    put('P6_Language[0]', p.language);
+  }
+  if (help.preparer) {
+    const p = help.preparer;
+    put('P7_Line1a_FamilyName[0]', p.family);
+    put('P7_Line1b_PreparersGivenName[0]', p.given);
+    put('P7_Line2_NameofBusinessor[0]', p.business);
+    helper('P7', p);
+    put('P7_Line4_PreparersDaytimePhoneNumber[0]', digits(p.phone));
+    put('P7_Line5_PreparersFaxNumber[0]', digits(p.mobile));
+    put('P7_Line6_PreparersEmailAddress[0]', p.email);
+    if (p.statement === 'notAttorney') checkValue.push(['P7_checkbox7', 'A']);
+    if (p.statement === 'attorneyExtends') checkValue.push(['P7_checkbox7', 'B'], ['P7_checkbox7Extend', 'E']);
+    if (p.statement === 'attorneyNotExtends') checkValue.push(['P7_checkbox7', 'B'], ['P7_checkbox7Extend', 'D']);
+  }
 
   // Part 8: explanations for Part 3, Items 4 and 5.
   const lines = ['P8_Line3', 'P8_Line4'];

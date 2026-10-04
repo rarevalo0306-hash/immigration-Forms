@@ -4,10 +4,15 @@ import type { T } from '../i18n';
 // Questions follow USCIS Form N-400, Application for Naturalization, edition 01/20/25.
 // `formRef` gives the part, item number and the form's own English wording.
 // src/pdf/n400Pdf.ts maps the answers onto that edition's fields.
+// Part 11 of this edition has no "I read English / an interpreter read it to me" or preparer boxes,
+// so `readsEnglish` and `preparer` only decide whether the interpreter's Part 12 and the preparer's
+// Part 13 are filled. Those parts have no mailing address and no attorney statement, so those
+// questions are not asked. Signatures and dates are left blank: they are signed by hand.
 
 export const N400_EDITION = '01/20/25';
 
 import { all, date, is, nameFields, num, rows, yesNo } from './helpers';
+import { assistanceSection, usedInterpreter, usedPreparer } from './assistance';
 
 /** Spouse-based filing looks back 3 years instead of 5. */
 const lookBack: T = {
@@ -140,14 +145,14 @@ export const n400: FormDefinition = {
       'Confirme en uscis.gov/n-400 que la edición {edition} sigue vigente; si cambió, use la nueva y copie sus respuestas de esta hoja.',
       'Revise el PDF página por página. Lo que no cupo (más direcciones, trabajos, viajes, hijos o explicaciones) va a mano en la Parte 14.',
       'Revise la tarifa actual en uscis.gov/g-1055. Si pidió una tarifa reducida, adjunte las pruebas de sus ingresos.',
-      'Imprima el PDF y firme la Parte 11, Ítem 4, a mano con tinta negra. No llene las Partes 15 y 16: se firman en la entrevista.',
+      'Imprima el PDF y firme la Parte 11, Ítem 4, a mano con tinta negra. Si un intérprete o preparador le ayudó, revise sus datos en las Partes 12 y 13: ellos firman y ponen la fecha a mano. No llene las Partes 15 y 16: se firman en la entrevista.',
       'Adjunte una copia de ambos lados de su green card y los documentos que piden las instrucciones para su caso.',
     ],
     en: [
       'Check at uscis.gov/n-400 that edition {edition} is still current; if it changed, use the new one and copy your answers from this sheet.',
       'Check the PDF page by page. Anything that didn’t fit (more addresses, jobs, trips, children or explanations) goes by hand in Part 14.',
       'Check the current fee at uscis.gov/g-1055. If you asked for a reduced fee, attach proof of your income.',
-      'Print the PDF and sign Part 11, Item 4, by hand in black ink. Leave Parts 15 and 16 blank: they are signed at the interview.',
+      'Print the PDF and sign Part 11, Item 4, by hand in black ink. If an interpreter or preparer helped you, check their details in Parts 12 and 13: they sign and date by hand. Leave Parts 15 and 16 blank: they are signed at the interview.',
       'Attach a copy of both sides of your green card and the documents the instructions ask for in your case.',
     ],
   },
@@ -981,9 +986,39 @@ export const n400: FormDefinition = {
             { id: 'email', type: 'email', label: { es: 'Correo electrónico', en: 'Email address' }, formRef: 'Part 11 · Item 3 · Applicant’s Email Address', maxLength: 38 },
           ],
         },
+        {
+          id: 'readsEnglish',
+          kind: 'choice',
+          formRef: 'Part 11 · Applicant’s Certification',
+          question: { es: '¿Puede leer y entender el formulario en inglés?', en: 'Can you read and understand the form in English?' },
+          why: {
+            es: 'Si un intérprete le leyó las preguntas en su idioma, sus datos van en la Parte 12.',
+            en: 'If an interpreter read you the questions in your language, their details go in Part 12.',
+          },
+          options: [
+            { value: 'A', label: { es: 'Sí, leo inglés', en: 'Yes, I read English' } },
+            { value: 'B', label: { es: 'No, un intérprete me lo leyó', en: 'No, an interpreter read it to me' } },
+          ],
+        },
+        {
+          id: 'preparer',
+          kind: 'choice',
+          formRef: 'Part 13 · Person Preparing this Application, if Other Than the Applicant',
+          question: { es: '¿Alguien más (no usted) preparó esta solicitud?', en: 'Did someone else prepare this application for you?' },
+          why: { es: 'Si es así, sus datos van en la Parte 13.', en: 'If so, their details go in Part 13.' },
+          options: yesNo,
+        },
       ],
     },
+    assistanceParts(),
   ],
 };
+
+/** Parts 12 and 13. This edition has no address or attorney statement for the interpreter or preparer. */
+function assistanceParts() {
+  const section = assistanceSection({ usedInterpreter, usedPreparer, interpreterPart: 'Part 12', preparerPart: 'Part 13' });
+  const missing = ['interp.address', 'prep.address', 'prep.statement'];
+  return { ...section, questions: section.questions.filter((q) => !missing.includes(q.id)) };
+}
 
 export { PART14_BLOCKS };

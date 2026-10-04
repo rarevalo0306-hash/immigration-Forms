@@ -1,9 +1,13 @@
-import type { Field, FormDefinition, YesNoItem } from './types';
+import type { Field, FormDefinition, Section, YesNoItem } from './types';
+import { assistanceSection } from './assistance';
 import type { T } from '../i18n';
 import { all, biographic, date, is, nameFields, rows, sexField, yesNo } from './helpers';
 
 // Questions follow USCIS Form I-821D, Consideration of Deferred Action for Childhood Arrivals,
 // edition 01/20/25. The PDF mapping lives in src/pdf/i821dPdf.ts.
+// The interpreter (Part 6) and preparer (Part 7) parts are filled from the last section; they sign by hand.
+// This edition has no interpreter mobile number, no preparer mobile number (Item 5 asks for a fax)
+// and no preparer's statement boxes, so those questions are left out.
 
 export const I821D_EDITION = '01/20/25';
 
@@ -37,6 +41,18 @@ export const SAFETY_ITEMS: YesNoItem[] = [
 
 const anySafetyYes = (a: Record<string, unknown>) => SAFETY_ITEMS.some((i) => a[i.id] === 'yes');
 
+/** Parts 6–7. This edition asks no mobile numbers and has no preparer's statement boxes. */
+const assistance = (): Section => {
+  const s = assistanceSection({ usedInterpreter: is('readsEnglish', 'B'), usedPreparer: is('preparer', 'yes'), interpreterPart: 'Part 6', preparerPart: 'Part 7' });
+  const dropped = new Set(['prep.statement', 'interp.mobile', 'prep.mobile']);
+  return {
+    ...s,
+    questions: s.questions
+      .filter((q) => !dropped.has(q.id))
+      .map((q) => (q.kind === 'fields' ? { ...q, fields: q.fields.filter((f) => !dropped.has(f.id)) } : q)),
+  };
+};
+
 export const i821d: FormDefinition = {
   id: 'i-821d',
   number: 'I-821D',
@@ -63,12 +79,14 @@ export const i821d: FormDefinition = {
       'Llene también el I-765 (categoría (c)(33)) y la hoja I-765WS, y envíelos juntos con el I-821D. Puede llenar el I-765 en esta misma app.',
       'Adjunte copia de su permiso de trabajo actual (frente y reverso) y, si contestó Sí en la Parte 4, los documentos de la corte de cada caso.',
       'Imprima el PDF y firme la Parte 5, Ítem 2.a, a mano con tinta negra.',
+      'Si alguien le interpretó o preparó el formulario, esa persona firma y pone la fecha a mano en la Parte 6 (intérprete) o la Parte 7 (preparador). Si quien lo preparó tiene fax, puede escribirlo a mano en la Parte 7, Ítem 5.',
     ],
     en: [
       'Check at uscis.gov/i-821d that edition {edition} is still current and check the fee; if it changed, use the new one and copy your answers from this sheet.',
       'Also complete Form I-765 (category (c)(33)) and the I-765WS worksheet, and file them together with Form I-821D. You can fill in the I-765 in this same app.',
       'Attach a copy of your current work permit (front and back) and, if you answered Yes in Part 4, the court records for each case.',
       'Print the PDF and sign Part 5, Item 2.a, by hand in black ink.',
+      'If someone interpreted or prepared the form for you, they sign and date Part 6 (interpreter) or Part 7 (preparer) by hand. If the preparer has a fax number, they can write it by hand in Part 7, Item 5.',
     ],
   },
   sections: [
@@ -483,6 +501,14 @@ export const i821d: FormDefinition = {
           fields: [{ id: 'fluentLanguage', type: 'text', required: true, label: { es: 'Idioma', en: 'Language' }, formRef: 'Part 5 · Item 1.b', placeholder: 'Spanish', maxLength: 40 }],
         },
         {
+          id: 'preparer',
+          kind: 'choice',
+          formRef: 'Part 7 · Contact Information, Declaration, and Signature of the Person Preparing this Request',
+          question: t('¿Alguien más (no usted) preparó esta solicitud?', 'Did someone else prepare this request for you?'),
+          why: t('Si es así, esa persona también llena y firma la Parte 7.', 'If so, that person also completes and signs Part 7.'),
+          options: yesNo,
+        },
+        {
           id: 'contactInfo',
           kind: 'fields',
           formRef: 'Part 5 · Items 3–5 · Requestor’s Contact Information',
@@ -495,5 +521,6 @@ export const i821d: FormDefinition = {
         },
       ],
     },
+    assistance(),
   ],
 };

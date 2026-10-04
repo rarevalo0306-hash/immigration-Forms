@@ -1,6 +1,7 @@
 import type { FormDefinition, Option } from './types';
 import type { T } from '../i18n';
 import { anyAddress, date, is, nameFields, yesNo } from './helpers';
+import { assistanceSection, usedInterpreter, usedPreparer } from './assistance';
 
 // Questions follow USCIS Form I-407, Record of Abandonment of Lawful Permanent Resident Status,
 // edition 09/25/24. The PDF mapping lives in src/pdf/i407Pdf.ts.
@@ -11,7 +12,12 @@ import { anyAddress, date, is, nameFields, yesNo } from './helpers';
 //
 // Out of scope (left for hand):
 // - Part 1, Item 13's date and Item 20 (signature and date).
-// - Parts 2 and 3 (interpreter and preparer) and Part 4 (for government use only).
+// - The interpreter's and preparer's signatures and dates (Parts 2 and 3; the rest of those parts
+//   is filled from the "Who helped you" section), and Part 4 (for government use only).
+//
+// The form has no applicant's statement, so the "Who signs" section asks whether an interpreter read
+// the form to the person (`readsEnglish`) and whether someone else prepared it (`preparer`): those
+// answers only decide whether Parts 2 and 3 are asked and filled.
 
 export const I407_EDITION = '09/25/24';
 
@@ -48,6 +54,14 @@ const LEGAL_WARNING = {
   ),
 };
 
+/**
+ * Parts 2 and 3 of this edition ask only for name, business, phones and email (plus the
+ * interpreter's language): no mailing address and no preparer's statement boxes, so those
+ * questions are left out.
+ */
+const assistance = assistanceSection({ usedInterpreter, usedPreparer, interpreterPart: 'Part 2', preparerPart: 'Part 3' });
+const assistanceWithoutAddresses = { ...assistance, questions: assistance.questions.filter((q) => !['interp.address', 'prep.address', 'prep.statement'].includes(q.id)) };
+
 export const i407: FormDefinition = {
   id: 'i-407',
   number: 'I-407',
@@ -74,7 +88,7 @@ export const i407: FormDefinition = {
       'Antes de firmar, léalo todo otra vez: firmar significa renunciar para siempre a su green card. Si tiene dudas o alguien le presiona, no firme y hable con un abogado de inmigración.',
       'Adjunte su green card (tarjeta de residente) y cualquier otro documento que devuelva, como un permiso de reingreso o documento de viaje de refugiado. Guarde una copia de todo.',
       'Imprima el PDF y firme la Parte 1, Ítem 20, a mano con tinta negra y ponga la fecha. Si no devuelve la tarjeta, escriba esa misma fecha en el Ítem 13. Si firma un padre o tutor, adjunte la prueba de la tutela.',
-      'Si un intérprete o preparador le ayudó, ellos llenan y firman a mano las Partes 2 y 3. No llene la Parte 4: es para el oficial.',
+      'Si un intérprete o preparador le ayudó, sus datos ya están en las Partes 2 y 3; ellos las revisan y las firman y fechan a mano. No llene la Parte 4: es para el oficial.',
       'Pida y guarde una copia del I-407 firmado y sellado; le servirá si después pide una visa.',
     ],
     en: [
@@ -82,7 +96,7 @@ export const i407: FormDefinition = {
       'Before signing, read it all again: signing means giving up your green card forever. If you are unsure or anyone is pressuring you, do not sign and talk to an immigration attorney.',
       'Attach your Permanent Resident Card and any other document you are returning, such as a reentry permit or refugee travel document. Keep a copy of everything.',
       'Print the PDF and sign Part 1, Item 20, by hand in black ink and date it. If you are not returning the card, write that same date in Item 13. If a parent or guardian signs, attach proof of guardianship.',
-      'If an interpreter or preparer helped you, they complete and sign Parts 2 and 3 by hand. Leave Part 4 blank: it is for the officer.',
+      'If an interpreter or preparer helped you, their details are already in Parts 2 and 3; they check them and sign and date by hand. Leave Part 4 blank: it is for the officer.',
       'Ask for and keep a copy of the signed, stamped I-407; it helps if you later apply for a visa.',
     ],
   },
@@ -284,7 +298,27 @@ export const i407: FormDefinition = {
           question: t('¿Cómo se llama el padre, madre o tutor que firma?', 'What is the name of the parent or guardian signing?'),
           fields: [{ id: 'guardian.name', type: 'text', required: true, label: { es: 'Nombre completo', en: 'Full name' }, formRef: 'Part 1 · Item 19', maxLength: 60 }],
         },
+        {
+          id: 'readsEnglish',
+          kind: 'choice',
+          formRef: 'Part 2 · Interpreter',
+          question: t('¿Puede leer y entender el formulario en inglés?', 'Can you read and understand the form in English?'),
+          why: t('Si alguien le lee el formulario en su idioma, esa persona llena y firma la Parte 2.', 'If someone reads the form to you in your language, that person completes and signs Part 2.'),
+          options: [
+            { value: 'A', label: t('Sí, leo inglés', 'Yes, I read English') },
+            { value: 'B', label: t('No, un intérprete me lo leyó', 'No, an interpreter read it to me') },
+          ],
+        },
+        {
+          id: 'preparer',
+          kind: 'choice',
+          formRef: 'Part 3 · Preparer',
+          question: t('¿Alguien más le preparó este formulario?', 'Did someone else prepare this form for you?'),
+          why: t('Por ejemplo un abogado, una organización o un familiar que llenó las respuestas. Esa persona llena y firma la Parte 3.', 'For example an attorney, an organization or a relative who filled in the answers. That person completes and signs Part 3.'),
+          options: yesNo,
+        },
       ],
     },
+    assistanceWithoutAddresses,
   ],
 };

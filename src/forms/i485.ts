@@ -1,11 +1,15 @@
-import type { Field, FormDefinition, Option, Question } from './types';
+import type { Field, FormDefinition, Option, Question, Section } from './types';
 import type { T } from '../i18n';
 import { all, anyAddress, biographic, date, is, nameFields, num, sexField, yesNo } from './helpers';
 import { flaggedI485, P9_GROUPS, P9_ITEMS, toYesNoItems } from './i485Part9';
+import { assistanceSection } from './assistance';
 
 // Questions follow USCIS Form I-485, Application to Register Permanent Residence or Adjust Status,
 // edition 09/18/26. `formRef` gives the part, item number and the form's own English wording.
 // src/pdf/i485Pdf.ts maps the answers onto that edition's fields; Part 9 lives in i485Part9.ts.
+// The interpreter (Part 11) and preparer (Part 12) parts are filled from the last section; they sign
+// by hand. This edition asks them no mailing address and has no preparer's statement boxes, and
+// Part 10 has no statement boxes about them: its two questions only decide whether to ask for them.
 
 export const I485_EDITION = '09/18/26';
 
@@ -98,6 +102,13 @@ const nameAtBirth = (prefix: string, ref: string): Field[] =>
 
 const t = (es: string, en: string): T => ({ es, en });
 
+/** Parts 11–12. This edition asks no mailing address for them and has no preparer's statement boxes. */
+const assistance = (): Section => {
+  const s = assistanceSection({ usedInterpreter: is('readsEnglish', 'B'), usedPreparer: is('preparer', 'yes'), interpreterPart: 'Part 11', preparerPart: 'Part 12' });
+  const dropped = new Set(['interp.address', 'prep.address', 'prep.statement']);
+  return { ...s, questions: s.questions.filter((q) => !dropped.has(q.id)) };
+};
+
 export const i485: FormDefinition = {
   id: 'i-485',
   number: 'I-485',
@@ -124,12 +135,14 @@ export const i485: FormDefinition = {
       'Revise el PDF página por página. Lo que no cupo (más direcciones, organizaciones, hijos, beneficios o explicaciones) va a mano en la Parte 14.',
       'Revise la tarifa actual en uscis.gov/g-1055 y las pruebas que pide su categoría: acta de nacimiento, fotos, examen médico (I-693) y, en la mayoría de los casos familiares, la declaración de patrocinio (I-864).',
       'Imprima el PDF y firme la Parte 10, Ítem 4, a mano con tinta negra. No llene la Parte 13: se firma en la entrevista.',
+      'Si alguien le interpretó o preparó la solicitud, esa persona firma y pone la fecha a mano en la Parte 11 (intérprete) o la Parte 12 (preparador).',
     ],
     en: [
       'Check at uscis.gov/i-485 that edition {edition} is still current; if it changed, use the new one and copy your answers from this sheet.',
       'Check the PDF page by page. Anything that didn’t fit (more addresses, organizations, children, benefits or explanations) goes by hand in Part 14.',
       'Check the current fee at uscis.gov/g-1055 and the evidence your category needs: birth certificate, photos, medical exam (I-693) and, in most family cases, the affidavit of support (I-864).',
       'Print the PDF and sign Part 10, Item 4, by hand in black ink. Leave Part 13 blank: it is signed at the interview.',
+      'If someone interpreted or prepared the application for you, they sign and date Part 11 (interpreter) or Part 12 (preparer) by hand.',
     ],
   },
   sections: [
@@ -927,8 +940,28 @@ export const i485: FormDefinition = {
             { id: 'email', type: 'email', label: { es: 'Correo electrónico', en: 'Email' }, formRef: 'Part 10 · Item 3', maxLength: 38 },
           ],
         },
+        {
+          id: 'readsEnglish',
+          kind: 'choice',
+          formRef: 'Part 10 · Applicant’s Certification and Signature',
+          question: t('¿Puede leer y entender la solicitud en inglés?', 'Can you read and understand the application in English?'),
+          why: t('Si alguien se la traduce, esa persona llena y firma la Parte 11 (intérprete).', 'If someone translates it for you, they fill in and sign Part 11 (interpreter).'),
+          options: [
+            { value: 'A', label: t('Sí, leo inglés', 'Yes, I read English') },
+            { value: 'B', label: t('No, un intérprete me la leerá', 'No, an interpreter will read it to me') },
+          ],
+        },
+        {
+          id: 'preparer',
+          kind: 'choice',
+          formRef: 'Part 12 · Contact Information, Certification, and Signature of the Person Preparing this Application',
+          question: t('¿Alguien más (no usted) preparó esta solicitud?', 'Did someone else prepare this application for you?'),
+          why: t('Si es así, esa persona también llena y firma la Parte 12.', 'If so, that person also completes and signs Part 12.'),
+          options: yesNo,
+        },
       ],
     },
+    assistance(),
   ],
 };
 

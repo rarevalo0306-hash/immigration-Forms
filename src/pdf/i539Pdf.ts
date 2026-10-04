@@ -2,6 +2,7 @@ import { PDFCheckBox, PDFDocument, PDFDropdown, PDFTextField, StandardFonts } fr
 import type { Answers } from '../forms/types';
 import { BACKGROUND_ITEMS, IMMIGRANT_ITEMS } from '../forms/i539';
 import { parseUnit } from '../engine/validation';
+import { assistance, usedInterpreter, usedPreparer } from '../forms/assistance';
 import { fieldIndex, optionBoxes, selectOption, setFieldText, toFormText, wrap } from './common';
 
 // Fields of USCIS Form I-539, edition 08/28/24 (public/forms/i-539.pdf), named by the last
@@ -16,6 +17,11 @@ import { fieldIndex, optionBoxes, selectOption, setFieldText, toFormText, wrap }
 // - Part 4's Yes/No boxes are separate "P4_checkboxN_Yes/No" fields numbered in printed order
 //   from 3 to 20, so Item 7.a is checkbox7, 8.a is checkbox12, 9 is checkbox14 and 15 is checkbox20.
 // - Part 5's contact items 1-3 are "P5_Line3..5_*".
+// - Part 6 (interpreter) borrows Part 7's names: its name and business are "P7_Line1_Preparer*" and
+//   "P7_Line2_PreparerNameofBusinessorOrgName", its language "P7_Line6_Language"; its phones are
+//   "P6_Line4_DaytimePhoneNumber[0]" (daytime) and "[1]" (mobile). Its signature is
+//   "P6_Line7_SignatureApplicant[1]". Part 7's mobile is "P7_Line5_FaxPhoneNumber". Neither part has
+//   an address or preparer's statement boxes.
 
 export interface I539Plan {
   text: Record<string, string>;
@@ -167,6 +173,28 @@ export function planI539(a: Answers): I539Plan {
   put('P5_Line3_DaytimePhoneNumber[0]', digits(str(a, 'phone')));
   put('P5_Line4_MobilePhoneNumber[0]', digits(str(a, 'mobile')));
   put('P5_Line5_EmailAddress[0]', str(a, 'email'));
+
+  // Parts 6 and 7: the interpreter and the preparer. Signatures and dates are written by hand.
+  const help = assistance(a, { interpreter: usedInterpreter(a), preparer: usedPreparer(a) });
+  if (help.interpreter) {
+    const p = help.interpreter;
+    put('P7_Line1_PreparerFamilyName[0]', p.family);
+    put('P7_Line1_PreparerGivenName[0]', p.given);
+    put('P7_Line2_PreparerNameofBusinessorOrgName[0]', p.business);
+    put('P6_Line4_DaytimePhoneNumber[0]', digits(p.phone).slice(-10));
+    put('P6_Line4_DaytimePhoneNumber[1]', digits(p.mobile).slice(-10));
+    put('P6_Line5_EmailAddress[0]', p.email);
+    put('P7_Line6_Language[0]', p.language);
+  }
+  if (help.preparer) {
+    const p = help.preparer;
+    put('P7_Line1a_PreparerFamilyName[0]', p.family);
+    put('P7_Line1b_PreparerGivenName[0]', p.given);
+    put('P7_Line2_BusinessName[0]', p.business);
+    put('P7_Line4_PreparerDaytimePhoneNumber[0]', digits(p.phone).slice(-10));
+    put('P7_Line5_FaxPhoneNumber[0]', digits(p.mobile).slice(-10));
+    put('P7_Line6_EmailAddress[0]', p.email);
+  }
 
   return { text, check, checkValue, select, notes: notes.filter((n) => !n.text.endsWith(': ')) };
 }

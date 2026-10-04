@@ -54,6 +54,28 @@ export const lucia: Answers = {
   email: 'lucia.ramirez@example.com',
 };
 
+/** A friend interpreted and a nonprofit prepared Lucía's application: Parts 6 and 7. */
+const helped: Answers = {
+  ...lucia,
+  readsEnglish: 'B',
+  preparer: 'yes',
+  'interp.family': 'Gómez',
+  'interp.given': 'Rosa',
+  'interp.business': 'Servicios Latinos',
+  'interp.phone': '(713) 555-0101',
+  'interp.mobile': '1 713 555 0102',
+  'interp.email': 'rosa@example.com',
+  'interp.language': 'Spanish',
+  'prep.same': 'no',
+  'prep.family': 'Lee',
+  'prep.given': 'Ana',
+  'prep.business': 'Houston Immigrant Center',
+  'prep.phone': '713 555 0199',
+  'prep.mobile': '713 555 0198',
+  'prep.email': 'ana@example.com',
+  'prep.statement': 'notAttorney',
+};
+
 describe('I-539 PDF', () => {
   it('numbers the Part 4 boxes in printed order', () => {
     expect(part4Box('p4.3')).toBe('P4_checkbox3');
@@ -74,6 +96,9 @@ describe('I-539 PDF', () => {
       { ...lucia, relPetition: 'B', relForm: 'B', 'rel.given': 'Carlos', 'rel.family': 'Ramirez', 'rel.filed': '06/01/2026', 'abroad.unit': 'Flr 4' },
       ...I539_CURRENT_STATUSES.map((currentStatus) => ({ ...lucia, currentStatus })),
       ...I539_NEW_STATUSES.map((newStatus) => ({ ...lucia, appType: 'change', newStatus })),
+      helped,
+      { ...helped, 'prep.same': 'yes' },
+      ...['attorneyExtends', 'attorneyNotExtends'].map((st) => ({ ...helped, 'prep.statement': st })),
     ];
     for (const plan of variants.map(planI539)) {
       for (const name of Object.keys(plan.text)) expect(index.get(name), name).toBeInstanceOf(PDFTextField);
@@ -128,6 +153,22 @@ describe('I-539 PDF', () => {
     expect(text('P5_Line3_DaytimePhoneNumber[0]')).toBe('7135550142');
     expect(text('P6_Line7_SignatureApplicant[0]')).toBe('');
     expect(text('SupA_Line1k_Passport[1]')).toBe('');
+    expect(text('P7_Line1_PreparerFamilyName[0]')).toBe('');
+  });
+
+  it('fills the interpreter and preparer parts', async () => {
+    const f = fieldIndex((await PDFDocument.load(await fillI539(template, helped))).getForm());
+    const text = (n: string) => (f.get(n) as PDFTextField).getText() ?? '';
+    // Part 6 (interpreter) uses fields named for Part 7.
+    expect(text('P7_Line1_PreparerFamilyName[0]')).toBe('Gomez');
+    expect(text('P6_Line4_DaytimePhoneNumber[1]')).toBe('7135550102');
+    expect(text('P7_Line6_Language[0]')).toBe('Spanish');
+    expect(text('P7_Line1a_PreparerFamilyName[0]')).toBe('Lee');
+    expect(text('P7_Line5_FaxPhoneNumber[0]')).toBe('7135550198');
+    expect(text('P6_Line7_SignatureApplicant[1]')).toBe('');
+    expect(text('P7_Line8a_SignatureofPreparer[0]')).toBe('');
+    const same = fieldIndex((await PDFDocument.load(await fillI539(template, { ...helped, 'prep.same': 'yes' }))).getForm());
+    expect((same.get('P7_Line1a_PreparerFamilyName[0]') as PDFTextField).getText()).toBe('Gomez');
   });
 
   it('continues a long explanation in the next Part 8 boxes', async () => {

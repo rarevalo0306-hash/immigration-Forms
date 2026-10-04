@@ -2,6 +2,7 @@ import { PDFCheckBox, PDFDocument, PDFDropdown, type PDFField, type PDFForm, PDF
 import type { Answers } from '../forms/types';
 import { CRIME_ITEMS, ELIGIBILITY_ITEMS, PROCESSING_ITEMS } from '../forms/i914';
 import { parseUnit } from '../engine/validation';
+import { assistance, usedInterpreter, usedPreparer, type HelperPerson } from '../forms/assistance';
 import { fieldIndex, selectOption, setFieldText, toFormText, wrap } from './common';
 
 // Fields of USCIS Form I-914, edition 01/20/25 (public/forms/i-914.pdf), named by the last segment
@@ -22,6 +23,13 @@ import { fieldIndex, selectOption, setFieldText, toFormText, wrap } from './comm
 //   "DateofBirth[1]"; each child's state is "P1_Line8_State[1..3]".
 // - Part 6, Item 4 (safe phone) is "Pt12Line6_MobileNumber1"; Part 9's blocks, printed as Items
 //   3-6, are "P10_Line2*"-"P10_Line5*". Part 9 repeats the name and A-Number as "Part2_*[1]".
+// - Parts 7 and 8 mix "Pt12"/"Pt13"/"Pt14" names: the interpreter's name and business are
+//   "Pt13Line1_Interpreter*" / "Pt13Line2_InterpreterBusinessorOrg", address "Pt13Line3_*", phones
+//   "Pt12Line4_InterpreterDaytimeTelephone" / "Pt12Line5_InterpreterMobileTelephone", email
+//   "Pt12Line5_Email" and language "Pt12_NameofLanguage". The preparer's address is "Pt14Line3_*",
+//   mobile "Pt13ine5_PreparerFaxNumber" (sic); Item 7.A/7.B are "Pt13Line7_Checkbox[0]"/"[1]" and
+//   7.B's extends / does not extend are "Pt13Line7b_extends[1]" (Y) / "[0]" (N). Both unit groups
+//   list STE, APT, FLR ([0]-[2]); the boxes print as Apt., Ste., Flr.
 
 export interface I914Note {
   page: string;
@@ -247,6 +255,53 @@ export function planI914(a: Answers): I914Plan {
   put('Pt12Line5_DaytimePhoneNumber[0]', digits(str(a, 'phone')));
   put('Pt12Line6_MobileNumber1[0]', digits(str(a, 'safePhone')));
   put('Pt12Line7_Email[0]', str(a, 'email'));
+
+  // Parts 7 and 8: the interpreter and the preparer. Signatures and dates are written by hand.
+  const help = assistance(a, { interpreter: usedInterpreter(a), preparer: usedPreparer(a) });
+  const helper = (p: HelperPerson, line: string, f: { family: string; given: string; business: string; phone: string; mobile: string; email: string }) => {
+    put(f.family, p.family);
+    put(f.given, p.given);
+    put(f.business, p.business);
+    put(`${line}_StreetNumberName[0]`, p.street);
+    const u = parseUnit(p.unit);
+    if (u) {
+      check.push(`${line}_Unit[${['STE', 'APT', 'FLR'].indexOf(u.kind)}]`);
+      put(`${line}_AptSteFlrNumber[0]`, u.number);
+    }
+    put(`${line}_CityOrTown[0]`, p.city);
+    state(`${line}_State[0]`, p.state);
+    put(`${line}_ZipCode[0]`, digits(p.zip).slice(0, 5));
+    put(`${line}_Province[0]`, p.province);
+    put(`${line}_PostalCode[0]`, p.postal);
+    put(`${line}_Country[0]`, p.country);
+    put(f.phone, digits(p.phone).slice(-10));
+    put(f.mobile, digits(p.mobile).slice(-10));
+    put(f.email, p.email);
+  };
+  if (help.interpreter) {
+    helper(help.interpreter, 'Pt13Line3', {
+      family: 'Pt13Line1_InterpreterFamilyName[0]',
+      given: 'Pt13Line1_InterpreterGivenName[0]',
+      business: 'Pt13Line2_InterpreterBusinessorOrg[0]',
+      phone: 'Pt12Line4_InterpreterDaytimeTelephone[0]',
+      mobile: 'Pt12Line5_InterpreterMobileTelephone[0]',
+      email: 'Pt12Line5_Email[0]',
+    });
+    put('Pt12_NameofLanguage[0]', help.interpreter.language);
+  }
+  if (help.preparer) {
+    helper(help.preparer, 'Pt14Line3', {
+      family: 'Pt13Line1_PreparerFamilyName[0]',
+      given: 'Pt13Line1_PreparerGivenName[0]',
+      business: 'Pt13Line2_BusinessName[0]',
+      phone: 'Pt13Line4_DaytimePhoneNumber1[0]',
+      mobile: 'Pt13ine5_PreparerFaxNumber[0]',
+      email: 'Pt13Line6_Email[0]',
+    });
+    const st = help.preparer.statement;
+    if (st === 'notAttorney') check.push('Pt13Line7_Checkbox[0]');
+    if (st === 'attorneyExtends' || st === 'attorneyNotExtends') check.push('Pt13Line7_Checkbox[1]', st === 'attorneyExtends' ? 'Pt13Line7b_extends[1]' : 'Pt13Line7b_extends[0]');
+  }
 
   return { text, check, select, circumstances, notes: notes.filter((n) => n.text && !n.text.endsWith(': ')) };
 }

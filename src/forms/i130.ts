@@ -2,11 +2,13 @@ import type { Answers, Field, FormDefinition, Option, Question } from './types';
 import type { T } from '../i18n';
 import { all, anyAddress, date, is, nameFields, rows, sexField, yesNo } from './helpers';
 import { CLASSES_OF_ADMISSION } from './classOfAdmission';
+import { assistanceSection } from './assistance';
 
 // Questions follow USCIS Form I-130, Petition for Alien Relative, edition 04/01/24.
 // The person filling in the app is the petitioner (the U.S. citizen or permanent resident);
 // the beneficiary is the relative. `formRef` gives the part, item number and the form's own
 // English wording. src/pdf/i130Pdf.ts maps the answers onto that edition's fields.
+// The interpreter (Part 7) and preparer (Part 8) parts are filled from the last section; they sign by hand.
 
 export const I130_EDITION = '04/01/24';
 
@@ -116,6 +118,7 @@ export const i130: FormDefinition = {
       'Si pide por su cónyuge, su cónyuge también debe llenar el Formulario I-130A (también está en Camino) y enviarse junto con este.',
       'Revise la tarifa actual en uscis.gov/g-1055 y las pruebas de parentesco que piden las instrucciones (actas de nacimiento o de matrimonio, prueba de su ciudadanía o residencia).',
       'Imprima el PDF y firme la Parte 6, Ítem 6.a, a mano con tinta negra.',
+      'Si alguien le interpretó o preparó la petición, esa persona firma y pone la fecha a mano en la Parte 7 (intérprete) o la Parte 8 (preparador).',
     ],
     en: [
       'Check at uscis.gov/i-130 that edition {edition} is still current; if it changed, use the new one and copy your answers from this sheet.',
@@ -123,6 +126,7 @@ export const i130: FormDefinition = {
       'If you are petitioning for your spouse, your spouse must also complete Form I-130A (it’s in Camino too), sent together with this one.',
       'Check the current fee at uscis.gov/g-1055 and the relationship evidence the instructions ask for (birth or marriage certificates, proof of your citizenship or residence).',
       'Print the PDF and sign Part 6, Item 6.a, by hand in black ink.',
+      'If someone interpreted or prepared the petition for you, they sign and date Part 7 (interpreter) or Part 8 (preparer) by hand.',
     ],
   },
   sections: [
@@ -894,7 +898,24 @@ export const i130: FormDefinition = {
           question: { es: '¿En qué idioma se la leerán?', en: 'What language will it be read to you in?' },
           fields: [{ id: 'fluentLanguage', type: 'text', required: true, label: { es: 'Idioma', en: 'Language' }, formRef: 'Part 6 · Item 1.b · Language', placeholder: 'Spanish' }],
         },
+        {
+          id: 'preparer',
+          kind: 'choice',
+          formRef: 'Part 6 · Item 2 · Petitioner’s Statement Regarding the Preparer',
+          question: { es: '¿Alguien más (no usted) preparó esta petición?', en: 'Did someone else prepare this petition for you?' },
+          why: { es: 'Si es así, esa persona también llena y firma la Parte 8.', en: 'If so, that person also completes and signs Part 8.' },
+          options: yesNo,
+        },
+        {
+          id: 'preparerName',
+          kind: 'fields',
+          formRef: 'Part 6 · Item 2',
+          showIf: is('preparer', 'yes'),
+          question: { es: '¿Quién la preparó?', en: 'Who prepared it?' },
+          fields: [{ id: 'preparer.name', type: 'text', required: true, label: { es: 'Nombre del preparador', en: 'Preparer’s name' }, formRef: 'Part 6 · Item 2 · Preparer’s Name' }],
+        },
       ],
     },
+    assistanceSection({ usedInterpreter: is('readsEnglish', 'interpreter'), usedPreparer: is('preparer', 'yes'), interpreterPart: 'Part 7', preparerPart: 'Part 8' }),
   ],
 };

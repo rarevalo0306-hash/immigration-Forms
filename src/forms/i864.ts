@@ -1,10 +1,13 @@
 import type { Field, FormDefinition } from './types';
 import type { T } from '../i18n';
 import { all, anyAddress, date, is, nameFields, rows, yesNo } from './helpers';
+import { assistanceSection, usedInterpreter, usedPreparer } from './assistance';
 
 // Questions follow USCIS Form I-864, Affidavit of Support Under Section 213A of the INA, edition
 // 08/24/26. The person filling in the app is the sponsor. Household size, household income and
 // asset totals are added up by src/pdf/i864Pdf.ts, which maps the answers onto the edition's fields.
+// The interpreter (Part 9) and preparer (Part 10) are filled in from the last section; they sign
+// and date by hand. This edition prints no mailing address or preparer's statement for them.
 
 export const I864_EDITION = '08/24/26';
 
@@ -47,13 +50,13 @@ export const i864: FormDefinition = {
       'Confirme en uscis.gov/i-864 que la edición {edition} sigue vigente; si cambió, use la nueva y copie sus respuestas de esta hoja.',
       'Compare el ingreso del hogar con la tabla vigente de uscis.gov/i-864p para el tamaño de su hogar. Si no alcanza, puede sumar bienes (Parte 7) o buscar un copatrocinador.',
       'Adjunte una copia o transcripción de su declaración federal de impuestos más reciente (con los W-2 o 1099), prueba de su ciudadanía o residencia y, si suma ingresos de familiares, sus formularios I-864A.',
-      'Imprima el PDF y firme la Parte 8, Ítem 6, a mano con tinta negra.',
+      'Imprima el PDF y firme la Parte 8, Ítem 6, a mano con tinta negra. Si un intérprete o preparador le ayudó, ellos firman y fechan a mano las Partes 9 y 10.',
     ],
     en: [
       'Check at uscis.gov/i-864 that edition {edition} is still current; if it changed, use the new one and copy your answers from this sheet.',
       'Compare the household income with the current table at uscis.gov/i-864p for your household size. If it falls short, you can add assets (Part 7) or find a joint sponsor.',
       'Attach a copy or transcript of your most recent federal tax return (with W-2s or 1099s), proof of your citizenship or residence and, if you add relatives’ income, their Forms I-864A.',
-      'Print the PDF and sign Part 8, Item 6, by hand in black ink.',
+      'Print the PDF and sign Part 8, Item 6, by hand in black ink. If an interpreter or preparer helped you, they sign and date Parts 9 and 10 by hand.',
     ],
   },
   sections: [
@@ -496,7 +499,23 @@ export const i864: FormDefinition = {
           question: t('¿En qué idioma se la leerán?', 'What language will it be read to you in?'),
           fields: [{ id: 'fluentLanguage', type: 'text', required: true, label: { es: 'Idioma', en: 'Language' }, formRef: 'Part 8 · Item 1.b', placeholder: 'Spanish' }],
         },
+        {
+          id: 'preparer',
+          kind: 'choice',
+          formRef: 'Part 8 · Item 2',
+          question: t('¿Alguien más (no usted) preparó esta declaración?', 'Did someone else prepare this affidavit for you?'),
+          options: yesNo,
+        },
+        {
+          id: 'preparerName',
+          kind: 'fields',
+          formRef: 'Part 8 · Item 2',
+          showIf: is('preparer', 'yes'),
+          question: t('¿Quién la preparó?', 'Who prepared it?'),
+          fields: [{ id: 'preparer.name', type: 'text', required: true, label: { es: 'Nombre del preparador', en: 'Preparer’s name' }, formRef: 'Part 8 · Item 2' }],
+        },
       ],
     },
+    assistanceSection({ usedInterpreter, usedPreparer, interpreterPart: 'Part 9', preparerPart: 'Part 10', address: false, statement: false }),
   ],
 };

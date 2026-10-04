@@ -1,13 +1,20 @@
 import type { Answers, FormDefinition, Option } from './types';
 import type { T } from '../i18n';
-import { anyAddress, date, is, nameFields } from './helpers';
+import { anyAddress, date, is, nameFields, yesNo } from './helpers';
+import { assistanceSection, usedInterpreter, usedPreparer } from './assistance';
 
 // Questions follow USCIS Form I-290B, Notice of Appeal or Motion, edition 05/31/24. The PDF
 // mapping lives in src/pdf/i290bPdf.ts.
 //
 // Out of scope (left for hand or for the attorney):
 // - The attorney or accredited representative box on page 1 (G-28 box, bar number, account).
-// - Parts 5 and 6 (interpreter and preparer), and every signature and date.
+// - Every signature and date, including the interpreter's (Part 5) and preparer's (Part 6); the
+//   rest of those parts comes from the "Who helped you" section.
+//
+// Part 4 has no reading-English or preparer boxes, so the statement section asks whether an
+// interpreter read the form to the person (`readsEnglish`) and whether someone else prepared it
+// (`preparer`): those answers only decide whether Parts 5 and 6 are asked and filled. Parts 5 and 6
+// have no mailing address and no preparer's statement boxes, so those questions are left out.
 
 export const I290B_EDITION = '05/31/24';
 
@@ -40,6 +47,10 @@ const officeOptions: Option[] = [
 const isPerson = (a: Answers) => a.filer !== 'business';
 const isAppeal = is('filingType', 'appeal');
 
+/** Parts 5 and 6 of this edition have no mailing address and no preparer's statement boxes. */
+const assistance = assistanceSection({ usedInterpreter, usedPreparer, interpreterPart: 'Part 5', preparerPart: 'Part 6' });
+const assistanceWithoutAddresses = { ...assistance, questions: assistance.questions.filter((q) => !['interp.address', 'prep.address', 'prep.statement'].includes(q.id)) };
+
 export const i290b: FormDefinition = {
   id: 'i-290b',
   number: 'I-290B',
@@ -66,14 +77,14 @@ export const i290b: FormDefinition = {
       'Adjunte una copia de la carta de decisión que quiere apelar o que revisen. Para una moción para reabrir, adjunte los documentos que prueban los hechos nuevos; para reconsiderar, su escrito (brief) con las leyes, reglas o decisiones que se aplicaron mal.',
       'Si marcó que enviará el escrito o las pruebas después, mándelos directamente a la AAO dentro de los 30 días después de presentar la apelación, con su número de recibo.',
       'Revise la Parte 7: si su explicación no cupo en la Parte 3, el PDF la continuó ahí (y, si hacía falta, en una hoja adicional al final). Firme y ponga la fecha en cada hoja adicional.',
-      'Imprima el PDF y firme la Parte 4, Ítem 4, a mano con tinta negra. Si un intérprete o preparador le ayudó, ellos llenan y firman a mano las Partes 5 y 6. Si tiene abogado, él o ella llena el recuadro de la página 1 y adjunta el Formulario G-28.',
+      'Imprima el PDF y firme la Parte 4, Ítem 4, a mano con tinta negra. Si un intérprete o preparador le ayudó, sus datos ya están en las Partes 5 y 6; ellos las revisan y las firman y fechan a mano. Si tiene abogado, él o ella llena el recuadro de la página 1 y adjunta el Formulario G-28.',
     ],
     en: [
       'Check at uscis.gov/i-290b that edition {edition} is still current, and check the fee and the filing address: it depends on the form that was denied. Do it soon: USCIS must RECEIVE it within the deadline (usually 30 days from the decision, 33 if it was mailed to you).',
       'Attach a copy of the decision you are appealing or asking to be reviewed. For a motion to reopen, attach the documents that prove the new facts; for a motion to reconsider, your brief citing the laws, policies or precedent decisions that were misapplied.',
       'If you said you will send the brief or evidence later, send it directly to the AAO within 30 days of filing the appeal, with your receipt number.',
       'Check Part 7: if your explanation did not fit in Part 3, the PDF continued it there (and onto an extra sheet at the end when needed). Sign and date each extra sheet.',
-      'Print the PDF and sign Part 4, Item 4, by hand in black ink. If an interpreter or preparer helped you, they complete and sign Parts 5 and 6 by hand. If you have an attorney, they complete the box on page 1 and attach Form G-28.',
+      'Print the PDF and sign Part 4, Item 4, by hand in black ink. If an interpreter or preparer helped you, their details are already in Parts 5 and 6; they check them and sign and date by hand. If you have an attorney, they complete the box on page 1 and attach Form G-28.',
     ],
   },
   sections: [
@@ -263,8 +274,8 @@ export const i290b: FormDefinition = {
           formRef: 'Part 4 · Items 1–3 · Applicant’s or Petitioner’s Contact Information',
           question: t('¿Cómo puede contactarle USCIS?', 'How can USCIS contact you?'),
           why: t(
-            'Al firmar la Parte 4 usted declara, bajo pena de perjurio, que todo es verdad y que leyó y entendió el formulario (o se lo leyeron en un idioma que domina). Si un intérprete le ayudó, él o ella llena la Parte 5 a mano.',
-            'By signing Part 4 you certify, under penalty of perjury, that everything is true and that you read and understood the form (or had it read to you in a language you are fluent in). If an interpreter helped you, they complete Part 5 by hand.',
+            'Al firmar la Parte 4 usted declara, bajo pena de perjurio, que todo es verdad y que leyó y entendió el formulario (o se lo leyeron en un idioma que domina). Si un intérprete le ayudó, él o ella firma la Parte 5 a mano.',
+            'By signing Part 4 you certify, under penalty of perjury, that everything is true and that you read and understood the form (or had it read to you in a language you are fluent in). If an interpreter helped you, they sign Part 5 by hand.',
           ),
           fields: [
             { id: 'phone', type: 'phone', required: true, label: { es: 'Teléfono de día', en: 'Daytime phone' }, formRef: 'Part 4 · Item 1', placeholder: '213 555 0123' },
@@ -272,7 +283,27 @@ export const i290b: FormDefinition = {
             { id: 'email', type: 'email', label: { es: 'Correo electrónico (si tiene)', en: 'Email (if any)' }, formRef: 'Part 4 · Item 3' },
           ],
         },
+        {
+          id: 'readsEnglish',
+          kind: 'choice',
+          formRef: 'Part 4 · Applicant’s or Petitioner’s Certification',
+          question: t('¿Puede leer y entender el formulario en inglés?', 'Can you read and understand the form in English?'),
+          why: t('Si alguien le lee el formulario en su idioma, esa persona llena y firma la Parte 5.', 'If someone reads the form to you in your language, that person completes and signs Part 5.'),
+          options: [
+            { value: 'A', label: t('Sí, leo inglés', 'Yes, I read English') },
+            { value: 'B', label: t('No, un intérprete me lo leyó', 'No, an interpreter read it to me') },
+          ],
+        },
+        {
+          id: 'preparer',
+          kind: 'choice',
+          formRef: 'Part 6 · Preparer',
+          question: t('¿Alguien más le preparó este formulario?', 'Did someone else prepare this form for you?'),
+          why: t('Por ejemplo un abogado, una organización o un familiar que llenó las respuestas. Esa persona llena y firma la Parte 6.', 'For example an attorney, an organization or a relative who filled in the answers. That person completes and signs Part 6.'),
+          options: yesNo,
+        },
       ],
     },
+    assistanceWithoutAddresses,
   ],
 };

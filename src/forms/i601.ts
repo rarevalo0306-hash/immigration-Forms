@@ -1,13 +1,17 @@
 import type { Answers, Field, FormDefinition, Option } from './types';
 import type { T } from '../i18n';
 import { all, anyAddress, biographic, date, is, nameFields, rows, sexField, yesNo } from './helpers';
+import { assistanceSection, usedInterpreter, usedPreparer } from './assistance';
 
 // Questions follow USCIS Form I-601, Application for Waiver of Grounds of Inadmissibility,
 // edition 01/20/25. The PDF mapping lives in src/pdf/i601Pdf.ts.
 //
+// Part 7 has no statement boxes, so the app asks whether an interpreter or preparer helped (the
+// standard readsEnglish / preparer questions) to decide whether to fill Part 8 (interpreter) and
+// Part 9 (preparer) from the shared assistance section.
+//
 // Out of scope (left blank, completed by hand or by others): the attorney/G-28 box at the top of
-// page 1, Part 8 (interpreter), Part 9 (preparer), the signatures and dates in Part 7, and
-// Part 11 (Class A tuberculosis), which the local and state health departments and a physician
+// page 1, every signature and date (Parts 7, 8 and 9), and Part 11 (Class A tuberculosis), which the local and state health departments and a physician
 // complete and sign.
 
 export const I601_EDITION = '01/20/25';
@@ -235,7 +239,7 @@ export const i601: FormDefinition = {
       'Confirme en uscis.gov/i-601 que la edición {edition} sigue vigente, revise la tarifa y a qué oficina se envía en su caso (puede ser distinta si está fuera de EE.UU. o en corte).',
       'Adjunte prueba del estatus de su familiar (acta de nacimiento, naturalización o tarjeta de residente), prueba del parentesco (acta de matrimonio o nacimiento) y prueba de las dificultades extremas: cartas médicas, comprobantes de ingresos y deudas, cartas de apoyo, información del país.',
       'Si tiene arrestos o condenas, adjunte copias certificadas de los registros de la corte con el resultado de cada caso. Si es por salud, adjunte los informes médicos que piden las instrucciones.',
-      'Imprima el PDF y firme la Parte 7, Ítem 4.a, a mano con tinta negra. Si un intérprete o preparador le ayudó, ellos llenan y firman las Partes 8 y 9. Si la app agregó hojas al final de la Parte 10, firme y feche cada hoja.',
+      'Imprima el PDF y firme la Parte 7, Ítem 4.a, a mano con tinta negra. Si un intérprete o preparador le ayudó, sus datos ya están en las Partes 8 y 9; ellos las revisan y las firman y fechan a mano. Si la app agregó hojas al final de la Parte 10, firme y feche cada hoja.',
       'Si hay tuberculosis Clase A, la Parte 11 la completan y firman el médico y los departamentos de salud.',
       'Revise todo con un abogado o representante acreditado antes de enviarlo: un error puede causar la negación del perdón y de su caso.',
     ],
@@ -243,7 +247,7 @@ export const i601: FormDefinition = {
       'Check at uscis.gov/i-601 that edition {edition} is still current, and check the fee and where to file in your case (it can differ if you are abroad or in court).',
       'Attach proof of your relative’s status (birth certificate, naturalization or green card), proof of the relationship (marriage or birth certificate) and proof of extreme hardship: medical letters, income and debt records, support letters, country information.',
       'If you have arrests or convictions, attach certified court records with the outcome of each case. For health grounds, attach the medical reports the instructions ask for.',
-      'Print the PDF and sign Part 7, Item 4.a, by hand in black ink. If an interpreter or preparer helped you, they complete and sign Parts 8 and 9. If the app added sheets after Part 10, sign and date each sheet.',
+      'Print the PDF and sign Part 7, Item 4.a, by hand in black ink. If an interpreter or preparer helped you, their details are already in Parts 8 and 9; they review them and sign and date by hand. If the app added sheets after Part 10, sign and date each sheet.',
       'For Class A tuberculosis, Part 11 is completed and signed by the physician and the health departments.',
       'Review everything with an attorney or accredited representative before mailing: a mistake can lead to denial of the waiver and of your case.',
     ],
@@ -611,6 +615,41 @@ export const i601: FormDefinition = {
       title: t('Declaración y contacto', 'Statement and contact'),
       questions: [
         {
+          id: 'readsEnglish',
+          kind: 'choice',
+          formRef: "Part 7 · Applicant's Certification",
+          question: t('¿Puede leer y entender el formulario en inglés?', 'Can you read and understand the form in English?'),
+          why: t('Si un intérprete se lo lee, sus datos van en la Parte 8.', 'If an interpreter reads it to you, their details go in Part 8.'),
+          options: [
+            { value: 'A', label: t('Sí, leo inglés', 'Yes, I read English') },
+            { value: 'B', label: t('No, un intérprete me lo leerá', 'No, an interpreter will read it to me') },
+          ],
+        },
+        {
+          id: 'interpreterLanguage',
+          kind: 'fields',
+          formRef: "Part 7 · Applicant's Certification",
+          showIf: is('readsEnglish', 'B'),
+          question: t('¿En qué idioma se lo leerán?', 'What language will it be read in?'),
+          fields: [{ id: 'fluentLanguage', type: 'text', required: true, label: t('Idioma', 'Language'), formRef: "Part 7 · Applicant's Certification", placeholder: 'Spanish' }],
+        },
+        {
+          id: 'preparer',
+          kind: 'choice',
+          formRef: 'Part 9 · Preparer',
+          question: t('¿Alguien más (no usted) preparó esta solicitud?', 'Did someone else prepare this application for you?'),
+          why: t('Si es así, al final le pediremos sus datos para la Parte 9; esa persona la firma a mano.', 'If so, we ask for their details for Part 9 at the end; that person signs it by hand.'),
+          options: yesNo,
+        },
+        {
+          id: 'preparerName',
+          kind: 'fields',
+          formRef: 'Part 9 · Preparer',
+          showIf: is('preparer', 'yes'),
+          question: t('¿Quién la preparó?', 'Who prepared it?'),
+          fields: [{ id: 'preparer.name', type: 'text', required: true, label: t('Nombre del preparador', 'Preparer’s name'), formRef: 'Part 9 · Preparer' }],
+        },
+        {
           id: 'contactInfo',
           kind: 'fields',
           formRef: 'Part 7 · Items 1–3',
@@ -619,8 +658,8 @@ export const i601: FormDefinition = {
             tone: 'info',
             title: t('Su firma', 'Your signature'),
             body: t(
-              'Al firmar la Parte 7 usted declara bajo pena de perjurio que todo es verdad. Si un intérprete le leyó el formulario o alguien lo preparó, ellos llenan y firman las Partes 8 y 9 a mano.',
-              'By signing Part 7 you declare under penalty of perjury that everything is true. If an interpreter read the form to you or someone prepared it, they complete and sign Parts 8 and 9 by hand.',
+              'Al firmar la Parte 7 usted declara bajo pena de perjurio que todo es verdad. Si un intérprete le leyó el formulario o alguien lo preparó, ellos firman a mano las Partes 8 y 9.',
+              'By signing Part 7 you declare under penalty of perjury that everything is true. If an interpreter read the form to you or someone prepared it, they sign Parts 8 and 9 by hand.',
             ),
           },
           fields: [
@@ -631,5 +670,6 @@ export const i601: FormDefinition = {
         },
       ],
     },
+    assistanceSection({ usedInterpreter, usedPreparer, interpreterPart: 'Part 8', preparerPart: 'Part 9', address: false, statement: false }),
   ],
 };

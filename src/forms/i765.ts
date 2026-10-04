@@ -1,8 +1,10 @@
 import type { Answers, Field, FormDefinition, Option } from './types';
+import { assistanceSection } from './assistance';
 
 // Questions follow USCIS Form I-765, Application for Employment Authorization, edition 08/21/25.
 // `formRef` gives the part, item number and the form's own English field name, so a person can
 // find each answer on the official PDF. src/pdf/i765Pdf.ts maps the answers onto that edition's fields.
+// The interpreter (Part 4) and preparer (Part 5) parts are filled from the last section; they sign by hand.
 
 export const I765_EDITION = '08/21/25';
 
@@ -90,12 +92,14 @@ export const i765: FormDefinition = {
       'Revise el PDF página por página. Si usó más de un nombre, agregue los demás a mano en los Ítems 3 y 4 de la Parte 2.',
       'Revise la tarifa actual en uscis.gov/g-1055 y las pruebas que pide su categoría en las instrucciones del I-765.',
       'Imprima el PDF y firme la Parte 3, Ítem 7, a mano con tinta negra.',
+      'Si alguien le interpretó o preparó el formulario, esa persona firma y pone la fecha a mano en la Parte 4 (intérprete) o la Parte 5 (preparador).',
     ],
     en: [
       'Check at uscis.gov/i-765 that edition {edition} is still current; if it changed, use the new one and copy your answers from this sheet.',
       'Check the PDF page by page. If you used more than one other name, add the rest by hand in Part 2, Items 3 and 4.',
       'Check the current fee at uscis.gov/g-1055 and the evidence your category needs in the I-765 instructions.',
       'Print the PDF and sign Part 3, Item 7, by hand in black ink.',
+      'If someone interpreted or prepared the form for you, they sign and date Part 4 (interpreter) or Part 5 (preparer) by hand.',
     ],
   },
   intro: {
@@ -458,7 +462,24 @@ export const i765: FormDefinition = {
           question: { es: '¿En qué idioma le leerá el intérprete?', en: 'What language will the interpreter read it to you in?' },
           fields: [{ id: 'fluentLanguage', type: 'text', required: true, label: { es: 'Idioma', en: 'Language' }, formRef: 'Part 3 · Item 1.b · Language', placeholder: 'Spanish' }],
         },
+        {
+          id: 'preparer',
+          kind: 'choice',
+          formRef: 'Part 3 · Item 2 · Applicant’s Statement Regarding the Preparer',
+          question: { es: '¿Alguien más (no usted) preparó esta solicitud?', en: 'Did someone else prepare this application for you?' },
+          why: { es: 'Si es así, esa persona también llena y firma la Parte 5.', en: 'If so, that person also completes and signs Part 5.' },
+          options: yesNo,
+        },
+        {
+          id: 'preparerName',
+          kind: 'fields',
+          formRef: 'Part 3 · Item 2',
+          showIf: is('preparer', 'yes'),
+          question: { es: '¿Quién la preparó?', en: 'Who prepared it?' },
+          fields: [{ id: 'preparer.name', type: 'text', required: true, label: { es: 'Nombre del preparador', en: 'Preparer’s name' }, formRef: 'Part 3 · Item 2 · Preparer’s Name' }],
+        },
       ],
     },
+    assistanceSection({ usedInterpreter: is('readsEnglish', 'interpreter'), usedPreparer: is('preparer', 'yes'), interpreterPart: 'Part 4', preparerPart: 'Part 5' }),
   ],
 };

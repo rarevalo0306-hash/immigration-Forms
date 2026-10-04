@@ -104,4 +104,23 @@ describe('reusing data across forms', () => {
     expect(start('i-485', [{ formId: 'n-600', answers: maria, updated: 1 }]).answers).toEqual({});
     expect(start('n-600', [{ formId: 'i-485', answers: maria, updated: 1 }]).answers).toEqual({});
   });
+
+  it('the interpreter and preparer from one form start the next', () => {
+    const helpers = { 'interp.family': 'Gómez', 'interp.given': 'Rosa', 'interp.language': 'Spanish', 'interp.phone': '7135550100', 'prep.statement': 'notAttorney' };
+    const p = start('i-485', [{ formId: 'i-130', answers: { ...maria, ...helpers }, updated: 1 }]);
+    expect(p.answers['interp.family']).toBe('Gómez');
+    expect(p.answers['interp.language']).toBe('Spanish');
+    // The I-485's preparer part has no statement boxes, so it doesn't take that answer.
+    expect(p.answers['prep.statement']).toBeUndefined();
+    expect(start('i-130', [{ formId: 'i-485', answers: helpers, updated: 1 }]).answers['interp.given']).toBe('Rosa');
+  });
+
+  it('a supplement starts with its main form’s answers', () => {
+    const supa = start('i-485supa', [{ formId: 'i-485', answers: maria, updated: 1 }]);
+    expect(supa.answers['name.family']).toBe('Hernández López');
+    expect(supa.answers['mailing.city']).toBe('Houston');
+    const court = start('eoir-33', [{ formId: 'ar-11', answers: { 'present.street': '9 Elm St', 'present.city': 'Dallas' }, updated: 1 }]);
+    expect(court.answers['present.street']).toBe('9 Elm St');
+  });
 });
+

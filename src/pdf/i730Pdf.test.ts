@@ -184,6 +184,41 @@ export const lucia: Answers = {
   'preparer.name': 'Ana Ruiz',
 };
 
+/** An interpreter in the U.S. and a different preparer abroad. */
+export const helpers: Answers = {
+  readsEnglish: 'B',
+  fluentLanguage: 'Spanish',
+  preparer: 'yes',
+  'preparer.name': 'Ana Lee',
+  'interp.family': 'Gómez',
+  'interp.given': 'Rosa',
+  'interp.business': 'Ayuda Hispana',
+  'interp.street': '100 Main St',
+  'interp.unit': 'Ste 210',
+  'interp.city': 'Houston',
+  'interp.state': 'TX',
+  'interp.zip': '77002',
+  'interp.country': 'United States',
+  'interp.phone': '713 555 0100',
+  'interp.mobile': '713 555 0101',
+  'interp.email': 'rosa@example.com',
+  'interp.language': 'Spanish',
+  'prep.same': 'no',
+  'prep.family': 'Lee',
+  'prep.given': 'Ana',
+  'prep.business': 'Lee Immigration Law',
+  'prep.street': 'Calle Real 5',
+  'prep.unit': 'Flr 3',
+  'prep.city': 'Tegucigalpa',
+  'prep.province': 'Francisco Morazan',
+  'prep.postal': '11101',
+  'prep.country': 'Honduras',
+  'prep.phone': '504 2555 0100',
+  'prep.mobile': '504 9555 0101',
+  'prep.email': 'ana@example.com',
+  'prep.statement': 'attorneyExtends',
+};
+
 describe('I-730 PDF', () => {
   it('plans only fields that exist, with the right kind', async () => {
     const index = firstFieldIndex((await PDFDocument.load(template)).getForm());
@@ -193,6 +228,9 @@ describe('I-730 PDF', () => {
       { ...jose, 'ben.nativeSame': 'no', 'ben.native.family': 'Flores', 'ben.native.given': 'M', 'ben.native.careOf': 'Tia', 'ben.native.street': 'Calle 1', 'ben.native.unit': 'Apt 3', 'ben.native.city': 'Santa Ana', 'ben.native.country': 'El Salvador', 'ben.english': 'yes' },
       { ...jose, 'ben.court': 'D', 'ben.court.where': 'Miami, FL', 'entry.more0': 'yes', 'entry1.date': '01/01/2019' },
       ...['REF', 'LAS'].map((status) => ({ ...lucia, status })),
+      { ...jose, ...helpers },
+      { ...jose, ...helpers, 'prep.same': 'yes', 'prep.statement': 'notAttorney', 'interp.unit': 'Apt 4' },
+      { ...jose, ...helpers, 'prep.statement': 'attorneyNotExtends' },
       ...['BC', 'AC'].map((childType) => ({ ...lucia, childType, 'ben.court': 'C', late: 'no', readsEnglish: 'B', 'ben.sex': 'male' })),
     ];
     for (const plan of variants.map(planI730)) {
@@ -240,6 +278,32 @@ describe('I-730 PDF', () => {
     expect(text('P5_Line1b_NameofInterpreter[0]')).toBe('Spanish');
     expect(text('P5_Line3_PetitionerDayTel[0]')).toBe('2135550147');
     expect(text('P5_L6a_PetitionerSignature[0]')).toBe('');
+  });
+
+  it('fills the interpreter and preparer parts', async () => {
+    const read = async (a: Answers) => {
+      const f = firstFieldIndex((await PDFDocument.load(await fillI730(template, a))).getForm());
+      return { text: (n: string) => (f.get(n) as PDFTextField).getText() ?? '', checked: (n: string) => (f.get(n) as PDFCheckBox).isChecked() };
+    };
+    let { text, checked } = await read({ ...jose, ...helpers });
+    expect(text('P7_Line1a_InterpreterFamilyName[0]')).toBe('Gomez');
+    expect(checked('P7_Line3_Unit[0]')).toBe(true);
+    expect(text('P7_Line3_Number[0]')).toBe('210');
+    expect(text('P7_Line4_DayTelephone[0]')).toBe('7135550100');
+    expect(text('P7_Language[0]')).toBe('Spanish');
+    expect(text('P8_Line1a_PrepFamilyName[0]')).toBe('Lee');
+    expect(checked('P8_Line3_Unit[1]')).toBe(true);
+    expect(text('P8_Line3_Province[0]')).toBe('Francisco Morazan');
+    expect(checked('Pt8_Line7_chkbx[1]')).toBe(true);
+    expect(checked('Pt8_Line7b_Extend[0]')).toBe(true);
+    expect(checked('Pt8_Line7b_DoesNotExtend[0]')).toBe(false);
+    expect(text('P8_L8a_PrepSignature[0]')).toBe('');
+    ({ text, checked } = await read({ ...jose, ...helpers, 'prep.same': 'yes', 'prep.statement': 'notAttorney' }));
+    expect(text('P8_Line1a_PrepGivenName[0]')).toBe('Rosa');
+    expect(checked('P8_Line3_Unit[0]')).toBe(true);
+    expect(checked('Pt8_Line7_chkbx[0]')).toBe(true);
+    ({ text } = await read(jose));
+    expect(text('P7_Line1a_InterpreterFamilyName[0]')).toBe('');
   });
 
   it('moves a long Part 3 explanation to a continuation page', async () => {

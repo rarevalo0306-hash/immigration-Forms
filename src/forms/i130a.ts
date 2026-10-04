@@ -1,9 +1,11 @@
 import type { Field, FormDefinition, Question } from './types';
 import { anyAddress, date, is, nameFields, sexField, yesNo } from './helpers';
+import { assistanceSection } from './assistance';
 
 // Questions follow USCIS Form I-130A, Supplemental Information for Spouse Beneficiary, edition
 // 04/01/24. It is filled in by the spouse that a Form I-130 is filed for, and travels with it.
 // src/pdf/i130aPdf.ts maps the answers onto that edition's fields.
+// The interpreter (Part 5) and preparer (Part 6) parts are filled from the last section; they sign by hand.
 
 export const I130A_EDITION = '04/01/24';
 
@@ -64,12 +66,14 @@ export const i130a: FormDefinition = {
       'Revise el PDF página por página. Si vivió o trabajó en más lugares, agréguelos a mano en la Parte 7.',
       'Imprima el PDF y firme la Parte 4, Ítem 6.a, a mano con tinta negra. Si vive fuera de EE.UU., no necesita firmarlo.',
       'Envíelo junto con el I-130 que presenta su cónyuge.',
+      'Si alguien le interpretó o preparó el formulario, esa persona firma y pone la fecha a mano en la Parte 5 (intérprete) o la Parte 6 (preparador).',
     ],
     en: [
       'Check at uscis.gov/i-130a that edition {edition} is still current; if it changed, use the new one and copy your answers from this sheet.',
       'Check the PDF page by page. If you lived or worked in more places, add them by hand in Part 7.',
       'Print the PDF and sign Part 4, Item 6.a, by hand in black ink. If you live outside the U.S., you don’t need to sign it.',
       'Send it together with the I-130 your spouse files.',
+      'If someone interpreted or prepared the form for you, they sign and date Part 5 (interpreter) or Part 6 (preparer) by hand.',
     ],
   },
   sections: [
@@ -225,7 +229,24 @@ export const i130a: FormDefinition = {
           question: { es: '¿En qué idioma se lo leerán?', en: 'What language will it be read to you in?' },
           fields: [{ id: 'fluentLanguage', type: 'text', required: true, label: { es: 'Idioma', en: 'Language' }, formRef: 'Part 4 · Item 1.b · Language', placeholder: 'Spanish' }],
         },
+        {
+          id: 'preparer',
+          kind: 'choice',
+          formRef: 'Part 4 · Item 2 · Spouse Beneficiary’s Statement Regarding the Preparer',
+          question: { es: '¿Alguien más (no usted) preparó este formulario?', en: 'Did someone else prepare this form for you?' },
+          why: { es: 'Si es así, esa persona también llena y firma la Parte 6.', en: 'If so, that person also completes and signs Part 6.' },
+          options: yesNo,
+        },
+        {
+          id: 'preparerName',
+          kind: 'fields',
+          formRef: 'Part 4 · Item 2',
+          showIf: is('preparer', 'yes'),
+          question: { es: '¿Quién lo preparó?', en: 'Who prepared it?' },
+          fields: [{ id: 'preparer.name', type: 'text', required: true, label: { es: 'Nombre del preparador', en: 'Preparer’s name' }, formRef: 'Part 4 · Item 2 · Preparer’s Name' }],
+        },
       ],
     },
+    assistanceSection({ usedInterpreter: is('readsEnglish', 'interpreter'), usedPreparer: is('preparer', 'yes'), interpreterPart: 'Part 5', preparerPart: 'Part 6' }),
   ],
 };

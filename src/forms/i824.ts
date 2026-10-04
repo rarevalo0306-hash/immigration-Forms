@@ -1,12 +1,19 @@
 import type { Field, FormDefinition } from './types';
 import type { T } from '../i18n';
 import { all, date, is, nameFields, rows, yesNo } from './helpers';
+import { assistanceSection, usedInterpreter, usedPreparer } from './assistance';
 
 // Questions follow USCIS Form I-824, Application for Action on an Approved Application or
 // Petition, edition 04/01/24. The PDF mapping lives in src/pdf/i824Pdf.ts.
 // Left for hand: the attorney/G-28 box at the top of page 1; Part 1, Item 3 (company name) and
 // Item 10 (IRS tax number), which only employers filing for a worker need; the signature and
-// date in Part 4; and Parts 5 and 6 (interpreter and preparer).
+// date in Part 4; and the interpreter's and preparer's signatures and dates (Parts 5 and 6; the
+// rest of those parts comes from the "Who helped you" section).
+//
+// Part 4 has no reading-English or preparer boxes, so the contact section asks whether an
+// interpreter read the form to the person (`readsEnglish`) and whether someone else prepared it
+// (`preparer`): those answers only decide whether Parts 5 and 6 are asked and filled. Parts 5 and 6
+// have no mailing address and no preparer's statement boxes, so those questions are left out.
 
 export const I824_EDITION = '04/01/24';
 
@@ -58,6 +65,10 @@ const petitioner = is('filerRole', 'petitioner');
 /** Part 3, Items 5-32: the four dependent blocks, by first item number. */
 const DEPENDENT_ITEMS = [5, 12, 19, 26];
 
+/** Parts 5 and 6 of this edition have no mailing address and no preparer's statement boxes. */
+const assistance = assistanceSection({ usedInterpreter, usedPreparer, interpreterPart: 'Part 5', preparerPart: 'Part 6' });
+const assistanceWithoutAddresses = { ...assistance, questions: assistance.questions.filter((q) => !['interp.address', 'prep.address', 'prep.statement'].includes(q.id)) };
+
 export const i824: FormDefinition = {
   id: 'i-824',
   number: 'I-824',
@@ -82,13 +93,13 @@ export const i824: FormDefinition = {
     es: [
       'Confirme en uscis.gov/i-824 que la edición {edition} sigue vigente y revise la tarifa actual y la dirección de envío en uscis.gov/fees y en la página del formulario.',
       'Adjunte una copia del aviso de aprobación (I-797) del caso original; si no lo tiene, una copia del aviso de recibo o su número de recibo. Para follow-to-join, una copia de su tarjeta de residente (ambos lados) o del aviso de aprobación de su I-485. Para avisar que se hizo ciudadano/a, una copia de su certificado de naturalización.',
-      'Imprima el PDF y firme la Parte 4, Ítem 4, a mano con tinta negra, con la fecha. Si un intérprete o preparador le ayudó, ellos llenan y firman a mano las Partes 5 y 6.',
+      'Imprima el PDF y firme la Parte 4, Ítem 4, a mano con tinta negra, con la fecha. Si un intérprete o preparador le ayudó, sus datos ya están en las Partes 5 y 6; ellos las revisan y las firman y fechan a mano.',
       'Guarde una copia de todo. Para follow-to-join, sus familiares deberán seguir luego las instrucciones del NVC y del consulado.',
     ],
     en: [
       'Check at uscis.gov/i-824 that edition {edition} is still current, and check the current fee and mailing address at uscis.gov/fees and on the form page.',
       'Attach a copy of the approval notice (I-797) of the original case; if you do not have it, a copy of the receipt notice or its receipt number. For follow-to-join, a copy of your green card (both sides) or of your I-485 approval notice. To report that you naturalized, a copy of your Certificate of Naturalization.',
-      'Print the PDF and sign Part 4, Item 4, by hand in black ink, with the date. If an interpreter or preparer helped you, they complete and sign Parts 5 and 6 by hand.',
+      'Print the PDF and sign Part 4, Item 4, by hand in black ink, with the date. If an interpreter or preparer helped you, their details are already in Parts 5 and 6; they check them and sign and date by hand.',
       'Keep a copy of everything. For follow-to-join, your family members will then follow the NVC and consulate instructions.',
     ],
   },
@@ -361,7 +372,27 @@ export const i824: FormDefinition = {
             { id: 'email', type: 'email', label: { es: 'Correo electrónico', en: 'Email' }, formRef: 'Part 4 · Item 3', maxLength: 30 },
           ],
         },
+        {
+          id: 'readsEnglish',
+          kind: 'choice',
+          formRef: 'Part 4 · Applicant’s Certification',
+          question: t('¿Puede leer y entender el formulario en inglés?', 'Can you read and understand the form in English?'),
+          why: t('Si alguien le lee el formulario en su idioma, esa persona llena y firma la Parte 5.', 'If someone reads the form to you in your language, that person completes and signs Part 5.'),
+          options: [
+            { value: 'A', label: t('Sí, leo inglés', 'Yes, I read English') },
+            { value: 'B', label: t('No, un intérprete me lo leyó', 'No, an interpreter read it to me') },
+          ],
+        },
+        {
+          id: 'preparer',
+          kind: 'choice',
+          formRef: 'Part 6 · Preparer',
+          question: t('¿Alguien más le preparó este formulario?', 'Did someone else prepare this form for you?'),
+          why: t('Por ejemplo un abogado, una organización o un familiar que llenó las respuestas. Esa persona llena y firma la Parte 6.', 'For example an attorney, an organization or a relative who filled in the answers. That person completes and signs Part 6.'),
+          options: yesNo,
+        },
       ],
     },
+    assistanceWithoutAddresses,
   ],
 };

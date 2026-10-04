@@ -1,6 +1,7 @@
 import { PDFCheckBox, PDFDocument, PDFDropdown, PDFTextField, StandardFonts } from 'pdf-lib';
 import type { Answers } from '../forms/types';
 import { parseUnit } from '../engine/validation';
+import { assistance, usedInterpreter, usedPreparer } from '../forms/assistance';
 import { fieldIndex, optionBoxes, selectOption, setFieldText, toFormText, wrap } from './common';
 
 // Fields of USCIS Form I-102, edition 04/01/24 (public/forms/i-102.pdf), named by the last
@@ -13,6 +14,9 @@ import { fieldIndex, optionBoxes, selectOption, setFieldText, toFormText, wrap }
 // - Items 9, 10, 13 and 18.d are dropdowns whose export values are codes ("MEXIC") and whose
 //   shown text is the name ("MEXICO", "SAN YSIDRO, CA"). We select by the shown name; a value
 //   the list doesn't hold is typed into the dropdown instead.
+// - Parts 5 and 6 hold only name, business, phones (10 digits) and email; Part 5's language box
+//   ("Pt5FluentinLanguage") holds 18 characters. Part 6's mobile is "Pt6Line4_DaytimePhoneNumber1"
+//   and its daytime phone "Pt6Line3_DaytimePhoneNumber1".
 
 export interface I102Plan {
   text: Record<string, string>;
@@ -170,6 +174,28 @@ export function planI102(a: Answers): I102Plan {
   put('Pt4Line1_DaytimePhoneNumber1[0]', digits(str(a, 'phone')).slice(-10));
   put('Pt4Line2_MobilePhoneNumber1[0]', digits(str(a, 'mobile')).slice(-10));
   put('Pt4Line3_Email[0]', str(a, 'email'));
+
+  // Parts 5 and 6: the interpreter and the preparer. Signatures and dates are written by hand.
+  const help = assistance(a, { interpreter: usedInterpreter(a), preparer: usedPreparer(a) });
+  if (help.interpreter) {
+    const p = help.interpreter;
+    put('Pt5Line1_InterpreterFamilyName[0]', p.family);
+    put('Pt5Line1_InterpreterGivenName[0]', p.given);
+    put('Pt5Line2_NameofBusinessorOrgName[0]', p.business);
+    put('Pt5Line3_DaytimePhoneNumber1[0]', digits(p.phone).slice(-10));
+    put('Pt5Line4_MobilePhoneNumber1[0]', digits(p.mobile).slice(-10));
+    put('Pt5Line5_Email[0]', p.email);
+    put('Pt5FluentinLanguage[0]', p.language);
+  }
+  if (help.preparer) {
+    const p = help.preparer;
+    put('Pt6Line1_PreparerFamilyName[0]', p.family);
+    put('Pt6Line1_PreparerGivenName[0]', p.given);
+    put('Pt6Line2_BusinessName[0]', p.business);
+    put('Pt6Line3_DaytimePhoneNumber1[0]', digits(p.phone).slice(-10));
+    put('Pt6Line4_DaytimePhoneNumber1[0]', digits(p.mobile).slice(-10));
+    put('Pt6Line5_EmailAddress[0]', p.email);
+  }
 
   return { text, check, checkValue, select, long, notes };
 }

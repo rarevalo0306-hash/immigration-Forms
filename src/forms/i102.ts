@@ -1,11 +1,18 @@
 import type { Field, FormDefinition } from './types';
 import type { T } from '../i18n';
 import { date, is, nameFields, rows, yesNo } from './helpers';
+import { assistanceSection, usedInterpreter, usedPreparer } from './assistance';
 
 // Questions follow USCIS Form I-102, Application for Replacement/Initial Nonimmigrant
 // Arrival-Departure Document, edition 04/01/24. The PDF mapping lives in src/pdf/i102Pdf.ts.
 // Out of scope (written by hand or left blank): the attorney box (G-28) at the top of page 1,
-// the signature and date (Part 4, Item 4), Part 5 (interpreter) and Part 6 (preparer).
+// the signature and date (Part 4, Item 4), and the interpreter's and preparer's signatures and
+// dates (Parts 5 and 6; the rest of those parts comes from the "Who helped you" section).
+//
+// Part 4 has no reading-English or preparer boxes, so the statement section asks whether an
+// interpreter read the form to the person (`readsEnglish`) and whether someone else prepared it
+// (`preparer`): those answers only decide whether Parts 5 and 6 are asked and filled. Parts 5 and 6
+// have no mailing address and no preparer's statement boxes, so those questions are left out.
 
 export const I102_EDITION = '04/01/24';
 
@@ -34,6 +41,10 @@ export const REASONS: { value: string; label: T }[] = [
   { value: 'g', label: t('Entré como militar no inmigrante y no me dieron I-94: pido el primero', 'I entered as a nonimmigrant member of the military without an I-94 and want an initial one') },
 ];
 
+/** Parts 5 and 6 of this edition have no mailing address and no preparer's statement boxes. */
+const assistance = assistanceSection({ usedInterpreter, usedPreparer, interpreterPart: 'Part 5', preparerPart: 'Part 6' });
+const assistanceWithoutAddresses = { ...assistance, questions: assistance.questions.filter((q) => !['interp.address', 'prep.address', 'prep.statement'].includes(q.id)) };
+
 export const i102: FormDefinition = {
   id: 'i-102',
   number: 'I-102',
@@ -59,14 +70,14 @@ export const i102: FormDefinition = {
       'Confirme en uscis.gov/i-102 que la edición {edition} sigue vigente, y revise la tarifa y a qué dirección enviarlo.',
       'Antes de enviar, vuelva a buscar su I-94 en i94.cbp.dhs.gov: si aparece, imprímalo gratis y no necesita este formulario.',
       'Adjunte una copia de la página de datos de su pasaporte y de su visa, una copia del I-94 si la tiene, el reporte de policía si se lo robaron, el I-94 original si está dañado o tiene un error, y pruebas de su cambio de nombre si el nombre del I-94 es distinto.',
-      'Imprima el PDF y firme la Parte 4, Ítem 4, a mano con tinta negra. Si un intérprete o preparador le ayudó, ellos llenan y firman a mano las Partes 5 y 6.',
+      'Imprima el PDF y firme la Parte 4, Ítem 4, a mano con tinta negra. Si un intérprete o preparador le ayudó, sus datos ya están en las Partes 5 y 6; ellos las revisan y las firman y fechan a mano.',
       'Si lo presenta junto con otra solicitud (por ejemplo el I-539 o el I-129), envíelos juntos a la dirección de esa otra solicitud.',
     ],
     en: [
       'Check at uscis.gov/i-102 that edition {edition} is still current, and check the fee and where to mail it.',
       'Before mailing, search for your I-94 again at i94.cbp.dhs.gov: if it shows up, print it for free and you do not need this form.',
       'Attach a copy of your passport biographic page and visa, a copy of the I-94 if you have one, the police report if it was stolen, the original I-94 if it is mutilated or has an error, and evidence of your name change if the name on the I-94 is different.',
-      'Print the PDF and sign Part 4, Item 4, by hand in black ink. If an interpreter or preparer helped you, they complete and sign Parts 5 and 6 by hand.',
+      'Print the PDF and sign Part 4, Item 4, by hand in black ink. If an interpreter or preparer helped you, their details are already in Parts 5 and 6; they check them and sign and date by hand.',
       'If you file it with another application (for example Form I-539 or I-129), send them together to that application’s filing address.',
     ],
   },
@@ -288,8 +299,8 @@ export const i102: FormDefinition = {
             tone: 'info',
             title: t('Lo que firma', 'What you sign'),
             body: t(
-              'Al firmar la Parte 4 declara, bajo pena de perjurio, que sus respuestas son verdaderas y completas, y autoriza a USCIS a usar la información de sus expedientes. Si alguien le interpretó o preparó el formulario, esa persona llena y firma a mano la Parte 5 o la 6.',
-              'By signing Part 4 you certify, under penalty of perjury, that your answers are true and complete, and you authorize USCIS to use information from your records. If someone interpreted or prepared the form for you, that person completes and signs Part 5 or 6 by hand.',
+              'Al firmar la Parte 4 declara, bajo pena de perjurio, que sus respuestas son verdaderas y completas, y autoriza a USCIS a usar la información de sus expedientes. Si alguien le interpretó o preparó el formulario, esa persona firma a mano la Parte 5 o la 6.',
+              'By signing Part 4 you certify, under penalty of perjury, that your answers are true and complete, and you authorize USCIS to use information from your records. If someone interpreted or prepared the form for you, that person signs Part 5 or 6 by hand.',
             ),
           },
           fields: [
@@ -298,7 +309,27 @@ export const i102: FormDefinition = {
             { id: 'email', type: 'email', label: { es: 'Correo electrónico', en: 'Email' }, formRef: 'Part 4 · Item 3' },
           ],
         },
+        {
+          id: 'readsEnglish',
+          kind: 'choice',
+          formRef: 'Part 4 · Applicant’s Certification',
+          question: t('¿Puede leer y entender el formulario en inglés?', 'Can you read and understand the form in English?'),
+          why: t('Si alguien le lee el formulario en su idioma, esa persona llena y firma la Parte 5.', 'If someone reads the form to you in your language, that person completes and signs Part 5.'),
+          options: [
+            { value: 'A', label: t('Sí, leo inglés', 'Yes, I read English') },
+            { value: 'B', label: t('No, un intérprete me lo leyó', 'No, an interpreter read it to me') },
+          ],
+        },
+        {
+          id: 'preparer',
+          kind: 'choice',
+          formRef: 'Part 6 · Preparer',
+          question: t('¿Alguien más le preparó este formulario?', 'Did someone else prepare this form for you?'),
+          why: t('Por ejemplo un abogado, una organización o un familiar que llenó las respuestas. Esa persona llena y firma la Parte 6.', 'For example an attorney, an organization or a relative who filled in the answers. That person completes and signs Part 6.'),
+          options: yesNo,
+        },
       ],
     },
+    assistanceWithoutAddresses,
   ],
 };

@@ -1,6 +1,7 @@
 import { PDFCheckBox, PDFDocument, PDFDropdown, PDFTextField } from 'pdf-lib';
 import type { Answers } from '../forms/types';
 import { flaggedPart9, PART14_BLOCKS } from '../forms/n400';
+import { assistance, usedInterpreter, usedPreparer } from '../forms/assistance';
 import { parseUnit } from '../engine/validation';
 import { fieldIndex, optionBoxes, selectOption, setFieldText } from './common';
 
@@ -246,6 +247,30 @@ export function planN400(a: Answers): N400Plan {
   put('P12_Line3_Telephone[0]', digits(str(a, 'phone')).replace(/^1(?=\d{10}$)/, ''));
   put('P12_Line3_Mobile[0]', digits(str(a, 'mobile')).replace(/^1(?=\d{10}$)/, ''));
   put('P12_Line5_Email[0]', str(a, 'email'));
+
+  // Parts 12 and 13: the interpreter and the preparer. They sign and date by hand. Neither part
+  // has an address or (for the preparer) an attorney statement in this edition.
+  const phone = (s: string) => digits(s).replace(/^1(?=\d{10}$)/, '');
+  const help = assistance(a, { interpreter: usedInterpreter(a), preparer: usedPreparer(a) });
+  if (help.interpreter) {
+    const p = help.interpreter;
+    put('P14_Line1_nterpreterFamilyName[0]', p.family);
+    put('P14_Line1_nterpreterGivenName[0]', p.given);
+    put('P14_Line2_NameofBusinessorOrgName[0]', p.business);
+    put('P14_Line4_Telephone[0]', phone(p.phone));
+    put('P14_Line5_Mobile[0]', phone(p.mobile));
+    put('P14_Line5_EmailAddress[0]', p.email);
+    put('P14_NameOfLanguage[0]', p.language);
+  }
+  if (help.preparer) {
+    const p = help.preparer;
+    put('P15_Line1_PreparerFamilyName[0]', p.family);
+    put('P15_Line1_PreparerGivenName[0]', p.given);
+    put('P15_Line2_NameofBusinessorOrgName[0]', p.business);
+    put('P15_Line4_Telephone[0]', phone(p.phone));
+    put('P15_Line5_Mobile[0]', phone(p.mobile));
+    put('P15_Line6_Email[0]', p.email);
+  }
 
   // Part 14: the first explanations of Part 9 answers.
   flaggedPart9(a)

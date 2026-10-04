@@ -74,6 +74,41 @@ export const jorge: Answers = {
   email: 'jorge.mejia@example.com',
 };
 
+/** An interpreter and a different preparer, one in the U.S. and one abroad. */
+export const helpers: Answers = {
+  readsEnglish: 'B',
+  fluentLanguage: 'Spanish',
+  preparer: 'yes',
+  'preparer.name': 'Ana Lee',
+  'interp.family': 'Gómez',
+  'interp.given': 'Rosa',
+  'interp.business': 'Ayuda Hispana',
+  'interp.street': '100 Main St',
+  'interp.unit': 'Ste 210',
+  'interp.city': 'Houston',
+  'interp.state': 'TX',
+  'interp.zip': '77002',
+  'interp.country': 'United States',
+  'interp.phone': '713 555 0100',
+  'interp.mobile': '713 555 0101',
+  'interp.email': 'rosa@example.com',
+  'interp.language': 'Spanish',
+  'prep.same': 'no',
+  'prep.family': 'Lee',
+  'prep.given': 'Ana',
+  'prep.business': 'Lee Immigration Law',
+  'prep.street': 'Calle Real 5',
+  'prep.unit': 'Flr 3',
+  'prep.city': 'Tegucigalpa',
+  'prep.province': 'Francisco Morazan',
+  'prep.postal': '11101',
+  'prep.country': 'Honduras',
+  'prep.phone': '504 2555 0100',
+  'prep.mobile': '504 9555 0101',
+  'prep.email': 'ana@example.com',
+  'prep.statement': 'attorneyExtends',
+};
+
 const longText = 'She will live with us and I will pay for everything she needs. '.repeat(20);
 
 describe('I-134 PDF', () => {
@@ -128,6 +163,9 @@ describe('I-134 PDF', () => {
       { ...jorge, basis: 'self', readsEnglish: 'A', preparer: 'yes', 'preparer.name': 'Ana Ruiz', employment: 'self', 'job.selfOccupation': 'Painter' },
       { ...jorge, basis: 'self', readsEnglish: 'B', employment: 'other', 'job.other': 'Student' },
       { ...jorge, preparer: 'yes', 'preparer.name': 'Ana Ruiz', readsEnglish: 'A', contributions: 'no', 'stay.end': 'none', status: 'other', 'status.other': 'Pending asylum' },
+      { ...jorge, ...helpers },
+      { ...jorge, ...helpers, basis: 'self', 'prep.same': 'yes', 'prep.statement': 'notAttorney' },
+      { ...jorge, ...helpers, 'prep.statement': 'attorneyNotExtends' },
       ...['A', 'B', 'C', 'nonimmigrant', 'asylee', 'refugee', 'parolee', 'tps', 'deferred'].map((status) => ({ ...jorge, status })),
       ...['unemployed', 'retired'].map((employment) => ({ ...jorge, employment })),
       ...['married', 'divorced', 'widowed', 'separated', 'annulled', 'other'].map((m) => ({ ...jorge, 'ben.marital': m, 'ben.marital.other': 'Common law', 'ben.sex': 'male', mailingSame: 'no' })),
@@ -193,6 +231,25 @@ describe('I-134 PDF', () => {
     expect(text('P9[0].Part4_Line3_DaytimePhoneNumber3[0]')).toBe('7135550142');
     expect(text('P5[0].Part4_Line3_DaytimePhoneNumber3[0]')).toBe('');
     expect(text('P10[0].P8_Line6_Sign[0]')).toBe('');
+  });
+
+  it('fills the interpreter and preparer parts', async () => {
+    const read = async (a: Answers) => {
+      const f = i134Index((await PDFDocument.load(await fillI134(template, a))).getForm());
+      return (n: string) => (f.get(n) as PDFTextField).getText() ?? '';
+    };
+    let text = await read({ ...jorge, ...helpers });
+    expect(text('P10[0].Pt6Line1_InterpreterFamilyName[0]')).toBe('Gomez');
+    expect(text('P10[0].P3_Line4_DaytimeTelePhoneNumber[0]')).toBe('7135550100');
+    expect(text('P10[0].P4_Line6_Language[0]')).toBe('Spanish');
+    expect(text('P11[0].P4_Line1_InterpreterFamilyName[0]')).toBe('Lee');
+    expect(text('P11[0].P4_Line2_NameofBusinessorOrgName[0]')).toBe('Lee Immigration Law');
+    expect(text('P11[0].Pt7Line3_MobileTelephoneNum[0]')).toBe('50495550101');
+    expect(text('P11[0].Pt7Line8_SignatureofPreparer[0]')).toBe('');
+    text = await read({ ...jorge, ...helpers, 'prep.same': 'yes' });
+    expect(text('P11[0].P4_Line1_InterpreterGivenName[0]')).toBe('Rosa');
+    text = await read(jorge);
+    expect(text('P10[0].Pt6Line1_InterpreterFamilyName[0]')).toBe('');
   });
 
   it('moves a long Item 19 to Part 8', async () => {

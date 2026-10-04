@@ -47,6 +47,36 @@ const answers: Answers = {
   fluentLanguage: 'Spanish',
 };
 
+const helped: Answers = {
+  ...answers,
+  preparer: 'yes',
+  'preparer.name': 'Luis Ortega',
+  'interp.family': 'Ríos',
+  'interp.given': 'Ana',
+  'interp.business': 'Ayuda Legal',
+  'interp.street': '10 Elm St',
+  'interp.unit': 'Apt 3',
+  'interp.city': 'Dallas',
+  'interp.state': 'TX',
+  'interp.zip': '75201',
+  'interp.country': 'United States',
+  'interp.phone': '214 555 0100',
+  'interp.mobile': '214 555 0101',
+  'interp.email': 'ana@example.com',
+  'interp.language': 'Spanish',
+  'prep.family': 'Ortega',
+  'prep.given': 'Luis',
+  'prep.street': '22 Calle Sol',
+  'prep.unit': 'Flr 2',
+  'prep.city': 'Tijuana',
+  'prep.province': 'Baja California',
+  'prep.postal': '22000',
+  'prep.country': 'Mexico',
+  'prep.phone': '664 555 0102',
+  'prep.email': 'luis@example.com',
+  'prep.statement': 'attorneyNotExtends',
+};
+
 async function filled(a: Answers) {
   const doc = await PDFDocument.load(await fillI765(template, a));
   return doc.getForm();
@@ -57,6 +87,8 @@ describe('I-765 PDF', () => {
     const form = (await PDFDocument.load(template)).getForm();
     const everything: Answers = { ...answers, category: '(c)(3)(C)', 'stem.degree': 'MS', 'stem.employer': 'Acme', 'stem.everify': '123456', sevisNumber: 'N0012345678' };
     const plans = [planI765(everything), planI765({ ...answers, category: '(c)(26)', 'h1b.receipt': 'IOE0123456789' }), planI765({ ...answers, category: 'other', 'category.other': '(c)(35)', 'i140.receipt': 'LIN0123456789', arrested: 'yes', readsEnglish: 'yes' })];
+    for (const statement of ['notAttorney', 'attorneyExtends', 'attorneyNotExtends'])
+      plans.push(planI765({ ...helped, 'prep.statement': statement, 'prep.state': 'CA', 'prep.unit': 'Ste 5' }), planI765({ ...helped, 'prep.same': 'yes', 'prep.statement': statement }));
     for (const plan of plans) {
       for (const name of Object.keys(plan.text)) expect(form.getField(name), name).toBeInstanceOf(PDFTextField);
       for (const name of plan.check) expect(form.getField(name), name).toBeInstanceOf(PDFCheckBox);
@@ -99,6 +131,36 @@ describe('I-765 PDF', () => {
     expect(text('Page4[0].Pt3Line7a_Signature[0]')).toBeUndefined();
 
     expect(text('Page7[0].Line1a_FamilyName[0]')).toBe('Garcia Nunez');
+  });
+
+  it('writes the interpreter and the preparer', async () => {
+    const form = await filled(helped);
+    const text = (n: string) => form.getTextField(`form1[0].${n}`).getText();
+    const checked = (n: string) => form.getCheckBox(`form1[0].${n}`).isChecked();
+
+    expect(checked('Page4[0].Part3_Checkbox[0]')).toBe(true);
+    expect(text('Page4[0].Pt3Line2_RepresentativeName[0]')).toBe('Luis Ortega');
+    expect(text('Page4[0].Pt4Line1a_InterpreterFamilyName[0]')).toBe('Rios');
+    expect(text('Page5[0].Pt5Line3a_StreetNumberName[0]')).toBe('10 Elm St');
+    expect(checked('Page5[0].Pt5Line3b_Unit[1]')).toBe(true); // Apt, by position
+    expect(form.getDropdown('form1[0].Page5[0].Pt5Line3d_State[0]').getSelected()).toEqual(['TX']);
+    expect(text('Page5[0].Pt4Line4_InterpreterDaytimeTelephone[0]')).toBe('2145550100');
+    expect(text('Page5[0].Part4_NameofLanguage[0]')).toBe('Spanish');
+    expect(text('Page5[0].Pt4Line6a_Signature[0]')).toBeUndefined();
+
+    expect(text('Page5[0].Pt5Line1a_PreparerFamilyName[0]')).toBe('Ortega');
+    expect(checked('Page5[0].Pt6Line3b_Unit[0]')).toBe(true); // Flr, by position
+    expect(text('Page5[0].Pt6Line3f_Province[0]')).toBe('Baja California');
+    expect(text('Page5[0].Pt5Line6_Email[0]')).toBe('luis@example.com');
+    expect(checked('Page6[0].Part5Line7_Checkbox[1]')).toBe(true);
+    expect(checked('Page6[0].Part5Line7b_Checkbox[1]')).toBe(true); // does not extend
+    expect(text('Page6[0].Pt5Line8a_Signature[0]')).toBeUndefined();
+
+    const same = await filled({ ...helped, 'prep.same': 'yes', 'prep.statement': 'notAttorney' });
+    expect(same.getTextField('form1[0].Page5[0].Pt5Line1a_PreparerFamilyName[0]').getText()).toBe('Rios');
+    expect(same.getCheckBox('form1[0].Page6[0].Part5Line7_Checkbox[0]').isChecked()).toBe(true);
+    const alone = await filled(answers);
+    expect(alone.getTextField('form1[0].Page5[0].Pt5Line1a_PreparerFamilyName[0]').getText()).toBeUndefined();
   });
 
   it('fills category follow-ups only for their category', async () => {

@@ -48,5 +48,10 @@ describe('N-565 flow', () => {
     expect(ids({ lostCitizenship: 'yes' })).toContain('lostCitizenshipExplain');
     expect(ids({ lostCitizenship: 'no' })).not.toContain('lostCitizenshipExplain');
     expect(ids({})).toContain('contactInfo');
+    expect(ids({ readsEnglish: 'B' })).toContain('interp.who');
+    expect(ids({ readsEnglish: 'B' })).not.toContain('interp.address');
+    expect(ids({ preparer: 'yes' })).toContain('prep.who');
+    expect(ids({ preparer: 'yes' })).not.toContain('prep.statement');
+    expect(ids({ readsEnglish: 'B', preparer: 'yes', 'prep.same': 'yes' })).not.toContain('prep.who');
   });
 });

@@ -1,6 +1,7 @@
 import { PDFCheckBox, PDFDocument, PDFDropdown, PDFTextField, StandardFonts } from 'pdf-lib';
 import type { Answers } from '../forms/types';
 import { isLpr, isParole } from '../forms/i131a';
+import { assistance, usedInterpreter, usedPreparer, type HelperPerson } from '../forms/assistance';
 import { parseUnit } from '../engine/validation';
 import { fieldIndex, optionBoxes, selectOption, setFieldText, toFormText, wrap } from './common';
 
@@ -15,6 +16,10 @@ import { fieldIndex, optionBoxes, selectOption, setFieldText, toFormText, wrap }
 //   address (Item 3: FLR, APT, STE; Item 5: APT, STE, FLR) but their export values are right.
 // - Part 7 repeats the name as "Pt1_Line1a_FamilyName[1]"… and the A-Number as "Pt1_Line6_AlienNumber[1]".
 // - The phone boxes hold 10 digits: longer (foreign) numbers go to Part 7.
+// - Part 5's daytime and mobile phones are "P5_Line4_InterDayTel[0]" and "[1]"; the language is
+//   "P5_Line5b_Fluent". Part 6's mobile is "Pt6_Line5_PrepFaxPhone". Both address unit groups list
+//   FLR, APT, STE, with the right export values. Item 7.b's extends / does not extend boxes are
+//   "Pt6_Line7b_Extend" and "Pt6_Line7b_DoesNotExtend"; 7.a / 7.b are "Pt6_Line7_Checkbox" A / B.
 
 export interface I131APlan {
   text: Record<string, string>;
@@ -157,6 +162,74 @@ export function planI131A(a: Answers): I131APlan {
   phone('mobile', 'P4_Line4_MobileTelephoneNumber[0]', '4', 'mobile telephone');
   if (longPhones.length) notes.push({ page: '3', part: '4', item: longPhones.map((p) => p.item).join('-'), text: longPhones.map((p) => p.text).join('\n') });
   put('P4_Line5_Email[0]', str(a, 'email'));
+
+  // Parts 5 and 6: the interpreter and the preparer. Signatures and dates are written by hand.
+  const help = assistance(a, { interpreter: usedInterpreter(a), preparer: usedPreparer(a) });
+  const person = (p: HelperPerson, f: { family: string; given: string; business: string; street: string; unit: string; number: string; city: string; state: string; zip: string; province: string; postal: string; country: string; phone: string; mobile: string; email: string }) => {
+    put(f.family, p.family);
+    put(f.given, p.given);
+    put(f.business, p.business);
+    put(f.street, p.street);
+    const u = parseUnit(p.unit);
+    if (u) {
+      checkValue.push([f.unit, u.kind]);
+      put(f.number, u.number);
+    }
+    put(f.city, p.city);
+    if (p.state) select[f.state] = p.state.toUpperCase();
+    put(f.zip, digits(p.zip).slice(0, 5));
+    put(f.province, p.province);
+    put(f.postal, p.postal);
+    put(f.country, p.country);
+    put(f.phone, digits(p.phone).slice(-10));
+    put(f.mobile, digits(p.mobile).slice(-10));
+    put(f.email, p.email);
+  };
+  if (help.interpreter) {
+    person(help.interpreter, {
+      family: 'P5_Line1a_InterpreterFamilyName[0]',
+      given: 'P5_Line1b_InterpreterGivenName[0]',
+      business: 'P5_Line2_InterpreterBusiness[0]',
+      street: 'P5_Line3a_StreetNumberName[0]',
+      unit: 'P5_Line3b_Unit',
+      number: 'P5_Line3b_AptSteFlrNumber[0]',
+      city: 'P5_Line3c_CityOrTown[0]',
+      state: 'P5_Line3d_State[0]',
+      zip: 'P5_Line3e_ZipCode[0]',
+      province: 'P5_Line3f_Province[0]',
+      postal: 'P5_Line3g_PostalCode[0]',
+      country: 'P5_Line3h_Country[0]',
+      phone: 'P5_Line4_InterDayTel[0]',
+      mobile: 'P5_Line4_InterDayTel[1]',
+      email: 'P5_Line5_EmailAddress[0]',
+    });
+    put('P5_Line5b_Fluent[0]', help.interpreter.language);
+  }
+  if (help.preparer) {
+    person(help.preparer, {
+      family: 'P6_Line1a_PreparerFamilyName[0]',
+      given: 'P6_Line1b_PreparerGivenName[0]',
+      business: 'P6_Line2_BusinessName[0]',
+      street: 'Pt6_Line3a_StreetNumberName[0]',
+      unit: 'Pt6_Line3b_Unit',
+      number: 'Pt6_Line3b_AptSteFlrNumber[0]',
+      city: 'Pt6_Line3c_CityOrTown[0]',
+      state: 'Pt6_Line3d_State[0]',
+      zip: 'Pt6_Line3e_ZipCode[0]',
+      province: 'Pt6_Line3f_Province[0]',
+      postal: 'Pt6_Line3g_PostalCode[0]',
+      country: 'Pt6_Line3h_Country[0]',
+      phone: 'Pt6_Line4_PrepDayPhone[0]',
+      mobile: 'Pt6_Line5_PrepFaxPhone[0]',
+      email: 'Pt6_Line6_PrepEmailAddress[0]',
+    });
+    const st = help.preparer.statement;
+    if (st === 'notAttorney') checkValue.push(['Pt6_Line7_Checkbox', 'A']);
+    if (st === 'attorneyExtends' || st === 'attorneyNotExtends') {
+      checkValue.push(['Pt6_Line7_Checkbox', 'B']);
+      check.push(st === 'attorneyExtends' ? 'Pt6_Line7b_Extend[0]' : 'Pt6_Line7b_DoesNotExtend[0]');
+    }
+  }
 
   // Part 7 has five boxes; at most five notes can arise (1.i, 7, 8 or 10.a, 9.a, phones).
   return { text, check, checkValue, select, notes: notes.filter((n) => n.text) };

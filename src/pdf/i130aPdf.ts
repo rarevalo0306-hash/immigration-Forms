@@ -1,6 +1,7 @@
 import { PDFCheckBox, PDFDocument, PDFDropdown, PDFTextField } from 'pdf-lib';
 import type { Answers } from '../forms/types';
 import { parseUnit } from '../engine/validation';
+import { assistance, type HelperPerson } from '../forms/assistance';
 import { fieldIndex, optionBoxes, selectOption, setFieldText } from './common';
 
 // Fields of USCIS Form I-130A, edition 04/01/24 (public/forms/i-130a.pdf), named by the last
@@ -138,9 +139,68 @@ export function planI130A(a: Answers): I130APlan {
     checkValue.push(['Pt4Line1Checkbox', 'B']);
     put('Pt4Line1b_Language[0]', str(a, 'fluentLanguage'));
   }
+  if (a.preparer === 'yes') {
+    check.push('Pt4_Checkbox[0]');
+    put('Pt4Line2_RepresentativeName[0]', str(a, 'preparer.name'));
+  }
   put('Pt4Line3_DaytimePhoneNumber1[0]', digits(str(a, 'phone')));
   put('Pt4Line4_MobileNumber1[0]', digits(str(a, 'mobile')));
   put('Pt4Line5_Email[0]', str(a, 'email'));
+
+  // Parts 5–6: the interpreter and the preparer; their signatures and dates stay empty. The
+  // interpreter's mobile is Pt5Line4_InterpreterDaytimeTelephone[1]; the preparer's is named PreparerFaxNumber.
+  const phone = (s: string) => digits(s).replace(/^1(?=\d{10}$)/, '');
+  const helper = (p: HelperPerson, f: { family: string; given: string; business: string; addr: string; phone: string; mobile: string; email: string }) => {
+    put(f.family, p.family);
+    put(f.given, p.given);
+    put(f.business, p.business);
+    const addr = lettered(f.addr);
+    put(addr.street, p.street);
+    const unit = parseUnit(p.unit);
+    if (unit) {
+      checkValue.push([addr.unit, unit.kind]);
+      put(addr.number, unit.number);
+    }
+    put(addr.city, p.city);
+    if (p.state) select[addr.state!] = p.state.toUpperCase();
+    put(addr.zip!, p.zip);
+    put(addr.province, p.province);
+    put(addr.postal, p.postal);
+    put(addr.country, p.country);
+    put(f.phone, phone(p.phone));
+    put(f.mobile, phone(p.mobile));
+    put(f.email, p.email);
+  };
+  const help = assistance(a, { interpreter: a.readsEnglish === 'interpreter', preparer: a.preparer === 'yes' });
+  if (help.interpreter) {
+    helper(help.interpreter, {
+      family: 'Pt5Line1a_InterpreterFamilyName[0]',
+      given: 'Pt5Line1b_InterpreterGivenName[0]',
+      business: 'Pt5Line2_InterpreterBusinessorOrg[0]',
+      addr: 'Pt5Line3',
+      phone: 'Pt5Line4_InterpreterDaytimeTelephone[0]',
+      mobile: 'Pt5Line4_InterpreterDaytimeTelephone[1]',
+      email: 'Pt5Line5_Email[0]',
+    });
+    put('Pt5_NameofLanguage[0]', help.interpreter.language);
+  }
+  if (help.preparer) {
+    helper(help.preparer, {
+      family: 'Pt6Line1a_PreparerFamilyName[0]',
+      given: 'Pt6Line1b_PreparerGivenName[0]',
+      business: 'Pt6Line2_BusinessName[0]',
+      addr: 'Pt6Line3',
+      phone: 'Pt6Line4_DaytimePhoneNumber[0]',
+      mobile: 'Pt6Line5_PreparerFaxNumber[0]',
+      email: 'Pt6Line6_Email[0]',
+    });
+    const st = help.preparer.statement;
+    if (st === 'notAttorney') checkValue.push(['Pt6Line7_Checkbox', 'A']);
+    if (st === 'attorneyExtends' || st === 'attorneyNotExtends') {
+      checkValue.push(['Pt6Line7_Checkbox', 'B']);
+      checkValue.push(['Pt6Line7b_Checkbox', st === 'attorneyExtends' ? 'Y' : 'N']);
+    }
+  }
 
   return { text, check, checkValue, select };
 }

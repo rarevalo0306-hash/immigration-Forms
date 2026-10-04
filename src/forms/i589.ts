@@ -1,10 +1,14 @@
 import type { Answers, Field, FormDefinition, Question } from './types';
 import type { T } from '../i18n';
 import { all, date, is, nameFields, rows, sexField, yesNo } from './helpers';
+import { assistanceSection, usedInterpreter, usedPreparer } from './assistance';
 
 // Questions follow USCIS Form I-589, Application for Asylum and for Withholding of Removal,
-// edition 07/28/26. The PDF mapping lives in src/pdf/i589Pdf.ts. Supplement A (children 5 and
-// up), Part E (the preparer) and Parts F-G (signed at the interview or hearing) are left for hand.
+// edition 07/28/26. The PDF mapping lives in src/pdf/i589Pdf.ts. Children 5 and 6 go on
+// Supplement A (page 11, two children per page); more than six are listed by hand on copies of it.
+// Part E (the preparer) comes from the shared assistance section; the I-589 has no interpreter part.
+// Part E's attorney block (G-28 box, bar number, online account), every signature and date, and
+// Parts F-G (signed at the interview or hearing) are left for hand.
 
 export const I589_EDITION = '07/28/26';
 
@@ -110,18 +114,24 @@ const relativeFields = (p: string, ref: string, opts: { childItems?: boolean }):
   sexField(`${p}.sex`, `${ref} · Item ${opts.childItems ? 12 : 14}`),
 ];
 
-/** Part A.II's four children, each with the questions about where they are. */
+/** Children the PDF holds: four in Part A.II and two on its one Supplement A page. */
+export const MAX_CHILDREN = 6;
+
+/** Part A.II's children (5 and 6 on Supplement A), each with the questions about where they are. */
 function children(): Question[] {
   const out: Question[] = [];
-  for (let i = 1; i <= 4; i++) {
+  for (let i = 1; i <= MAX_CHILDREN; i++) {
     const shown = all(is('hasChildren', 'yes'), (a) => [...Array(i - 1)].every((_, k) => a[`child.more${k + 1}`] === 'yes'));
-    const ref = `Part A.II · Child ${i}`;
+    const ref = i <= 4 ? `Part A.II · Child ${i}` : `Supplement A · Child ${i - 4}`;
     out.push({
       id: `child${i}`,
       kind: 'fields',
       formRef: `${ref} · Items 1–12`,
       showIf: shown,
       question: i === 1 ? t('Su primer hijo o hija', 'Your first child') : t(`Su hijo o hija número ${i}`, `Your child number ${i}`),
+      ...(i === 5
+        ? { why: t('El formulario tiene espacio para cuatro hijos; el quinto y el sexto van en el Suplemento A (página 11).', 'The form has room for four children; the fifth and sixth go on Supplement A (page 11).') }
+        : {}),
       fields: [
         ...relativeFields(`child${i}`, ref, { childItems: true }),
         {
@@ -147,7 +157,18 @@ function children(): Question[] {
       showIf: shown,
       question: t('¿Tiene otro hijo o hija?', 'Do you have another child?'),
       options: yesNo,
-      ...(i === 4 ? { notice: { tone: 'info' as const, title: t('Más de cuatro hijos', 'More than four children'), body: t('Ponga a los demás a mano en el Suplemento A del I-589 (página 11).', 'List the others by hand on Form I-589 Supplement A (page 11).') } } : {}),
+      ...(i === MAX_CHILDREN
+        ? {
+            notice: {
+              tone: 'info' as const,
+              title: t('Más de seis hijos', 'More than six children'),
+              body: t(
+                'La app llena seis. Imprima otra copia del Suplemento A (página 11) y escriba a mano a los demás, dos por página.',
+                'The app fills six. Print another copy of Supplement A (page 11) and list the others by hand, two per page.',
+              ),
+            },
+          }
+        : {}),
     });
   }
   return out;
@@ -196,22 +217,24 @@ export const i589: FormDefinition = {
     path: 'forms/i-589.pdf',
     fileName: 'I-589-filled.pdf',
     load: () => import('../pdf/i589Pdf').then((m) => m.fillI589),
-    signHere: { es: 'Parte D (y la fecha del Suplemento B, si se usa)', en: 'Part D (and Supplement B’s date, if used)' },
+    signHere: { es: 'Parte D (y los Suplementos A y B, si se usan)', en: 'Part D (and Supplements A and B, if used)' },
   },
   nextSteps: {
     es: [
       'Confirme en uscis.gov/i-589 que la edición {edition} sigue vigente, la tarifa de asilo y dónde enviarla. Si está en una Corte de Inmigración, preséntela ante la corte (EOIR), no a USCIS.',
       'Un abogado u organización acreditada debe revisar su historia (Parte B) antes de firmar. Pida la lista de servicios legales gratuitos o de bajo costo en justice.gov/eoir.',
-      'Escriba a mano su nombre en su alfabeto nativo en la Parte D, si usa otro alfabeto, y firme la Parte D con tinta negra. Si alguien que no es familiar la preparó, esa persona llena y firma la Parte E. No firme las Partes F y G: se firman en la entrevista o en la corte.',
+      'Escriba a mano su nombre en su alfabeto nativo en la Parte D, si usa otro alfabeto, y firme la Parte D con tinta negra. Si alguien que no es familiar la preparó, sus datos ya están en la Parte E; esa persona la revisa, la firma a mano y, si es abogado/a o representante acreditado/a, completa el recuadro del abogado. No firme las Partes F y G: se firman en la entrevista o en la corte.',
       'Adjunte copias de pasaportes (de tapa a tapa), I-94 y otros documentos de identidad, actas de nacimiento y matrimonio, y pruebas de su caso y de las condiciones de su país, con traducciones certificadas al inglés.',
+      'Si tiene más de cuatro hijos, la app pone al quinto y al sexto en el Suplemento A (página 11): escriba la fecha y fírmelo a mano. Si tiene más de seis, imprima más copias del Suplemento A y anote a los demás a mano, dos por página.',
       'Revise que sus explicaciones se lean completas en el PDF. Las que no caben en su espacio pasan al Suplemento B (página 12); si tampoco caben ahí, imprima más copias del Suplemento B y continúe a mano.',
       'Las fotos y huellas se toman después, en la cita de datos biométricos que USCIS le avisará por carta, para usted y cada familiar incluido. Guarde una copia completa de la solicitud para usted.',
     ],
     en: [
       'Check at uscis.gov/i-589 that edition {edition} is still current, the asylum fee and where to file. If you are in Immigration Court, file it with the court (EOIR), not with USCIS.',
       'An attorney or accredited organization should review your story (Part B) before you sign. Ask for the list of free or low-cost legal service providers at justice.gov/eoir.',
-      'Write your name in your native alphabet in Part D by hand, if you use another alphabet, and sign Part D in black ink. If a non-relative prepared it, that person completes and signs Part E. Do not sign Parts F and G: they are signed at the interview or hearing.',
+      'Write your name in your native alphabet in Part D by hand, if you use another alphabet, and sign Part D in black ink. If a non-relative prepared it, their details are already in Part E; that person reviews it, signs it by hand and, if an attorney or accredited representative, completes the attorney box. Do not sign Parts F and G: they are signed at the interview or hearing.',
       'Attach copies of passports (cover to cover), I-94s and other identity documents, birth and marriage certificates, and evidence of your claim and of country conditions, with certified English translations.',
+      'If you have more than four children, the app puts the fifth and sixth on Supplement A (page 11): date and sign it by hand. If you have more than six, print more copies of Supplement A and list the others by hand, two per page.',
       'Check that your explanations read in full in the PDF. Those that do not fit in their box move to Supplement B (page 12); if they do not fit there either, print more copies of Supplement B and continue by hand.',
       'Photos and fingerprints are taken later, at the biometrics appointment USCIS will send you by mail, for you and each family member included. Keep a complete copy of the application for yourself.',
     ],
@@ -673,7 +696,7 @@ export const i589: FormDefinition = {
           kind: 'choice',
           formRef: 'Part D',
           question: t('¿Alguien que no es su cónyuge, padre, madre o hijo preparó esta solicitud?', 'Did someone other than your spouse, parent, or children prepare this application?'),
-          why: t('Si es así, esa persona llena y firma la Parte E a mano.', 'If so, that person completes and signs Part E by hand.'),
+          why: t('Si es así, al final le pediremos sus datos para la Parte E; esa persona la firma a mano.', 'If so, we ask for their details for Part E at the end; that person signs it by hand.'),
           options: yesNo,
         },
         {
@@ -686,6 +709,7 @@ export const i589: FormDefinition = {
         },
       ],
     },
+    assistanceSection({ usedInterpreter, usedPreparer, preparerPart: 'Part E', statement: false, omitFields: ['prep.business', 'prep.mobile', 'prep.email'] }),
   ],
 };
 

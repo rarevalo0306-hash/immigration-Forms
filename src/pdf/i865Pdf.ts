@@ -1,6 +1,7 @@
 import { PDFCheckBox, PDFDocument, PDFDropdown, PDFTextField, StandardFonts } from 'pdf-lib';
 import type { Answers } from '../forms/types';
 import { parseUnit } from '../engine/validation';
+import { assistance, usedInterpreter, usedPreparer, type HelperPerson } from '../forms/assistance';
 import { fieldIndex, optionBoxes, selectOption, setFieldText, toFormText, wrap } from './common';
 
 // Fields of USCIS Form I-865, edition 11/10/20 (public/forms/i-865.pdf), named by the last segment
@@ -11,8 +12,11 @@ import { fieldIndex, optionBoxes, selectOption, setFieldText, toFormText, wrap }
 //   name is "P3_Line2_Attorney". The sponsor's signature is "P5_Line6a_SignatureofApplicant".
 // - Part 2's A-Numbers are not in item order: immigrant 4's is "P2_Line8_AlienNumber" but sits
 //   before "P2_Line4"/"P2_Line6" in the file. Part 6 repeats the name as "P1_Line1*[1]".
-// - Interpreter and preparer unit boxes (Parts 4 and 5) are out of order (APT, FLR, STE), but
-//   they are left blank.
+// - Interpreter and preparer unit boxes (Parts 4 and 5) are out of order: on the page Apt. is
+//   "Unit[2]", Ste. "Unit[1]" (export FLR) and Flr. "Unit[0]" (export STE); they are picked by
+//   position. The interpreter has no mobile phone box and the preparer's Item 5 is a fax number
+//   (left blank). The preparer's statement is "P5_Line7_checkbox" ([0] 7.a, [1] 7.b) and
+//   "P5_Line7b_Extend" ([0] extends, [1] does not extend).
 
 export interface I865Plan {
   text: Record<string, string>;
@@ -125,11 +129,52 @@ export function planI865(a: Answers): I865Plan {
   if (a.preparer === 'yes') {
     check.push('P3_Line2_Checkbox[0]');
     put('P3_Line2_Attorney[0]', str(a, 'preparer.name'));
-    yn('P3_Line2_Who', a['preparer.attorney']);
+    // "who is / is not an attorney": from the preparer's statement (older answers: preparer.attorney).
+    const statement = str(a, 'prep.statement');
+    yn('P3_Line2_Who', statement ? (statement === 'notAttorney' ? 'no' : 'yes') : a['preparer.attorney']);
   }
   put('P3_Line3_DaytimeTelephoneNumber[0]', digits(str(a, 'phone')));
   put('P3_Line4_MobileTelephoneNumber[0]', digits(str(a, 'mobile')));
   put('P3_Line5_EmailAddress[0]', str(a, 'email'));
+
+  // Parts 4 and 5: who helped. Their signatures and dates stay empty.
+  const help = assistance(a, { interpreter: usedInterpreter(a), preparer: usedPreparer(a) });
+  const helper = (l: string, p: HelperPerson) => {
+    put(`${l}_Line3a_StreetNumberName[0]`, p.street);
+    const u = parseUnit(p.unit);
+    if (u) {
+      check.push(`${l}_Line3b_Unit[${{ APT: 2, STE: 1, FLR: 0 }[u.kind]}]`);
+      put(`${l}_Line3b_AptSteFlrNumber[0]`, u.number);
+    }
+    put(`${l}_Line3c_CityOrTown[0]`, p.city);
+    if (p.state) select[`${l}_Line3d_State[0]`] = p.state.toUpperCase();
+    put(`${l}_Line3e_ZipCode[0]`, p.zip);
+    put(`${l}_Line3f_Province[0]`, p.province);
+    put(`${l}_Line3g_PostalCode[0]`, p.postal);
+    put(`${l}_Line3h_Country[0]`, p.country);
+  };
+  if (help.interpreter) {
+    const p = help.interpreter;
+    put('P4_Line1a_InterpretersFamilyName[0]', p.family);
+    put('P4_Line1b_InterpretersGivenName[0]', p.given);
+    put('P4_Line2_InterpretersBusinessName[0]', p.business);
+    helper('P4', p);
+    put('P4_Line4_InterpretersDaytimePhoneNumber[0]', digits(p.phone));
+    put('P4_Line5_InterpretersEmailAddress[0]', p.email);
+    put('P4_Language[0]', p.language);
+  }
+  if (help.preparer) {
+    const p = help.preparer;
+    put('P5_Line1a_PreparersFamilyName[0]', p.family);
+    put('P5_Line1b_PreparersGivenName[0]', p.given);
+    put('P5_Line2_PreparersBusinessName[0]', p.business);
+    helper('P5', p);
+    put('P5_Line4_PreparersDaytimePhoneNumber[0]', digits(p.phone));
+    put('P5_Line6_PreparersEmailAddress[0]', p.email);
+    if (p.statement === 'notAttorney') check.push('P5_Line7_checkbox[0]');
+    if (p.statement === 'attorneyExtends') check.push('P5_Line7_checkbox[1]', 'P5_Line7b_Extend[0]');
+    if (p.statement === 'attorneyNotExtends') check.push('P5_Line7_checkbox[1]', 'P5_Line7b_Extend[1]');
+  }
 
   return { text, check, checkValue, select, notes };
 }

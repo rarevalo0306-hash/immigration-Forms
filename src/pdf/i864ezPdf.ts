@@ -1,6 +1,7 @@
 import { PDFCheckBox, PDFDocument, PDFDropdown, PDFTextField } from 'pdf-lib';
 import type { Answers } from '../forms/types';
 import { parseUnit } from '../engine/validation';
+import { assistance, usedInterpreter, usedPreparer } from '../forms/assistance';
 import { fieldIndex, optionBoxes, selectOption, setFieldText } from './common';
 
 // Fields of USCIS Form I-864EZ, edition 08/24/26 (public/forms/i-864ez.pdf), named by the last
@@ -8,6 +9,8 @@ import { fieldIndex, optionBoxes, selectOption, setFieldText } from './common';
 // is "Part3_*"/"P3_*" and the immigrant (printed Part 3) is "Part2_*"/"P2_*". The sponsor's status
 // boxes export A (citizen), B (permanent resident) and C (national), and Part 9 repeats the
 // sponsor's name and A-Number as "Part3_Line1*[1]" and "P3_Line12c_AlienNumber[1]".
+// Parts 7 and 8 (interpreter, preparer) have no address and the interpreter no business; their
+// "Mobile" boxes are "P7_Line4_InterpretersDaytimePhoneNumber[1]" and "P8_Line5_PreparersFaxNumber".
 
 export interface I864EZPlan {
   text: Record<string, string>;
@@ -182,6 +185,27 @@ export function planI864EZ(a: Answers): I864EZPlan {
   put('P6_Line3_DaytimeTelephoneNumber[0]', digits(str(a, 'phone')));
   put('P6_Line4_MobileTelephoneNumber[0]', digits(str(a, 'mobile')));
   put('P7Line7_EmailAddress[0]', str(a, 'email'));
+
+  // Parts 7 and 8: who helped. Their signatures and dates stay empty.
+  const help = assistance(a, { interpreter: usedInterpreter(a), preparer: usedPreparer(a) });
+  if (help.interpreter) {
+    const p = help.interpreter;
+    put('P7_Line1a_InterpretersFamilyName[0]', p.family);
+    put('P7_Line1b_InterpretersGivenName[0]', p.given);
+    put('P7_Line4_InterpretersDaytimePhoneNumber[0]', digits(p.phone));
+    put('P7_Line4_InterpretersDaytimePhoneNumber[1]', digits(p.mobile));
+    put('P7_Line5_InterpretersEmailAddress[0]', p.email);
+    put('P7_Language[0]', p.language);
+  }
+  if (help.preparer) {
+    const p = help.preparer;
+    put('P8_Line1a_PreparersFamilyName[0]', p.family);
+    put('P8_Line1b_PreparersGivenName[0]', p.given);
+    put('P8_Line2_PreparersBusinessName[0]', p.business);
+    put('P8_Line4_PreparersDaytimePhoneNumber[0]', digits(p.phone));
+    put('P8_Line5_PreparersFaxNumber[0]', digits(p.mobile));
+    put('P8_Line6_PreparersEmailAddress[0]', p.email);
+  }
 
   return { text, check, checkValue, select };
 }

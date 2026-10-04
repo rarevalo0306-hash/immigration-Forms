@@ -1,6 +1,8 @@
-import { PDFCheckBox, PDFDocument, PDFTextField } from 'pdf-lib';
+import { PDFCheckBox, PDFDocument, PDFDropdown, PDFTextField } from 'pdf-lib';
 import type { Answers } from '../forms/types';
-import { fieldIndex, optionBoxes, setFieldText } from './common';
+import { parseUnit } from '../engine/validation';
+import { assistance, usedInterpreter, usedPreparer, type HelperPerson } from '../forms/assistance';
+import { fieldIndex, optionBoxes, selectOption, setFieldText } from './common';
 
 // Fields of USCIS Form I-912, edition 07/22/25 (public/forms/i-912.pdf), named by the last segment
 // of their full name. Many names don't match the printed items, so these were mapped by position:
@@ -11,11 +13,17 @@ import { fieldIndex, optionBoxes, setFieldText } from './common';
 // - Part 5, Items 6-8 are "MonthlyIncome", "AvgHousehold" and "Total"; Item 1's "Other" text is
 //   "Part3_Line3_Other".
 // - Part 10 repeats the name and A-Number as "P2_L2_*[1]" and "P2_Line3_AlienNumber[1]".
+// - Parts 8 and 9 (interpreter, preparer) are "P9_*" and "P10_*". Their unit boxes run Flr, Ste,
+//   Apt in the file (their exports match the page); "L3f" is the postal code and "L3g" the
+//   province. The interpreter's mobile is "P9_L4_DaytimeTelePhoneNumber1[1]", the preparer's
+//   "P10_L5_FaxNumber1", and the preparer's extends / does not extend boxes are "P10_L7B_chbx"
+//   exporting 2 / 1.
 
 export interface I912Plan {
   text: Record<string, string>;
   check: string[];
   checkValue: [string, string][];
+  select: Record<string, string>;
 }
 
 const str = (a: Answers, id: string) => String(a[id] ?? '').trim();
@@ -170,7 +178,69 @@ export function planI912(a: Answers): I912Plan {
   put('P7_L4_MobileTelePhoneNumber1[0]', digits(str(a, 'mobile')));
   put('P7_L5_EmailAddress[0]', str(a, 'email'));
 
-  return { text, check, checkValue };
+  // Parts 8 and 9: who helped. Their signatures and dates stay empty.
+  const select: Record<string, string> = {};
+  const help = assistance(a, { interpreter: usedInterpreter(a), preparer: usedPreparer(a) });
+  const helper = (p: HelperPerson, f: Record<'street' | 'unit' | 'number' | 'city' | 'state' | 'zip' | 'province' | 'postal' | 'country', string>) => {
+    put(f.street, p.street);
+    const u = parseUnit(p.unit);
+    if (u) {
+      checkValue.push([f.unit, u.kind]);
+      put(f.number, u.number);
+    }
+    put(f.city, p.city);
+    if (p.state) select[f.state] = p.state.toUpperCase();
+    put(f.zip, p.zip);
+    put(f.province, p.province);
+    put(f.postal, p.postal);
+    put(f.country, p.country);
+  };
+  if (help.interpreter) {
+    const p = help.interpreter;
+    put('P9_L1A_FamilyName[0]', p.family);
+    put('P9_L1B_GivenName[0]', p.given);
+    put('P9_L2_BusOrgName[0]', p.business);
+    helper(p, {
+      street: 'P9_L3A_StreetNumberName[0]',
+      unit: 'P9_LB_Unit',
+      number: 'P9_L3B_AptSteFlrNumber[0]',
+      city: 'P9_L3c_City[0]',
+      state: 'P9_L3d_State[0]',
+      zip: 'P9_L3e_ZipCode[0]',
+      province: 'P9_L3g_Province[0]',
+      postal: 'P9_L3f_PostalCode[0]',
+      country: 'P9_L3h_Country[0]',
+    });
+    put('P9_L4_DaytimeTelePhoneNumber1[0]', digits(p.phone));
+    put('P9_L4_DaytimeTelePhoneNumber1[1]', digits(p.mobile));
+    put('P9_L5_EmailAddress[0]', p.email);
+    put('P9_Language[0]', p.language);
+  }
+  if (help.preparer) {
+    const p = help.preparer;
+    put('P10_L1A_FamilyName[0]', p.family);
+    put('P10_L1b_GivenName[0]', p.given);
+    put('P10_L2_BusOrgName[0]', p.business);
+    helper(p, {
+      street: 'P10_L3a_StreetNumberName[0]',
+      unit: 'P10_L3b_Unit',
+      number: 'P10_L3b_AptSteFlrNumber[0]',
+      city: 'P10_L3c_City[0]',
+      state: 'P10_L3d_State[0]',
+      zip: 'P10_L3e_ZipCode[0]',
+      province: 'P10_L3g_Province[0]',
+      postal: 'P10_L3f_PostalCode[0]',
+      country: 'P10_L3h_Country[0]',
+    });
+    put('P10_L4_DaytimeTelePhoneNumber1[0]', digits(p.phone));
+    put('P10_L5_FaxNumber1[0]', digits(p.mobile));
+    put('P10_L6_EmailAddress[0]', p.email);
+    if (p.statement === 'notAttorney') checkValue.push(['P10_L7_chbx', 'A']);
+    if (p.statement === 'attorneyExtends') checkValue.push(['P10_L7_chbx', 'B'], ['P10_L7B_chbx', '2']);
+    if (p.statement === 'attorneyNotExtends') checkValue.push(['P10_L7_chbx', 'B'], ['P10_L7B_chbx', '1']);
+  }
+
+  return { text, check, checkValue, select };
 }
 
 /** Fills the official I-912 PDF with the answers and returns the new file's bytes. */
@@ -203,6 +273,11 @@ export async function fillI912(template: ArrayBuffer | Uint8Array, a: Answers): 
     const match = optionBoxes(index, base).find((o) => o.value === value);
     if (!match) throw new Error(`No "${value}" box in ${base}`);
     match.box.check();
+  }
+  for (const [name, value] of Object.entries(plan.select)) {
+    const field = get(name);
+    if (!(field instanceof PDFDropdown)) throw new Error(`Not a dropdown: ${name}`);
+    selectOption(field, value);
   }
 
   doc.setTitle('Form I-912, Request for Fee Waiver');

@@ -28,4 +28,12 @@ describe('interpreter and preparer parts', () => {
     const s = assistanceSection({ usedInterpreter, usedPreparer, preparerPart: 'Part 5' });
     expect(visibleScreens(form(s), { readsEnglish: 'B', preparer: 'yes' }).map((x) => x.question.id)).toEqual(['prep.who', 'prep.address', 'prep.contact', 'prep.statement']);
   });
+
+  it('leaves out what the PDF has no boxes for', () => {
+    const s = assistanceSection({ usedInterpreter, usedPreparer, interpreterPart: 'Part 7', preparerPart: 'Part 8', address: false, statement: false, omitFields: ['prep.mobile'] });
+    const a = { readsEnglish: 'B', preparer: 'yes' };
+    expect(visibleScreens(form(s), a).map((x) => x.question.id)).toEqual(['interp.who', 'interp.contact', 'prep.same', 'prep.who', 'prep.contact']);
+    const contact = s.questions.find((q) => q.id === 'prep.contact');
+    expect(contact?.kind === 'fields' && contact.fields.map((f) => f.id)).toEqual(['prep.phone', 'prep.email']);
+  });
 });

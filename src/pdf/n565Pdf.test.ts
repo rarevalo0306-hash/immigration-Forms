@@ -36,6 +36,32 @@ export const jorge: Answers = {
   email: 'jorge.ramirez@example.com',
 };
 
+/** An interpreter and a different preparer helped. */
+const helped: Answers = {
+  readsEnglish: 'B',
+  preparer: 'yes',
+  'interp.family': 'Gómez',
+  'interp.given': 'Lucía',
+  'interp.business': 'Ayuda Legal',
+  'interp.street': '10 Elm St',
+  'interp.unit': 'Apt 7',
+  'interp.city': 'Houston',
+  'interp.state': 'TX',
+  'interp.country': 'United States',
+  'interp.phone': '713 555 0100',
+  'interp.mobile': '713 555 0101',
+  'interp.email': 'lucia@example.com',
+  'interp.language': 'Spanish',
+  'prep.same': 'no',
+  'prep.family': 'Ruiz',
+  'prep.given': 'Mario',
+  'prep.business': 'Ruiz Forms',
+  'prep.phone': '713 555 0200',
+  'prep.mobile': '713 555 0201',
+  'prep.email': 'mario@example.com',
+  'prep.statement': 'notAttorney',
+};
+
 const long = 'I left the certificate in a folder at my old apartment when I moved in 2024. '.repeat(6);
 
 describe('N-565 PDF', () => {
@@ -95,6 +121,9 @@ describe('N-565 PDF', () => {
       },
       { ...jorge, 'official.address.unit': 'Ste 4', docType: 'SCN' },
       { ...jorge, 'official.address.unit': 'Flr 4', docType: 'SCN', 'mailing.province': 'Jalisco', 'mailing.postal': '44100' },
+      { ...jorge, ...helped },
+      { ...jorge, ...helped, 'prep.same': 'yes', 'prep.statement': 'attorneyExtends' },
+      { ...jorge, ...helped, readsEnglish: 'A', 'prep.statement': 'attorneyNotExtends' },
     ];
     for (const plan of variants.map(planN565)) {
       for (const name of Object.keys(plan.text)) expect(index.get(name), name).toBeInstanceOf(PDFTextField);
@@ -140,6 +169,24 @@ describe('N-565 PDF', () => {
     expect(text('Pt9Line5_Email[0]')).toBe('jorge.ramirez@example.com');
     expect(text('Pt9Line6_DateofSignature[0]') ?? '').toBe('');
     expect(text('P12_Line3d_AdditionalInfo[0]') ?? '').toBe('');
+  });
+
+  it('fills the interpreter’s and preparer’s parts', async () => {
+    const f = fieldIndex((await PDFDocument.load(await fillN565(template, { ...jorge, ...helped }))).getForm());
+    const text = (n: string) => (f.get(n) as PDFTextField).getText();
+    expect(text('Pt10Line1_InterpreterFamilyName[0]')).toBe('Gomez');
+    expect(text('Pt10Line4_DaytimeTelephoneNumber[0]')).toBe('7135550100');
+    expect(text('Pt10Line6_Email[0]')).toBe('lucia@example.com');
+    expect(text('Pt10_Iamfluent[0]')).toBe('Spanish');
+    expect(text('Pt11Line1_PreparerFamilyName[0]')).toBe('Ruiz');
+    expect(text('Pt11Line4_DaytimeTelephoneNumber[0]')).toBe('7135550200');
+    expect(text('Pt11Line8_DateOfSignature[0]')).toBeUndefined();
+
+    const same = fieldIndex(await PDFDocument.load(await fillN565(template, { ...jorge, ...helped, 'prep.same': 'yes' })).then((d) => d.getForm()));
+    expect((same.get('Pt11Line1_PreparerFamilyName[0]') as PDFTextField).getText()).toBe('Gomez');
+
+    const alone = fieldIndex((await PDFDocument.load(await fillN565(template, jorge))).getForm());
+    expect((alone.get('Pt10Line1_InterpreterFamilyName[0]') as PDFTextField).getText()).toBeUndefined();
   });
 
   it('moves long explanations to Part 12', async () => {

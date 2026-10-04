@@ -86,6 +86,38 @@ export const yesenia: Answers = {
   email: 'yesenia.x@example.com',
 };
 
+/** Yesenia's caseworker interpreted and a legal aid attorney prepared the application: Parts 7 and 8. */
+const helped: Answers = {
+  ...yesenia,
+  'interp.family': 'Gómez',
+  'interp.given': 'Rosa',
+  'interp.business': 'Houston Survivor Services',
+  'interp.street': '2200 Fannin St',
+  'interp.unit': 'Ste 210',
+  'interp.city': 'Houston',
+  'interp.state': 'TX',
+  'interp.zip': '77002',
+  'interp.country': 'United States',
+  'interp.phone': '(713) 555-0101',
+  'interp.mobile': '1 713 555 0102',
+  'interp.email': 'rosa@example.com',
+  'interp.language': 'Spanish',
+  'prep.same': 'no',
+  'prep.family': 'Beltrán',
+  'prep.given': 'Ana',
+  'prep.business': 'Gulf Coast Legal Aid',
+  'prep.street': '1415 Fannin St',
+  'prep.unit': 'Floor 3',
+  'prep.city': 'Houston',
+  'prep.state': 'TX',
+  'prep.zip': '77002',
+  'prep.country': 'United States',
+  'prep.phone': '713 555 0199',
+  'prep.mobile': '713 555 0198',
+  'prep.email': 'ana@example.com',
+  'prep.statement': 'attorneyExtends',
+};
+
 const child = (i: number): Answers => ({
   [`child${i}.family`]: `Family ${i}`,
   [`child${i}.given`]: `Given ${i}`,
@@ -166,6 +198,9 @@ describe('I-914 PDF', () => {
       ...['Flr 3', 'Ste 9', 'Apt 1'].map((unit) => ({ ...yesenia, 'home.unit': unit, 'mailing.unit': unit, 'report.unit': unit })),
       ...['Married', 'Divorced', 'Widowed'].map((marital) => ({ ...yesenia, marital })),
       ...['EWI - ENTRY WITHOUT INSPECTION', 'UN - UNKNOWN', 'WB - VISITOR FOR BUSINESS - VWPP/VWP'].map((currentStatus) => ({ ...yesenia, currentStatus })),
+      helped,
+      { ...helped, 'prep.same': 'yes', 'interp.unit': 'Apt 4', 'interp.state': '', 'interp.zip': '', 'interp.province': 'Quetzaltenango', 'interp.postal': '09001', 'interp.country': 'Guatemala' },
+      ...['notAttorney', 'attorneyNotExtends'].map((st) => ({ ...helped, 'prep.statement': st })),
     ];
     for (const plan of variants.map(planI914)) {
       for (const name of Object.keys(plan.text)) expect(get(name), name).toBeInstanceOf(PDFTextField);
@@ -241,6 +276,27 @@ describe('I-914 PDF', () => {
     expect(text('P10_Line3c_ItemNumber[0]')).toBe('9');
     expect(text('P10_Line4a_PageNumber[0]')).toBe('6');
     expect(text('P10_Line4c_ItemNumber[0]')).toBe('18');
+  });
+
+  it('fills the interpreter and preparer parts', async () => {
+    const get = i914Lookup((await PDFDocument.load(await fillI914(template, helped))).getForm());
+    const text = (n: string) => (get(n) as PDFTextField).getText() ?? '';
+    const checked = (n: string) => (get(n) as PDFCheckBox).isChecked();
+    expect(text('Pt13Line1_InterpreterFamilyName[0]')).toBe('Gomez');
+    // The unit boxes list STE, APT, FLR.
+    expect(checked('Pt13Line3_Unit[0]')).toBe(true);
+    expect(text('Pt13Line3_AptSteFlrNumber[0]')).toBe('210');
+    expect((get('Pt13Line3_State[0]') as PDFDropdown).getSelected().map((o) => o.trim())).toEqual(['TX']);
+    expect(text('Pt12Line5_InterpreterMobileTelephone[0]')).toBe('7135550102');
+    expect(text('Pt12_NameofLanguage[0]')).toBe('Spanish');
+    expect(text('Pt13Line1_PreparerFamilyName[0]')).toBe('Beltran');
+    expect(checked('Pt14Line3_Unit[2]')).toBe(true); // Flr.
+    expect(text('Pt13ine5_PreparerFaxNumber[0]')).toBe('7135550198');
+    expect(checked('Pt13Line7_Checkbox[1]')).toBe(true); // 7.B
+    expect(checked('Pt13Line7b_extends[1]')).toBe(true); // extends
+    expect(checked('Pt13Line7b_extends[0]')).toBe(false);
+    expect(text('Pt12Line6_Signature[0]')).toBe('');
+    expect(text('Pt12Line8_Signature[1]')).toBe('');
   });
 
   it('moves long Item 5 circumstances to Part 9', async () => {

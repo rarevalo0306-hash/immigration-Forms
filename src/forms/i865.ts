@@ -1,11 +1,13 @@
 import type { FormDefinition } from './types';
 import type { T } from '../i18n';
 import { anyAddress, date, is, nameFields, rows, yesNo } from './helpers';
+import { assistanceSection, usedInterpreter, usedPreparer } from './assistance';
 
 // Questions follow USCIS Form I-865, Sponsor's Notice of Change of Address, edition 11/10/20.
 // The PDF mapping lives in src/pdf/i865Pdf.ts.
-// Out of scope (left blank, completed by hand): Part 3, Item 6 (signature and date), Part 4
-// (interpreter) and Part 5 (preparer), and the USCIS-only boxes. The form has no box for the old
+// Out of scope (left blank, completed by hand): Part 3, Item 6 (signature and date), the
+// interpreter's and preparer's signatures and dates (Parts 4 and 5; the rest of those parts comes
+// from the last section), and the USCIS-only boxes. The form has no box for the old
 // address: when the sponsor gives it, it goes to Part 6 so USCIS can match the sponsor's file.
 // Answer ids follow Form I-864 (name.*, dob, home.*, mailing.*, mailingSame, principal.*, member*).
 
@@ -39,13 +41,13 @@ export const i865: FormDefinition = {
     es: [
       'Confirme en uscis.gov/i-865 que la edición {edition} sigue vigente y revise allí la dirección a donde se envía.',
       'Envíelo dentro de los 30 días después de su mudanza. No hay tarifa ni hace falta adjuntar documentos.',
-      'Imprima el PDF y firme la Parte 3, Ítem 6, a mano con tinta negra, con la fecha. Si un intérprete o preparador le ayudó, ellos llenan y firman a mano las Partes 4 y 5.',
+      'Imprima el PDF y firme la Parte 3, Ítem 6, a mano con tinta negra, con la fecha. Si un intérprete o preparador le ayudó, ellos firman y fechan a mano las Partes 4 y 5.',
       'Guarde una copia y envíelo por un servicio con número de rastreo. Si se vuelve a mudar, presente un nuevo I-865.',
     ],
     en: [
       'Check at uscis.gov/i-865 that edition {edition} is still current, and find the mailing address there.',
       'Send it within 30 days after you move. There is no fee and no documents are needed.',
-      'Print the PDF and sign Part 3, Item 6, by hand in black ink, with the date. If an interpreter or preparer helped you, they complete and sign Parts 4 and 5 by hand.',
+      'Print the PDF and sign Part 3, Item 6, by hand in black ink, with the date. If an interpreter or preparer helped you, they sign and date Parts 4 and 5 by hand.',
       'Keep a copy and mail it with tracking. If you move again, file a new Form I-865.',
     ],
   },
@@ -212,7 +214,7 @@ export const i865: FormDefinition = {
           kind: 'choice',
           formRef: 'Part 3 · Item 2',
           question: t('¿Alguien más (no usted) le preparó este aviso?', 'Did someone else prepare this notice for you?'),
-          why: t('Si es así, esa persona también debe llenar y firmar la Parte 5 a mano.', 'If so, that person must also complete and sign Part 5 by hand.'),
+          why: t('Si es así, esa persona también firma y fecha la Parte 5 a mano.', 'If so, that person also signs and dates Part 5 by hand.'),
           options: yesNo,
         },
         {
@@ -221,10 +223,8 @@ export const i865: FormDefinition = {
           formRef: 'Part 3 · Item 2',
           showIf: is('preparer', 'yes'),
           question: t('¿Quién lo preparó?', 'Who prepared it?'),
-          fields: [
-            { id: 'preparer.name', type: 'text', required: true, label: { es: 'Nombre del preparador', en: 'Preparer’s name' }, formRef: 'Part 3 · Item 2', maxLength: 40 },
-            { id: 'preparer.attorney', type: 'select', required: true, label: { es: '¿Es abogado o representante acreditado?', en: 'Is this person an attorney or accredited representative?' }, formRef: 'Part 3 · Item 2 · is / is not', options: yesNo },
-          ],
+          // Whether they are an attorney (Item 2's "is / is not") comes from the preparer's statement.
+          fields: [{ id: 'preparer.name', type: 'text', required: true, label: { es: 'Nombre del preparador', en: 'Preparer’s name' }, formRef: 'Part 3 · Item 2', maxLength: 40 }],
         },
         {
           id: 'contactInfo',
@@ -239,5 +239,6 @@ export const i865: FormDefinition = {
         },
       ],
     },
+    assistanceSection({ usedInterpreter, usedPreparer, interpreterPart: 'Part 4', preparerPart: 'Part 5' }),
   ],
 };

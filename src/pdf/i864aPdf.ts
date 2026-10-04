@@ -1,13 +1,17 @@
 import { PDFCheckBox, PDFDocument, PDFDropdown, PDFTextField } from 'pdf-lib';
 import type { Answers } from '../forms/types';
 import { parseUnit } from '../engine/validation';
+import { assistance, usedPreparer } from '../forms/assistance';
 import { fieldIndex, optionBoxes, selectOption, setFieldText } from './common';
 
 // Fields of USCIS Form I-864A, edition 08/24/26 (public/forms/i-864a.pdf), named by the last
 // segment of their full name and placed by where they sit on the printed page. Part 5's fourth
 // immigrant carries Part 2 names (its A-Number is "P2_Line5_SSN"), the household member's name in
 // Part 6 is "Part9_Iamfluent[0]" and the printed name in Item 6 is "P7Line6a_EmailAddress"; the
-// mapping follows the page, not the names.
+// mapping follows the page, not the names. Part 5, Item 6 (the preparer) is "P5Line5_Checkbox"
+// export C with the name in "P5Line5c_language". Parts 7 and 8 (interpreter, preparer) carry "P8"
+// and "P9" names and have no address; their "Mobile" boxes are
+// "P8Line4_InterpretersDaytimePhoneNumber[1]" and "P9Line5_PreparersFaxNumber".
 
 export interface I864APlan {
   text: Record<string, string>;
@@ -168,6 +172,36 @@ export function planI864A(a: Answers): I864APlan {
   put('P7Line5_DaytimeTelephoneNumber[0]', digits(str(a, 'phone')));
   put('P7Line6_MobileTelephoneNumber[0]', digits(str(a, 'mobile')));
   put('P7Line7_EmailAddress[0]', str(a, 'email'));
+
+  // The preparer prepares the contract for both: Part 5, Item 6 and Part 6, Item 2.
+  if (a.preparer === 'yes') {
+    checkValue.push(['P5Line5_Checkbox', 'C']);
+    put('P5Line5c_language[0]', str(a, 'preparer.name'));
+    check.push('Part6_Line2_Checkbox[0]');
+    put('P6Line2_Attorney[0]', str(a, 'preparer.name'));
+  }
+
+  // Parts 7 and 8: who helped. Their signatures and dates stay empty.
+  const help = assistance(a, { interpreter: a.readsEnglish === 'B' || a['sponsor.readsEnglish'] === 'B', preparer: usedPreparer(a) });
+  if (help.interpreter) {
+    const p = help.interpreter;
+    put('P8Line1a_InterpretersFamilyName[0]', p.family);
+    put('P8Line1b_InterpretersGivenName[0]', p.given);
+    put('P8Line2_InterpretersBusinessName[0]', p.business);
+    put('P8Line4_InterpretersDaytimePhoneNumber[0]', digits(p.phone));
+    put('P8Line4_InterpretersDaytimePhoneNumber[1]', digits(p.mobile));
+    put('P8Line5_InterpretersEmailAddress[0]', p.email);
+    put('P8_Language[0]', p.language);
+  }
+  if (help.preparer) {
+    const p = help.preparer;
+    put('P9Line1a_PreparersFamilyName[0]', p.family);
+    put('P9Line1b_PreparersGivenName[0]', p.given);
+    put('P9Line2_PreparersBusinessName[0]', p.business);
+    put('P9Line4_PreparersDaytimePhoneNumber[0]', digits(p.phone));
+    put('P9Line5_PreparersFaxNumber[0]', digits(p.mobile));
+    put('P9Line6_PreparersEmailAddress[0]', p.email);
+  }
 
   return { text, check, checkValue, select };
 }

@@ -1,6 +1,7 @@
 import { PDFCheckBox, PDFDocument, PDFDropdown, PDFTextField } from 'pdf-lib';
 import type { Answers } from '../forms/types';
 import { SAFETY_ITEMS } from '../forms/i821d';
+import { assistance, type HelperPerson } from '../forms/assistance';
 import { parseUnit } from '../engine/validation';
 import { fieldIndex, optionBoxes, selectOption, setFieldText } from './common';
 
@@ -168,6 +169,39 @@ export function planI821D(a: Answers): I821DPlan {
   put('P5_Line3_DayPhone[0]', digits(str(a, 'phone')));
   put('P5_Line4_MobilePhone[0]', digits(str(a, 'mobile')));
   put('P5_Line5_Email[0]', str(a, 'email'));
+
+  // Parts 6–7: the interpreter and the preparer; their signatures and dates stay empty. This edition
+  // has no mobile numbers for them (the field named P7_Line5_MobilePhone is printed "Fax Number")
+  // and no preparer's statement boxes.
+  const helper = (p: HelperPerson, part: string) => {
+    put(`${part}_Line1a_Name[0]`, p.family);
+    put(`${part}_Line1b_Name[0]`, p.given);
+    put(`${part}_Line2_Organization[0]`, p.business);
+    put(`${part}_Line3a_Street[0]`, p.street);
+    const unit = parseUnit(p.unit);
+    if (unit) {
+      checkValue.push([`${part}_Line3b_Unit`, unit.kind]);
+      put(`${part}_Line3b_Number[0]`, unit.number);
+    }
+    put(`${part}_Line3c_City[0]`, p.city);
+    if (p.state) select[`${part}_Line3d_State[0]`] = p.state.toUpperCase();
+    put(`${part}_Line3e_ZipCode[0]`, p.zip);
+    put(`${part}_Line3f_Province[0]`, p.province);
+    put(`${part}_Line3g_PostalCode[0]`, p.postal);
+    put(`${part}_Line3h_Country[0]`, p.country);
+  };
+  const help = assistance(a, { interpreter: a.readsEnglish === 'B', preparer: a.preparer === 'yes' });
+  if (help.interpreter) {
+    helper(help.interpreter, 'P6');
+    put('P6_Line4_DayPhone[0]', digits(help.interpreter.phone));
+    put('P6_Line5_Email[0]', help.interpreter.email);
+    put('P6_Language[0]', help.interpreter.language);
+  }
+  if (help.preparer) {
+    helper(help.preparer, 'P7');
+    put('P7_Line4_DayPhone[0]', digits(help.preparer.phone));
+    put('P7_Line6_Email[0]', help.preparer.email);
+  }
 
   // Part 8: the "Other" removal outcome and Part 4 explanations.
   const notes = [

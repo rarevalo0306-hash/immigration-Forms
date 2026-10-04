@@ -1,21 +1,30 @@
-import type { Answers, FormDefinition } from './types';
+import type { Answers, Field, FormDefinition } from './types';
 import type { T } from '../i18n';
 import { all, anyAddress, date, is, nameFields, rows, sexField, yesNo } from './helpers';
+import { assistanceSection, usedInterpreter, usedPreparer } from './assistance';
 
 // Questions follow USCIS Form I-360, Petition for Amerasian, Widow(er), or Special Immigrant,
 // edition 01/20/25. The PDF mapping lives in src/pdf/i360Pdf.ts.
 //
-// Scope: the three classifications people most often file for themselves:
-// - Widow(er) of a U.S. citizen (Part 2, Item 1.B; Part 7),
-// - VAWA self-petitioning spouse, child or parent of an abusive U.S. citizen or permanent resident
-//   (Part 2, Items 1.I, 1.J and 1.K; Part 10),
-// - Special Immigrant Juvenile (Part 2, Item 1.C; Part 8).
-// Out of scope, left blank: Amerasians (Part 6), religious workers (Part 9) and every other
-// special immigrant classification (Part 2, Items 1.A, 1.D-1.H, 1.L-1.P: Panama Canal, physicians,
-// G-4/NATO-6, armed forces, Afghan/Iraqi translators and employees, broadcasters, "other").
-// Also left for hand: Part 1, Item 5 (IRS tax number) and the organization name, which are for
-// organizations; Part 12 (filing for another person or for an organization); the interpreter's and
-// preparer's Parts 13 and 14; signatures and dates; the attorney box and USCIS-only areas.
+// Scope: every classification a person files for themselves or for a family member. The
+// classification is asked first and only its own questions follow:
+// - Amerasian (Part 2, Item 1.A; Part 6), for yourself or for someone else,
+// - Widow(er) of a U.S. citizen (Item 1.B; Part 7),
+// - Special Immigrant Juvenile (Item 1.C; Part 8), for yourself or for someone else,
+// - Special immigrant religious worker filing on their own behalf (Item 1.D; Part 9, including the
+//   employer's attestation and the religious denomination certification, which they sign by hand),
+// - Panama Canal employees (Item 1.E) and physicians (Item 1.F), for yourself or someone else,
+// - G-4 international organization or NATO-6 employees and family members (Item 1.G), armed
+//   forces members (Item 1.H), Afghan or Iraqi translators (Item 1.L), Iraqi U.S. Government
+//   employees (Item 1.M) and Afghan U.S. Government or ISAF employees (Item 1.N): Part 2 only,
+// - VAWA self-petitioning spouse, child or parent (Items 1.I, 1.J and 1.K; Part 10).
+// Who signs: Part 11 when you file for yourself, Part 12 (Items 1-3 and 5-7) when you file for
+// another person; then Part 1, Items 1-6 hold the petitioner and Part 3 the beneficiary.
+// The interpreter's Part 13 and the preparer's Part 14 come from the shared assistance section.
+// Out of scope, left blank: broadcasters (Item 1.O, filed only by the U.S. Agency for Global Media
+// or its grantees) and "other" (Item 1.P); petitions filed by an organization (Part 1, Item 6
+// organization name, Part 12, Item 4 signatory title). Also left for hand: every signature and
+// date (Parts 9, 11, 12, 13 and 14), the attorney box and USCIS-only areas.
 
 export const I360_EDITION = '01/20/25';
 
@@ -35,11 +44,51 @@ const not =
     !test(a);
 
 /** Part 2 classification, by the PDF's export values. */
+export const amerasian = is('classification', 'A');
 export const widow = is('classification', 'B');
 export const sij = is('classification', 'C');
+export const religious = is('classification', 'D');
+export const panama = is('classification', 'E');
+export const physician = is('classification', 'F');
+export const intlOrg = is('classification', 'G');
+export const armedForces = is('classification', 'H');
 export const vawa = is('classification', 'I', 'J', 'K');
+export const translator = is('classification', 'L');
+export const iraqiEmployee = is('classification', 'M');
+export const afghanEmployee = is('classification', 'N');
 const vawaSpouse = is('classification', 'I');
 const selfPetitioner = (a: Answers) => vawa(a) || sij(a);
+
+/** The classifications covered here, by their Part 2 letters. */
+export const CLASSIFICATIONS = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N'];
+/** Classifications the instructions let someone file for another person ("for a beneficiary"). */
+export const FOR_OTHER = ['A', 'C', 'E', 'F'];
+/** Filing for another person: the petitioner fills Part 1 and signs Part 12. */
+export const forOther = (a: Answers) => is('classification', ...FOR_OTHER)(a) && a.filer === 'other';
+/** Filing for yourself in a classification whose petitioner fills Part 1, Items 1-6 (all but VAWA and SIJ). */
+export const ownPart1 = (a: Answers) => is('classification', ...CLASSIFICATIONS)(a) && !selfPetitioner(a) && !forOther(a);
+/** Part 9, Item 7: an answer of No to any of Items 7-13 needs an explanation. */
+export const RW_ATTEST = ['rw.q7', 'rw.q8', 'rw.q9', 'rw.q10', 'rw.q11', 'rw.q12', 'rw.q13'];
+const rwNo = (a: Answers) => RW_ATTEST.some((id) => a[id] === 'no');
+
+const noCovered = t(
+  'No cubre locutores (Ítem 1.O: los pide solo la Agencia de EE.UU. para Medios Globales o sus beneficiarios) ni "otra" categoría (Ítem 1.P).',
+  'It does not cover broadcasters (Item 1.O: only the U.S. Agency for Global Media or its grantees file for them) or "other" (Item 1.P).',
+);
+
+const usAddress = (prefix: string, ref: string): Field[] => [
+  { id: `${prefix}.street`, type: 'text', label: { es: 'Número y calle', en: 'Street number and name' }, formRef: `${ref} · Street Number and Name`, maxLength: 34 },
+  { id: `${prefix}.unit`, type: 'unit', label: { es: 'Apartamento, suite o piso', en: 'Apartment, suite or floor' }, formRef: `${ref} · Apt. / Ste. / Flr.` },
+  { id: `${prefix}.city`, type: 'text', label: { es: 'Ciudad', en: 'City or town' }, formRef: `${ref} · City or Town`, maxLength: 20 },
+  { id: `${prefix}.state`, type: 'state', label: { es: 'Estado', en: 'State' }, formRef: `${ref} · State` },
+  { id: `${prefix}.zip`, type: 'zip', label: { es: 'Código postal ZIP', en: 'ZIP code' }, formRef: `${ref} · ZIP Code` },
+];
+
+const aliveOptions = [
+  { value: 'unknown', label: t('No se sabe', 'Unknown') },
+  { value: 'yes', label: t('Sí', 'Yes') },
+  { value: 'no', label: t('No', 'No') },
+];
 
 const HOTLINE = t(
   'Si está en peligro, llame al 911. La Línea Nacional contra la Violencia Doméstica atiende en español, gratis y en confianza, las 24 horas: 1-800-799-7233 (o envíe START al 88788). Ellos también le pueden recomendar abogados u organizaciones que ayudan gratis con casos VAWA.',
@@ -50,39 +99,52 @@ export const i360: FormDefinition = {
   id: 'i-360',
   number: 'I-360',
   edition: I360_EDITION,
-  title: t('Petición de viudo(a), VAWA o joven inmigrante especial', 'Petition for Amerasian, Widow(er), or Special Immigrant'),
+  title: t('Petición de amerasiático(a), viudo(a) o inmigrante especial', 'Petition for Amerasian, Widow(er), or Special Immigrant'),
   summary: {
-    es: 'Pida la residencia por su cuenta si es viudo(a) de un ciudadano, si sufrió abuso de un familiar ciudadano o residente (VAWA), o si es un joven con orden de una corte juvenil (SIJ).',
-    en: 'Petition for yourself as the widow(er) of a U.S. citizen, as an abused family member of a citizen or resident (VAWA), or as a young person with a juvenile court order (SIJ).',
+    es: 'Pida la residencia como viudo(a) de un ciudadano, por VAWA, como joven con orden de una corte juvenil (SIJ), trabajador religioso, amerasiático(a), traductor o empleado afgano o iraquí, y otras categorías especiales, para usted o para un familiar.',
+    en: 'Petition as the widow(er) of a U.S. citizen, under VAWA, as a young person with a juvenile court order (SIJ), religious worker, Amerasian, Afghan or Iraqi translator or employee, and other special immigrant classifications, for yourself or a family member.',
   },
   intro: {
-    es: 'El I-360 sirve para muchos casos. Esta guía cubre solo los tres que la gente presenta por sí misma: viudo(a) de un ciudadano estadounidense, la autopetición VAWA (esposo(a), hijo(a) o padre/madre que sufrió abuso de un ciudadano o residente permanente) y el Joven Inmigrante Especial (SIJ). No cubre a trabajadores religiosos, amerasiáticos, médicos, traductores o empleados afganos o iraquíes ni otras categorías: esas partes quedan en blanco. Primero le preguntamos su categoría y luego solo lo que esa categoría necesita. Son casos legales: le recomendamos hablar con un abogado o una organización acreditada antes de presentar.',
-    en: 'Form I-360 covers many cases. This guide covers only the three people file for themselves: widow(er) of a U.S. citizen, the VAWA self-petition (abused spouse, child or parent of a U.S. citizen or permanent resident) and Special Immigrant Juvenile (SIJ). It does not cover religious workers, Amerasians, physicians, Afghan or Iraqi translators or employees, or other classifications: those parts stay blank. We ask your classification first and then only what it needs. These are legal cases: we recommend talking to an attorney or accredited organization before filing.',
+    es: 'El I-360 sirve para muchos casos. Esta guía cubre los que una persona presenta para sí misma o para un familiar: amerasiático(a), viudo(a) de un ciudadano, Joven Inmigrante Especial (SIJ), trabajador religioso que se pide a sí mismo, empleados del Canal de Panamá, médicos, empleados de organizaciones internacionales G-4 o de la OTAN (NATO-6) y sus familiares, miembros de las Fuerzas Armadas, traductores afganos o iraquíes, empleados afganos o iraquíes del gobierno de EE.UU. y la autopetición VAWA. No cubre locutores ni "otra" categoría. Primero le preguntamos su categoría y luego solo lo que esa categoría necesita. Son casos legales: le recomendamos hablar con un abogado o una organización acreditada antes de presentar.',
+    en: 'Form I-360 covers many cases. This guide covers the ones a person files for themselves or for a family member: Amerasian, widow(er) of a U.S. citizen, Special Immigrant Juvenile (SIJ), a religious worker filing on their own behalf, Panama Canal employees, physicians, G-4 international organization or NATO-6 employees and their family members, armed forces members, Afghan or Iraqi translators, Afghan or Iraqi U.S. Government employees and the VAWA self-petition. It does not cover broadcasters or "other". We ask your classification first and then only what it needs. These are legal cases: we recommend talking to an attorney or accredited organization before filing.',
   },
   minutes: 45,
   pdf: {
     path: 'forms/i-360.pdf',
     fileName: 'I-360-filled.pdf',
     load: () => import('../pdf/i360Pdf').then((m) => m.fillI360),
-    signHere: { es: 'Parte 11, Ítem 6', en: 'Part 11, Item 6' },
+    signHere: {
+      es: 'Parte 11, Ítem 6 (o Parte 12, Ítem 8, si la presenta por otra persona)',
+      en: 'Part 11, Item 6 (or Part 12, Item 8, if you file for another person)',
+    },
   },
   nextSteps: {
     es: [
       'Confirme en uscis.gov/i-360 que la edición {edition} sigue vigente, la tarifa y la dirección donde se envía su categoría.',
+      'Amerasiático(a): adjunte prueba de que nació en Corea, Vietnam, Laos, Kampuchea o Tailandia entre el 1 de enero de 1951 y el 21 de octubre de 1982 (si nació en Vietnam, su cédula de identidad vietnamita o una declaración de por qué no la tiene), pruebas de quién es su padre y de que era ciudadano, una foto y, si está casado(a), el acta de matrimonio. También hacen falta el Formulario I-361 del patrocinador y prueba de que tiene 21 años o más y es ciudadano o residente; si no los envía ahora, USCIS se los pedirá y el trámite tardará más.',
       'Viudo(a): adjunte el acta de matrimonio, el acta de defunción de su cónyuge, prueba de que era ciudadano(a), prueba de que terminaron matrimonios anteriores y pruebas de que el matrimonio era real (renta, cuentas, hijos, fotos). Presente dentro de los 2 años de la muerte.',
       'VAWA: adjunte su declaración personal sobre el abuso, pruebas del abuso (reportes de policía, órdenes de protección, cartas de consejeros o refugios, fotos), prueba del parentesco y del estatus de quien le maltrató, prueba de que vivieron juntos y de su buen carácter moral. Los casos VAWA son confidenciales y se envían a una dirección especial: nunca use la de los demás I-360.',
       'SIJ: adjunte copia de la orden de la corte juvenil con las determinaciones requeridas, su acta de nacimiento y prueba de su edad. Debe presentar antes de cumplir 21 años. SIJ no paga tarifa.',
+      'Trabajador religioso: un representante de su empleador firma a mano la certificación de la Parte 9, Ítem 14, y si el empleador está afiliado a una denominación, un representante de ella firma el Ítem 21. Adjunte la carta del IRS, pruebas del pago que recibirá, de que es miembro de la denominación hace 2 años, de que trabajó 2 años seguidos en ese tipo de puesto y de que está calificado(a).',
+      'Canal de Panamá: adjunte la carta de la Compañía del Canal, del Gobierno de la Zona del Canal o de la agencia de EE.UU. con el tiempo y las condiciones del empleo y del retiro, y pruebas del peligro si ese es su caso. Médico: adjunte cartas de los empleadores desde el 8 de enero de 1978 y los documentos que prueban cada requisito.',
+      'G-4 u OTAN (NATO-6): adjunte la carta de la organización que explique el empleo y el estatus; si es familiar, prueba del parentesco. Fuerzas Armadas: adjunte la certificación del servicio activo honorable emitida por su departamento y su acta de nacimiento.',
+      'Traductor afgano o iraquí, o empleado del gobierno de EE.UU. en Irak o Afganistán: adjunte prueba de su nacionalidad (con traducción certificada), la recomendación, las pruebas de la aprobación del Jefe de Misión, de la evaluación de riesgo, de la revisión independiente o de la verificación de antecedentes que pidan las instrucciones para su caso, y su I-94 si está en EE.UU. Estas categorías no pagan tarifa.',
       'Si adjunta un I-485, póngalo junto con este formulario en el mismo paquete.',
-      'Imprima el PDF y firme la Parte 11, Ítem 6, a mano con tinta negra. Si un intérprete o preparador le ayudó, ellos llenan y firman a mano las Partes 13 y 14.',
+      'Imprima el PDF y firme a mano con tinta negra la Parte 11, Ítem 6, o la Parte 12, Ítem 8, si la presenta por otra persona. Si un intérprete o preparador le ayudó, sus datos ya están en las Partes 13 y 14: ellos solo firman y ponen la fecha a mano.',
       'Si una explicación no cupo en la Parte 15, siga en una hoja aparte con su nombre, la página, parte e ítem, y fírmela.',
     ],
     en: [
       'Check at uscis.gov/i-360 that edition {edition} is still current, the fee and the filing address for your classification.',
+      'Amerasian: attach proof of birth in Korea, Vietnam, Laos, Kampuchea or Thailand between January 1, 1951 and October 21, 1982 (if born in Vietnam, the Vietnamese identification card or a statement of why it is not available), evidence of who the father is and that he was a U.S. citizen, a photograph and, if married, the marriage certificate. The sponsor’s Form I-361 and proof that the sponsor is 21 or older and a citizen or permanent resident are also needed; if you don’t send them now, USCIS will ask for them and processing takes longer.',
       'Widow(er): attach your marriage certificate, your spouse’s death certificate, proof of their citizenship, proof that prior marriages ended and evidence the marriage was real (lease, accounts, children, photos). File within 2 years of the death.',
       'VAWA: attach your personal statement about the abuse, evidence of the abuse (police reports, protective orders, letters from counselors or shelters, photos), proof of the relationship and of the abuser’s status, proof you lived together and of your good moral character. VAWA cases are confidential and go to a special address: never use the one for other I-360s.',
       'SIJ: attach a copy of the juvenile court order with the required findings, your birth certificate and proof of age. You must file before you turn 21. SIJ has no filing fee.',
+      'Religious worker: an official of your employer signs the attestation in Part 9, Item 14, by hand, and if the employer is affiliated with a denomination, a representative of the denomination signs Item 21. Attach the IRS letter and evidence of your compensation, of 2 years of membership in the denomination, of 2 years of continuous work in that kind of position and of your qualifications.',
+      'Panama Canal: attach the letter from the Panama Canal Company, the Canal Zone Government or the U.S. agency stating the length and circumstances of employment and retirement, and evidence of danger if that is your case. Physician: attach letters from employers since January 8, 1978 and the documents that prove each requirement.',
+      'G-4 or NATO-6: attach the organization’s letter explaining the employment and status; for a family member, proof of the relationship. Armed forces: attach the certification of honorable active duty service from your executive department and your birth certificate.',
+      'Afghan or Iraqi translator, or U.S. Government employee in Iraq or Afghanistan: attach proof of nationality (with a certified translation), the recommendation, and the proof of Chief of Mission approval, risk assessment, independent review or background check that the instructions ask for in your case, and your I-94 if you are in the U.S. These classifications pay no fee.',
       'If you attach an I-485, send it together with this form in the same package.',
-      'Print the PDF and sign Part 11, Item 6, by hand in black ink. If an interpreter or preparer helped you, they complete and sign Parts 13 and 14 by hand.',
+      'Print the PDF and sign by hand in black ink Part 11, Item 6, or Part 12, Item 8, if you file for another person. If an interpreter or preparer helped you, their details are already in Parts 13 and 14: they only sign and date by hand.',
       'If an explanation did not fit in Part 15, continue on a separate sheet with your name, the page, part and item, and sign it.',
     ],
   },
@@ -97,13 +159,16 @@ export const i360: FormDefinition = {
           kind: 'choice',
           formRef: 'Part 2 · Item 1 · Classification Requested',
           question: t('¿Para qué categoría presenta esta petición?', 'Which classification are you filing for?'),
-          why: t('Elija solo una. Si su caso es otro (trabajador religioso, amerasiático, médico, traductor afgano o iraquí, etc.), esta guía no lo cubre.', 'Choose only one. If your case is another one (religious worker, Amerasian, physician, Afghan or Iraqi translator, etc.), this guide does not cover it.'),
+          why: {
+            es: `Elija solo una. ${noCovered.es}`,
+            en: `Choose only one. ${noCovered.en}`,
+          },
           notice: {
             tone: 'legal',
             title: t('Hable con un abogado', 'Talk to an attorney'),
             body: t(
-              'Cada categoría tiene requisitos estrictos y un error puede costarle el caso. Busque un abogado de inmigración o una organización acreditada por el Departamento de Justicia; muchas ayudan gratis en casos VAWA y SIJ.',
-              'Each classification has strict requirements and a mistake can cost you the case. Look for an immigration attorney or a Department of Justice–accredited organization; many help for free with VAWA and SIJ cases.',
+              'Cada categoría tiene requisitos estrictos y un error puede costarle el caso. Busque un abogado de inmigración o una organización acreditada por el Departamento de Justicia; muchas ayudan gratis en casos VAWA, SIJ y de traductores y empleados afganos o iraquíes.',
+              'Each classification has strict requirements and a mistake can cost you the case. Look for an immigration attorney or a Department of Justice–accredited organization; many help for free with VAWA, SIJ and Afghan or Iraqi translator and employee cases.',
             ),
           },
           options: [
@@ -112,7 +177,218 @@ export const i360: FormDefinition = {
             { value: 'J', label: t('VAWA: hijo(a) que sufrió abuso de su padre o madre ciudadano o residente permanente', 'VAWA: abused child of a U.S. citizen or permanent resident') },
             { value: 'K', label: t('VAWA: padre o madre que sufrió abuso de su hijo(a) ciudadano', 'VAWA: abused parent of a U.S. citizen son or daughter') },
             { value: 'C', label: t('Joven Inmigrante Especial (SIJ), con orden de una corte juvenil', 'Special Immigrant Juvenile (SIJ), with a juvenile court order') },
+            { value: 'A', label: t('Amerasiático(a): hijo(a) de un ciudadano estadounidense, nacido(a) en Corea, Vietnam, Laos, Kampuchea o Tailandia entre 1951 y 1982', 'Amerasian: child of a U.S. citizen, born in Korea, Vietnam, Laos, Kampuchea or Thailand between 1951 and 1982') },
+            { value: 'D', label: t('Trabajador(a) religioso(a) (ministro, vocación u ocupación religiosa)', 'Religious worker (minister, religious vocation or occupation)') },
+            { value: 'L', label: t('Afgano(a) o iraquí que trabajó como traductor(a) con las Fuerzas Armadas de EE.UU.', 'Afghan or Iraqi national who worked as a translator with the U.S. Armed Forces') },
+            { value: 'M', label: t('Iraquí que trabajó para el gobierno de EE.UU. o en su nombre en Irak', 'Iraqi national employed by or on behalf of the U.S. Government in Iraq') },
+            { value: 'N', label: t('Afgano(a) que trabajó para el gobierno de EE.UU. o la ISAF en Afganistán', 'Afghan national employed by or on behalf of the U.S. Government or ISAF in Afghanistan') },
+            { value: 'E', label: t('Empleado(a) de la Compañía del Canal de Panamá, del Gobierno de la Zona del Canal o del gobierno de EE.UU. en la Zona del Canal', 'Employee of the Panama Canal Company, the Canal Zone Government or the U.S. Government in the Canal Zone') },
+            { value: 'F', label: t('Médico(a) con licencia en EE.UU. desde antes del 9 de enero de 1978', 'Physician licensed in the U.S. before January 9, 1978') },
+            { value: 'G', label: t('Empleado(a) de una organización internacional (G-4) o de la OTAN (NATO-6), o su familiar', 'G-4 international organization or NATO-6 employee, or a family member') },
+            { value: 'H', label: t('Miembro de las Fuerzas Armadas de EE.UU. que se alistó en el extranjero por un tratado', 'U.S. Armed Forces member who enlisted abroad under a treaty') },
           ],
+        },
+        {
+          id: 'filer',
+          kind: 'choice',
+          formRef: 'Part 1 · Information About Person or Organization Filing This Petition',
+          showIf: is('classification', ...FOR_OTHER),
+          question: t('¿Presenta esta petición para usted o para otra persona?', 'Are you filing this petition for yourself or for another person?'),
+          why: t(
+            'En esta categoría la petición la puede presentar la misma persona o alguien por ella, por ejemplo un familiar. Si la presenta por otra persona, usted es el peticionario: da sus datos en la Parte 1 y firma la Parte 12.',
+            'In this classification the petition can be filed by the person or by someone for them, for example a family member. If you file for another person, you are the petitioner: you give your details in Part 1 and sign Part 12.',
+          ),
+          options: [
+            { value: 'self', label: t('Para mí', 'For myself') },
+            { value: 'other', label: t('Para un familiar u otra persona', 'For a family member or another person') },
+          ],
+        },
+        {
+          id: 'rw.kind',
+          kind: 'choice',
+          formRef: 'Part 2 · Item 1.D.(1) · Part 9 · Item 6.B',
+          showIf: religious,
+          question: t('¿En qué trabajará?', 'What will you be working as?'),
+          why: t('Si trabajará como ministro, la petición lo marca en la Parte 2.', 'If you will work as a minister, the petition marks it in Part 2.'),
+          notice: {
+            tone: 'legal',
+            title: t('Requisitos del trabajador religioso', 'Religious worker requirements'),
+            body: t(
+              'Debe haber sido miembro de la denominación por lo menos los 2 años antes de presentar y haber trabajado sin interrupción, después de cumplir 14 años, en ese tipo de puesto por esos 2 años, en EE.UU. o afuera. Su empleador debe ser una organización religiosa sin fines de lucro (o afiliada a la denominación) y llenar y firmar la certificación de la Parte 9, aunque usted presente la petición. Los trabajadores que no son ministros tienen una fecha límite que el Congreso renueva: confírmela en uscis.gov.',
+              'You must have been a member of the denomination for at least the 2 years before filing and have worked continuously, after turning 14, in that kind of position for those 2 years, in the U.S. or abroad. Your employer must be a nonprofit religious organization (or one affiliated with the denomination) and must complete and sign the attestation in Part 9, even if you file the petition. Workers other than ministers have a sunset date that Congress renews: check it at uscis.gov.',
+            ),
+          },
+          options: [
+            { value: 'A', label: t('Como ministro(a)', 'As a minister') },
+            { value: 'B', label: t('En una vocación religiosa', 'In a religious vocation') },
+            { value: 'C', label: t('En una ocupación religiosa', 'In a religious occupation') },
+          ],
+        },
+        {
+          id: 'translator.country',
+          kind: 'choice',
+          formRef: 'Part 2 · Item 1.L',
+          showIf: translator,
+          question: t('¿De qué país es ciudadano(a)?', 'Which country are you a national of?'),
+          notice: {
+            tone: 'legal',
+            title: t('Antes de presentar', 'Before you file'),
+            body: t(
+              'Debe haber trabajado directamente con las Fuerzas Armadas de EE.UU. o bajo el Jefe de Misión como traductor(a) o intérprete por lo menos 12 meses, tener una recomendación favorable por escrito del Jefe de Misión o de un general u oficial de bandera de la unidad que apoyó, y haber pasado una verificación de antecedentes antes de presentar.',
+              'You must have worked directly with the U.S. Armed Forces or under Chief of Mission authority as a translator or interpreter for at least 12 months, have a favorable written recommendation from the Chief of Mission or a general or flag officer in the chain of command of the unit you supported, and have cleared a background check before filing.',
+            ),
+          },
+          options: [
+            { value: 'AF', label: t('Afganistán', 'Afghanistan') },
+            { value: 'IQ', label: t('Irak', 'Iraq') },
+          ],
+        },
+        {
+          id: 'iraqi.com',
+          kind: 'choice',
+          formRef: 'Part 2 · Item 1.M',
+          showIf: iraqiEmployee,
+          question: t('¿El Jefe de Misión en Bagdad aprobó su empleo y su servicio?', 'Has the Chief of Mission in Baghdad approved your employment and service?'),
+          notice: {
+            tone: 'legal',
+            title: t('Requisitos', 'Requirements'),
+            body: t(
+              'Debe haber trabajado para el gobierno de EE.UU. o en su nombre en Irak entre el 20 de marzo de 2003 y el 30 de septiembre de 2013 por lo menos 1 año, con servicio fiel y valioso y una amenaza seria por ese trabajo, todo aprobado por el Jefe de Misión. El plazo para pedir esa aprobación terminó el 30 de septiembre de 2014. Si su esposo(a) o padre/madre con petición aprobada falleció, consulte a un abogado: puede tener derecho como sobreviviente.',
+              'You must have worked for or on behalf of the U.S. Government in Iraq between March 20, 2003 and September 30, 2013 for at least 1 year, with faithful and valuable service and a serious threat because of that work, all approved by the Chief of Mission. The deadline to ask for that approval was September 30, 2014. If your spouse or parent with an approved petition died, see an attorney: you may qualify as a survivor.',
+            ),
+          },
+          options: yesNo,
+        },
+        {
+          id: 'afghan.basis',
+          kind: 'choice',
+          formRef: 'Part 2 · Item 1.N',
+          showIf: afghanEmployee,
+          question: t('¿Cuál es su situación?', 'Which is your situation?'),
+          notice: {
+            tone: 'legal',
+            title: t('Casi todos los casos ya van al Departamento de Estado', 'Most cases now go to the Department of State'),
+            body: t(
+              'El Formulario DS-157 que se envía con la solicitud de aprobación del Jefe de Misión reemplazó al I-360. Si empezó el trámite el 20 de julio de 2022 o después, NO presente el I-360: envíe todo a AfghanSIVApplication@state.gov. Use el I-360 solo en las situaciones de esta lista. Debe haber trabajado para el gobierno de EE.UU. o la ISAF en Afganistán entre el 7 de octubre de 2001 y el 31 de diciembre de 2023 por lo menos 1 año.',
+              'Form DS-157, sent with the Chief of Mission application, has replaced Form I-360. If you started the process on or after July 20, 2022, do NOT file Form I-360: email everything to AfghanSIVApplication@state.gov. Use Form I-360 only in the situations listed here. You must have worked for the U.S. Government or ISAF in Afghanistan between October 7, 2001 and December 31, 2023 for at least 1 year.',
+            ),
+          },
+          options: [
+            { value: 'inUS', label: t('Estoy en EE.UU. y recibí la aprobación del Jefe de Misión', 'I am in the U.S. and received Chief of Mission approval') },
+            { value: 'unsigned', label: t('Estoy en EE.UU., tengo la aprobación pero no firmé el DS-157 que presenté', 'I am in the U.S., have approval but did not sign the DS-157 I filed') },
+            { value: 'noDS157', label: t('Tengo la aprobación del Jefe de Misión pero no presenté el DS-157 con mi solicitud', 'I have Chief of Mission approval but did not file a DS-157 with my application') },
+          ],
+        },
+        {
+          id: 'panama.basis',
+          kind: 'choice',
+          formRef: 'Part 2 · Item 1.E',
+          showIf: panama,
+          question: t('Cuando entró en vigor el Tratado del Canal de Panamá de 1977, la persona…', 'When the Panama Canal Treaty of 1977 entered into force, the person…'),
+          options: [
+            { value: 'resident', label: t('Vivía en la Zona del Canal y llevaba 1 año o más trabajando para la Compañía del Canal o el Gobierno de la Zona', 'Lived in the Canal Zone and had worked 1 year or more for the Panama Canal Company or the Canal Zone Government') },
+            { value: 'retired', label: t('Era panameño(a) y se jubiló con honor del gobierno de EE.UU. en la Zona después de 15 años o más', 'Was a Panamanian national and honorably retired from U.S. Government employment in the Zone after 15 or more years') },
+            { value: 'danger', label: t('Trabajaba allí (5 años o más de servicio, o 15 años y retirado) y su seguridad o la de su familia está en peligro por ese trabajo y el Tratado', 'Worked there (5 or more years of service, or 15 years and retired) and their safety or their family’s is in danger because of that work and the Treaty') },
+          ],
+        },
+        {
+          id: 'physician.meets',
+          kind: 'choice',
+          formRef: 'Part 2 · Item 1.F',
+          showIf: physician,
+          question: t('¿La persona cumple todos estos requisitos?', 'Does the person meet all of these requirements?'),
+          why: t(
+            'Se graduó de medicina o puede ejercer en otro país; tenía licencia completa y permanente y ejercía en un estado de EE.UU. el 9 de enero de 1978; entró como H o J antes de esa fecha; y desde entonces ha estado en EE.UU. sin interrupción ejerciendo o estudiando medicina.',
+            'Graduated from medical school or may practice abroad; was fully and permanently licensed and practicing in a U.S. state on January 9, 1978; entered as an H or J nonimmigrant before that date; and has been continuously present in the U.S. practicing or studying medicine since.',
+          ),
+          options: [
+            { value: 'yes', label: t('Sí, todos', 'Yes, all of them') },
+            { value: 'no', label: t('No estoy seguro(a)', 'I am not sure') },
+          ],
+        },
+        {
+          id: 'g4.role',
+          kind: 'choice',
+          formRef: 'Part 2 · Item 1.G',
+          showIf: intlOrg,
+          question: t('¿Cuál es su caso?', 'Which is your case?'),
+          notice: {
+            tone: 'legal',
+            title: t('Confirme que califica', 'Confirm that you qualify'),
+            body: t(
+              'Es para empleados G-4 de larga duración recién jubilados de una organización internacional que califica, empleados civiles de larga duración de la OTAN (NATO-6) y sus familiares. Hay requisitos de años en EE.UU. y de fechas: pregunte a la organización, a la oficina de la OTAN o a USCIS si califica.',
+              'It is for recently retired long-term G-4 employees of a qualifying international organization, long-term civilian NATO-6 employees and their family members. There are requirements on years in the U.S. and on dates: ask the organization, the NATO office or USCIS whether you qualify.',
+            ),
+          },
+          options: [
+            { value: 'g4', label: t('Empleado(a) G-4 de una organización internacional', 'G-4 international organization employee') },
+            { value: 'g4Family', label: t('Familiar de un(a) empleado(a) G-4', 'Family member of a G-4 employee') },
+            { value: 'nato', label: t('Empleado(a) civil de la OTAN (NATO-6)', 'NATO-6 civilian employee') },
+            { value: 'natoFamily', label: t('Familiar de un(a) empleado(a) NATO-6', 'Family member of a NATO-6 employee') },
+          ],
+        },
+        {
+          id: 'armed.service',
+          kind: 'choice',
+          formRef: 'Part 2 · Item 1.H',
+          showIf: armedForces,
+          question: t('¿Cuánto tiempo de servicio activo tiene?', 'How much active duty service do you have?'),
+          notice: {
+            tone: 'legal',
+            title: t('Requisitos', 'Requirements'),
+            body: t(
+              'Debe haber servido con honor en servicio activo después del 15 de octubre de 1978, haberse alistado originalmente fuera de EE.UU. bajo un tratado vigente el 1 de octubre de 1991, ser ciudadano(a) de un país con ese tratado, y que su departamento le haya recomendado para esta categoría.',
+              'You must have served honorably on active duty after October 15, 1978, have originally enlisted outside the U.S. under a treaty in effect on October 1, 1991, be a national of a country with that treaty, and have been recommended for this classification by your executive department.',
+            ),
+          },
+          options: [
+            { value: '12', label: t('12 años, y nunca me separaron sino en condiciones honorables', '12 years, and I was never separated except under honorable conditions') },
+            { value: '6', label: t('6 años, sigo en servicio activo y me realisté para completar por lo menos 12', '6 years, I am on active duty and reenlisted for a total obligation of at least 12') },
+          ],
+        },
+      ],
+    },
+    {
+      id: 'petitioner',
+      part: 'Part 1',
+      title: t('Sus datos como peticionario', 'You, the petitioner'),
+      questions: [
+        {
+          id: 'petitionerName',
+          kind: 'fields',
+          formRef: 'Part 1 · Item 1 · Your Full Name',
+          showIf: forOther,
+          question: t('Usted, quien presenta la petición: ¿cuál es su nombre completo?', 'You, the person filing: what is your full name?'),
+          fields: nameFields('petitioner', 'Part 1 · Item 1'),
+        },
+        {
+          id: 'petitionerIds',
+          kind: 'fields',
+          formRef: 'Part 1 · Items 2–5',
+          showIf: forOther,
+          question: t('Sus números (si los tiene)', 'Your numbers (if any)'),
+          fields: [
+            { id: 'petitioner.uscisAccount', type: 'uscisAccount', label: { es: 'Número de cuenta en línea de USCIS', en: 'USCIS online account number' }, formRef: 'Part 1 · Item 2' },
+            { id: 'petitioner.ssn', type: 'ssn', label: { es: 'Número de Seguro Social', en: 'U.S. Social Security number' }, formRef: 'Part 1 · Item 3' },
+            { id: 'petitioner.aNumber', type: 'aNumber', label: { es: 'A-Number', en: 'A-Number' }, formRef: 'Part 1 · Item 4' },
+            { id: 'petitioner.itin', type: 'text', label: { es: 'Número de identificación del IRS (ITIN)', en: 'Individual IRS tax number' }, formRef: 'Part 1 · Item 5', maxLength: 9, hint: t('Solo los 9 dígitos.', 'Only the 9 digits.') },
+          ],
+        },
+        {
+          id: 'petitionerAddress',
+          kind: 'fields',
+          formRef: 'Part 1 · Item 6 · Mailing Address',
+          showIf: forOther,
+          question: t('¿Cuál es su dirección postal?', 'What is your mailing address?'),
+          notice: {
+            tone: 'info',
+            title: t('Después, la otra persona', 'Next, the other person'),
+            body: t(
+              'Las preguntas que siguen son sobre la persona para quien es la petición (el beneficiario). Cuando digan "usted", conteste con los datos de esa persona. Al final volvemos a usted para la firma.',
+              'The questions that follow are about the person the petition is for (the beneficiary). When they say "you", answer with that person’s details. At the end we come back to you for the signature.',
+            ),
+          },
+          fields: anyAddress('petitioner', 'Part 1 · Item 6', { careOf: true }),
         },
       ],
     },
@@ -126,7 +402,10 @@ export const i360: FormDefinition = {
           kind: 'fields',
           formRef: 'Part 3 · Item 1 · Your Full Name',
           question: t('¿Cuál es su nombre completo?', 'What is your full name?'),
-          why: t('Escríbalo como en su pasaporte o acta de nacimiento.', 'Write it as it appears on your passport or birth certificate.'),
+          why: t(
+            'Escríbalo como en su pasaporte o acta de nacimiento. Si presenta por otra persona, desde aquí escriba los datos de esa persona.',
+            'Write it as it appears on your passport or birth certificate. If you are filing for another person, from here on give that person’s details.',
+          ),
           fields: nameFields('name', 'Part 3 · Item 1'),
         },
         {
@@ -170,7 +449,7 @@ export const i360: FormDefinition = {
           id: 'account',
           kind: 'fields',
           formRef: 'Part 1 · Item 2',
-          showIf: widow,
+          showIf: ownPart1,
           question: t('¿Tiene cuenta en línea de USCIS?', 'Do you have a USCIS online account?'),
           fields: [{ id: 'uscisAccount', type: 'uscisAccount', label: { es: 'Número de cuenta en línea de USCIS (si tiene)', en: 'USCIS online account number (if any)' }, formRef: 'Part 1 · Item 2' }],
         },
@@ -599,6 +878,339 @@ export const i360: FormDefinition = {
       ],
     },
     {
+      id: 'amerasian',
+      part: 'Part 6',
+      title: t('La madre y el padre', 'The mother and father'),
+      questions: [
+        {
+          id: 'mother',
+          kind: 'fields',
+          formRef: 'Part 6 · Item 1 · Mother’s Full Name',
+          showIf: amerasian,
+          question: t('¿Cómo se llama la madre del/de la amerasiático(a)?', 'What is the Amerasian’s mother’s name?'),
+          notice: {
+            tone: 'legal',
+            title: t('Quién puede ser amerasiático(a)', 'Who qualifies as an Amerasian'),
+            body: t(
+              'La persona debe haber nacido en Corea, Vietnam, Laos, Kampuchea o Tailandia después del 31 de diciembre de 1950 y antes del 22 de octubre de 1982, y su padre biológico debe haber sido ciudadano estadounidense. Quien presenta debe tener 18 años o más. Además hace falta un patrocinador de 21 años o más, ciudadano o residente, que firme el Formulario I-361.',
+              'The person must have been born in Korea, Vietnam, Laos, Kampuchea or Thailand after December 31, 1950 and before October 22, 1982, and their biological father must have been a U.S. citizen. Whoever files must be 18 or older. A sponsor who is 21 or older and a citizen or permanent resident must also sign Form I-361.',
+            ),
+          },
+          fields: nameFields('mother', 'Part 6 · Item 1'),
+        },
+        {
+          id: 'mother.alive',
+          kind: 'choice',
+          formRef: 'Part 6 · Item 2.A',
+          showIf: amerasian,
+          question: t('¿La madre sigue viva?', 'Is the mother still alive?'),
+          options: aliveOptions,
+        },
+        {
+          id: 'motherAddress',
+          kind: 'fields',
+          formRef: 'Part 6 · Item 2.B',
+          showIf: all(amerasian, is('mother.alive', 'yes')),
+          question: t('Dirección de la madre', 'The mother’s address'),
+          fields: anyAddress('mother', 'Part 6 · Item 2.B', { careOf: true, streetRequired: false }),
+        },
+        {
+          id: 'motherDeath',
+          kind: 'fields',
+          formRef: 'Part 6 · Item 2.C',
+          showIf: all(amerasian, is('mother.alive', 'no')),
+          question: t('¿Cuándo falleció la madre?', 'When did the mother die?'),
+          fields: [date('mother.death', 'Fecha de muerte (si la sabe)', 'Date of death (if known)', 'Part 6 · Item 2.C', false)],
+        },
+        {
+          id: 'father',
+          kind: 'fields',
+          formRef: 'Part 6 · Items 3–5',
+          showIf: amerasian,
+          question: t('Datos del padre', 'About the father'),
+          why: t(
+            'Si puede, adjunte una declaración notariada del padre sobre la paternidad. Lo que no sepa, déjelo en blanco.',
+            'If possible, attach a notarized statement from the father about parentage. Leave blank what you don’t know.',
+          ),
+          fields: [
+            ...nameFields('father', 'Part 6 · Item 3'),
+            date('father.dob', 'Fecha de nacimiento (si la sabe)', 'Date of birth (if known)', 'Part 6 · Item 4', false),
+            { id: 'father.birthCountry', type: 'text', label: { es: 'País de nacimiento (si lo sabe)', en: 'Country of birth (if known)' }, formRef: 'Part 6 · Item 5' },
+          ],
+        },
+        {
+          id: 'father.alive',
+          kind: 'choice',
+          formRef: 'Part 6 · Item 6.A',
+          showIf: amerasian,
+          question: t('¿El padre sigue vivo?', 'Is the father still alive?'),
+          options: aliveOptions,
+        },
+        {
+          id: 'fatherAddress',
+          kind: 'fields',
+          formRef: 'Part 6 · Item 6.B',
+          showIf: all(amerasian, is('father.alive', 'yes')),
+          question: t('Dirección del padre', 'The father’s address'),
+          fields: anyAddress('father', 'Part 6 · Item 6.B', { careOf: true, streetRequired: false }),
+        },
+        {
+          id: 'fatherDeath',
+          kind: 'fields',
+          formRef: 'Part 6 · Item 6.C',
+          showIf: all(amerasian, is('father.alive', 'no')),
+          question: t('¿Cuándo falleció el padre?', 'When did the father die?'),
+          fields: [date('father.death', 'Fecha de muerte (si la sabe)', 'Date of death (if known)', 'Part 6 · Item 6.C', false)],
+        },
+        {
+          id: 'fatherPhones',
+          kind: 'fields',
+          formRef: 'Part 6 · Items 6.D–6.E',
+          showIf: all(amerasian, (a) => a['father.alive'] !== 'no'),
+          question: t('Teléfonos del padre (si los tiene)', 'The father’s phone numbers (if any)'),
+          fields: [
+            { id: 'father.phone', type: 'phone', label: { es: 'Teléfono de día', en: 'Daytime telephone' }, formRef: 'Part 6 · Item 6.D' },
+            { id: 'father.workPhone', type: 'phone', label: { es: 'Teléfono del trabajo', en: 'Work telephone' }, formRef: 'Part 6 · Item 6.E' },
+          ],
+        },
+        {
+          id: 'father.service',
+          kind: 'choice',
+          formRef: 'Part 6 · Item 7',
+          showIf: amerasian,
+          question: t('Cuando el/la amerasiático(a) fue concebido(a), el padre…', 'At the time the Amerasian was conceived, the father…'),
+          options: [
+            { value: 'military', label: t('Estaba en las Fuerzas Armadas de EE.UU.', 'Was in the U.S. military') },
+            { value: 'civilian', label: t('Era empleado civil de EE.UU. en el extranjero', 'Was a U.S. civilian employed abroad') },
+            { value: 'neither', label: t('No era militar ni empleado civil en el extranjero', 'Was neither in the military nor a civilian employed abroad') },
+          ],
+        },
+        {
+          id: 'fatherMilitary',
+          kind: 'fields',
+          formRef: 'Part 6 · Items 7.A–7.B',
+          showIf: all(amerasian, is('father.service', 'military')),
+          question: t('El servicio militar del padre', 'The father’s military service'),
+          fields: [
+            {
+              id: 'father.branch',
+              type: 'select',
+              required: true,
+              label: { es: 'Rama', en: 'Branch of service' },
+              formRef: 'Part 6 · Item 7.A',
+              options: [
+                { value: 'A', label: t('Ejército (Army)', 'Army') },
+                { value: 'F', label: t('Fuerza Aérea (Air Force)', 'Air Force') },
+                { value: 'N', label: t('Marina (Navy)', 'Navy') },
+                { value: 'M', label: t('Infantería de Marina (Marine Corps)', 'Marine Corps') },
+                { value: 'C', label: t('Guardia Costera (Coast Guard)', 'Coast Guard') },
+              ],
+            },
+            { id: 'father.serviceNumber', type: 'text', label: { es: 'Número de servicio (si lo sabe)', en: 'Service number (if known)' }, formRef: 'Part 6 · Item 7.B', maxLength: 40 },
+          ],
+        },
+        {
+          id: 'fatherExplain',
+          kind: 'fields',
+          formRef: 'Part 6 · Item 7.C · Part 15',
+          showIf: all(amerasian, is('father.service', 'civilian', 'neither')),
+          question: t('Explique la situación del padre', 'Explain the father’s circumstances'),
+          why: t(
+            'Quién era, dónde y para quién trabajaba y cómo conoció a la madre. Va en la Parte 15.',
+            'Who he was, where and for whom he worked and how he met the mother. It goes in Part 15.',
+          ),
+          fields: [{ id: 'father.explain', type: 'longText', required: true, label: { es: 'Explicación (en inglés)', en: 'Explanation' }, formRef: 'Part 15 · Part 6, Item 7' }],
+        },
+      ],
+    },
+    {
+      id: 'religious',
+      part: 'Part 9',
+      title: t('Su trabajo religioso', 'Your religious work'),
+      questions: [
+        {
+          id: 'rwJob',
+          kind: 'fields',
+          formRef: 'Part 9 · Item 6.A, 6.C–6.E',
+          showIf: religious,
+          question: t('El puesto que le ofrecen', 'The position offered'),
+          why: t('Escriba en inglés. Si un texto es largo, va completo en la Parte 15.', 'Write in English. If a text is long, it goes in full in Part 15.'),
+          fields: [
+            { id: 'rw.title', type: 'text', required: true, label: { es: 'Título del puesto', en: 'Title of the position' }, formRef: 'Part 9 · Item 6.A', placeholder: 'Pastor' },
+            { id: 'rw.duties', type: 'longText', required: true, label: { es: 'Sus tareas diarias, en detalle', en: 'Detailed description of your daily duties' }, formRef: 'Part 9 · Item 6.C' },
+            { id: 'rw.qualifications', type: 'longText', required: true, label: { es: 'Por qué está calificado(a) para el puesto', en: 'Your qualifications for the position' }, formRef: 'Part 9 · Item 6.D' },
+            { id: 'rw.compensation', type: 'longText', required: true, label: { es: 'El pago que recibirá (sueldo, vivienda, comida u otro)', en: 'Proposed salaried and/or non-salaried compensation' }, formRef: 'Part 9 · Item 6.E' },
+          ],
+        },
+        {
+          id: 'rwSite',
+          kind: 'fields',
+          formRef: 'Part 9 · Item 6.F',
+          showIf: religious,
+          question: t('¿Dónde trabajará?', 'Where will you be working?'),
+          why: t('Si trabajará en más de un lugar, ponga el principal y los demás en la Parte 15.', 'If you will work in more than one place, give the main one here and the others in Part 15.'),
+          fields: [
+            { id: 'rw.site.company', type: 'text', required: true, label: { es: 'Nombre de la organización', en: 'Company name' }, formRef: 'Part 9 · Item 6.F · Company Name', maxLength: 34 },
+            ...anyAddress('rw.site', 'Part 9 · Item 6.F'),
+          ],
+        },
+        {
+          id: 'rwEmployer',
+          kind: 'fields',
+          formRef: 'Part 9 · Item 1.A–1.E',
+          showIf: religious,
+          question: t('Números del empleador', 'Numbers about the employer'),
+          why: t('Pídaselos a su empleador. Ponga 0 si es ninguno.', 'Ask your employer for them. Enter 0 for none.'),
+          fields: [
+            { id: 'rw.members', type: 'number', label: { es: 'Miembros de la organización', en: 'Members of the employer’s organization' }, formRef: 'Part 9 · Item 1.A', maxLength: 6 },
+            { id: 'rw.employees', type: 'number', label: { es: 'Empleados en el lugar donde trabajará', en: 'Employees at the location where you will work' }, formRef: 'Part 9 · Item 1.B', maxLength: 6 },
+            { id: 'rw.rWorkers', type: 'number', label: { es: 'Trabajadores religiosos extranjeros (inmigrantes o R) empleados ahora o en los últimos 5 años', en: 'Special immigrant or R religious workers employed now or in the past 5 years' }, formRef: 'Part 9 · Item 1.C', maxLength: 6 },
+            { id: 'rw.petitions', type: 'number', label: { es: 'Peticiones I-360 e I-129 de trabajador religioso que presentó el empleador en los últimos 5 años', en: 'Religious worker I-360 and I-129 petitions the employer filed in the past 5 years' }, formRef: 'Part 9 · Item 1.D', maxLength: 6 },
+            { id: 'rw.selfPetitions', type: 'number', label: { es: 'Peticiones I-360 de trabajador religioso que usted presentó en los últimos 5 años', en: 'Religious worker I-360 petitions you filed in the last 5 years' }, formRef: 'Part 9 · Item 1.E', maxLength: 6 },
+          ],
+        },
+        {
+          id: 'rw.priorR',
+          kind: 'choice',
+          formRef: 'Part 9 · Item 2',
+          showIf: religious,
+          question: t('¿Usted o un familiar dependiente estuvo en EE.UU. con visa de trabajador religioso (R) en los últimos 5 años?', 'Have you or a dependent family member been in the U.S. in Religious Worker (R) status in the last 5 years?'),
+          options: yesNo,
+        },
+        {
+          id: 'rwPriorStay',
+          kind: 'fields',
+          formRef: 'Part 9 · Item 3',
+          showIf: all(religious, is('rw.priorR', 'yes')),
+          question: t('Su estadía con visa R', 'Your stay in R status'),
+          why: t('Solo el tiempo que estuvo de verdad en EE.UU. con visa R. Adjunte copias del I-94 o I-797.', 'Only the time you were actually in the U.S. in R status. Attach copies of the I-94 or I-797.'),
+          fields: [
+            date('rw.stayFrom', 'Desde', 'From', 'Part 9 · Item 3 · From', false),
+            date('rw.stayTo', 'Hasta', 'To', 'Part 9 · Item 3 · To', false),
+            { id: 'rw.otherStays', type: 'longText', label: { es: 'Otras estadías suyas y las de sus familiares (nombre y fechas, en inglés)', en: 'Your other stays and your family members’ (name and dates)' }, formRef: 'Part 15 · Part 9, Item 2' },
+          ],
+        },
+        {
+          id: 'rwStaff',
+          kind: 'fields',
+          formRef: 'Part 9 · Items 4–5',
+          showIf: religious,
+          question: t('Los demás empleados y la organización', 'The other employees and the organization'),
+          fields: [
+            { id: 'rw.staffPosition', type: 'text', label: { es: 'Puesto de otros empleados en el mismo lugar', en: 'Position of other employees at the same location' }, formRef: 'Part 9 · Item 4 · Position' },
+            { id: 'rw.staffSummary', type: 'longText', label: { es: 'Qué responsabilidades tienen (en inglés)', en: 'Summary of their responsibilities' }, formRef: 'Part 9 · Item 4 · Summary' },
+            { id: 'rw.orgRelationship', type: 'longText', label: { es: 'Relación entre la organización en EE.UU. y la de afuera de la que usted es miembro (si hay)', en: 'Relationship between the U.S. organization and the one abroad you belong to (if any)' }, formRef: 'Part 9 · Item 5' },
+          ],
+        },
+        {
+          id: 'rw.attest',
+          kind: 'yesNoList',
+          formRef: 'Part 9 · Items 7–13',
+          showIf: religious,
+          question: t('Lo que su empleador certifica', 'What your employer attests'),
+          why: t('Contéstelo con su empleador: firmará esta parte. Si alguna respuesta es No, se explica en la Parte 15.', 'Answer it with your employer: they will sign this part. If any answer is No, it is explained in Part 15.'),
+          items: [
+            { id: 'rw.q7', formRef: 'Part 9 · Item 7', label: t('Es una organización religiosa sin fines de lucro de buena fe, o una afiliada a la denominación, exenta de impuestos según la sección 501(c)(3).', 'It is a bona fide nonprofit religious organization, or one affiliated with the denomination, tax exempt under section 501(c)(3).') },
+            { id: 'rw.q8', formRef: 'Part 9 · Item 8', label: t('Puede y quiere pagarle lo suficiente para que usted y su familia no dependan de ayuda pública.', 'It is willing and able to compensate you so that you and your dependents will not become a public charge.') },
+            { id: 'rw.q9', formRef: 'Part 9 · Item 9', label: t('El dinero de su pago no viene de usted (salvo donaciones o diezmos razonables).', 'The funds for your compensation do not come from you (except reasonable donations or tithing).') },
+            { id: 'rw.q10', formRef: 'Part 9 · Item 10', label: t('Usted no tendrá otro empleo no religioso, y el empleador le pagará.', 'You will not engage in secular employment, and the employer will compensate you.') },
+            { id: 'rw.q11', formRef: 'Part 9 · Item 11', label: t('El puesto es de tiempo completo, con un promedio de por lo menos 35 horas por semana.', 'The position is full time, at least an average of 35 hours per week.') },
+            { id: 'rw.q12', formRef: 'Part 9 · Item 12', label: t('Usted ha sido trabajador(a) religioso(a) por lo menos los 2 años antes de presentar y está calificado(a).', 'You have been a religious worker for at least the 2 years before filing and are qualified.') },
+            { id: 'rw.q13', formRef: 'Part 9 · Item 13', label: t('Usted ha sido miembro de la denominación del empleador por lo menos los 2 años antes de presentar.', 'You have been a member of the employer’s denomination for at least the 2 years before filing.') },
+          ],
+        },
+        {
+          id: 'rwAttestExplain',
+          kind: 'fields',
+          formRef: 'Part 9 · Items 7–13 · Part 15',
+          showIf: all(religious, rwNo),
+          question: t('Explique las respuestas de No', 'Explain the No answers'),
+          fields: [{ id: 'rw.attestExplain', type: 'longText', required: true, label: { es: 'Explicación (en inglés)', en: 'Explanation' }, formRef: 'Part 15 · Part 9, Items 7–13' }],
+        },
+        {
+          id: 'rw.taxBasis',
+          kind: 'choice',
+          formRef: 'Part 9 · Item 7.A–7.C',
+          showIf: all(religious, is('rw.q7', 'yes')),
+          question: t('¿Qué prueba de la exención de impuestos adjuntará?', 'Which proof of tax exemption will you attach?'),
+          options: [
+            { value: 'A', label: t('Carta vigente del IRS que dice que la organización está exenta', 'A current IRS determination letter that the organization is tax exempt') },
+            { value: 'B', label: t('Carta vigente del IRS de exención de grupo', 'A current IRS letter recognizing it under a group tax exemption') },
+            { value: 'C', label: t('Es una organización afiliada a la denominación (necesita más documentos y la certificación de la denominación)', 'It is an organization affiliated with the denomination (needs more documents and the denomination certification)') },
+          ],
+        },
+        {
+          id: 'rw.affiliatedDocs',
+          kind: 'choice',
+          multiple: true,
+          formRef: 'Part 9 · Item 7.C.(1)–(4)',
+          showIf: all(religious, is('rw.q7', 'yes'), is('rw.taxBasis', 'C')),
+          question: t('¿Cuáles de estos documentos adjunta? Marque todos.', 'Which of these documents are you attaching? Select all.'),
+          why: t('Hacen falta los cuatro.', 'All four are required.'),
+          options: [
+            { value: '1', label: t('Carta vigente del IRS de exención de impuestos', 'A current IRS tax-exemption determination letter') },
+            { value: '2', label: t('Documento que muestra la naturaleza y el propósito religioso (por ejemplo, el acta constitutiva)', 'Documentation of the religious nature and purpose (for example, the organizing instrument)') },
+            { value: '3', label: t('Material de la organización (folletos, artículos, calendarios) sobre sus actividades religiosas', 'Organizational literature (brochures, articles, calendars) about its religious activities') },
+            { value: '4', label: t('La certificación de la denominación de este formulario, firmada', 'The religious denomination certification in this form, signed') },
+          ],
+        },
+        {
+          id: 'rwSigner',
+          kind: 'fields',
+          formRef: 'Part 9 · Items 15–16',
+          showIf: religious,
+          question: t('¿Quién firma por su empleador?', 'Who signs for your employer?'),
+          why: t('Un(a) representante autorizado(a) del empleador firma a mano el Ítem 14.', 'An authorized official of the employer signs Item 14 by hand.'),
+          fields: [
+            ...nameFields('rw.signer', 'Part 9 · Item 15'),
+            { id: 'rw.signer.title', type: 'text', required: true, label: { es: 'Cargo (en inglés)', en: 'Title' }, formRef: 'Part 9 · Item 16', placeholder: 'Senior Pastor' },
+          ],
+        },
+        {
+          id: 'rwEmployerAddress',
+          kind: 'fields',
+          formRef: 'Part 9 · Items 17–20',
+          showIf: religious,
+          question: t('Dirección y contacto del empleador', 'The employer’s address and contact'),
+          fields: [
+            { id: 'rw.employer.name', type: 'text', required: true, label: { es: 'Nombre del empleador', en: 'Employer or organization name' }, formRef: 'Part 9 · Item 17 · Employer/Organization Name', maxLength: 34 },
+            ...usAddress('rw.employer', 'Part 9 · Item 17'),
+            { id: 'rw.employer.phone', type: 'phone', required: true, label: { es: 'Teléfono de día', en: 'Daytime telephone' }, formRef: 'Part 9 · Item 18' },
+            { id: 'rw.employer.fax', type: 'phone', label: { es: 'Fax (si tiene)', en: 'Fax (if any)' }, formRef: 'Part 9 · Item 19' },
+            { id: 'rw.employer.email', type: 'email', label: { es: 'Correo electrónico (si tiene)', en: 'Email (if any)' }, formRef: 'Part 9 · Item 20' },
+          ],
+        },
+        {
+          id: 'rwDenomination',
+          kind: 'fields',
+          formRef: 'Part 9 · Religious Denomination Certification · Items 22–23',
+          showIf: all(religious, is('rw.q7', 'yes'), is('rw.taxBasis', 'C')),
+          question: t('La denominación religiosa', 'The religious denomination'),
+          why: t('Un(a) representante de la denominación certifica que su empleador está afiliado y firma a mano el Ítem 21.', 'A representative of the denomination certifies that your employer is affiliated and signs Item 21 by hand.'),
+          fields: [
+            { id: 'rw.denomination', type: 'text', required: true, label: { es: 'Nombre de la denominación', en: 'Religious denomination' }, formRef: 'Part 9 · Religious Denomination Certification · Religious Denomination', maxLength: 34 },
+            ...nameFields('rw.rd', 'Part 9 · Item 22'),
+            { id: 'rw.rd.title', type: 'text', required: true, label: { es: 'Cargo de quien firma (en inglés)', en: 'Title of the signatory' }, formRef: 'Part 9 · Item 23' },
+          ],
+        },
+        {
+          id: 'rwAttesting',
+          kind: 'fields',
+          formRef: 'Part 9 · Items 24–29',
+          showIf: all(religious, is('rw.q7', 'yes'), is('rw.taxBasis', 'C')),
+          question: t('La organización religiosa que certifica, dentro de la denominación', 'The attesting religious organization within the denomination'),
+          fields: [
+            { id: 'rw.att.name', type: 'text', required: true, label: { es: 'Nombre', en: 'Name' }, formRef: 'Part 9 · Item 24', maxLength: 34 },
+            ...usAddress('rw.att', 'Part 9 · Item 25'),
+            { id: 'rw.att.phone', type: 'phone', label: { es: 'Teléfono de día', en: 'Daytime telephone' }, formRef: 'Part 9 · Item 26' },
+            { id: 'rw.att.fax', type: 'phone', label: { es: 'Fax (si tiene)', en: 'Fax (if any)' }, formRef: 'Part 9 · Item 27' },
+            { id: 'rw.att.email', type: 'email', label: { es: 'Correo electrónico (si tiene)', en: 'Email (if any)' }, formRef: 'Part 9 · Item 28' },
+            { id: 'rw.att.irs', type: 'text', label: { es: 'Número de impuestos del IRS (EIN)', en: 'IRS tax number' }, formRef: 'Part 9 · Item 29', maxLength: 34 },
+          ],
+        },
+      ],
+    },
+    {
       id: 'family',
       part: 'Part 5',
       title: t('Su esposo(a) e hijos', 'Your spouse and children'),
@@ -750,14 +1362,15 @@ export const i360: FormDefinition = {
     },
     {
       id: 'statement',
-      part: 'Part 11',
+      part: 'Part 11 · Part 12',
       title: t('Declaración y contacto', 'Statement and contact'),
       questions: [
         {
           id: 'readsEnglish',
           kind: 'choice',
-          formRef: 'Part 11 · Item 1 · Petitioner’s Statement Regarding the Interpreter',
+          formRef: 'Part 11 (or Part 12) · Item 1 · Petitioner’s Statement Regarding the Interpreter',
           question: t('¿Puede leer y entender el formulario en inglés?', 'Can you read and understand the form in English?'),
+          why: t('Si presenta por otra persona, conteste por usted: usted firma.', 'If you are filing for another person, answer for yourself: you sign.'),
           options: [
             { value: 'A', label: t('Sí, leo inglés', 'Yes, I read English') },
             { value: 'B', label: t('No, un intérprete me lo leerá', 'No, an interpreter will read it to me') },
@@ -766,40 +1379,44 @@ export const i360: FormDefinition = {
         {
           id: 'interpreterLanguage',
           kind: 'fields',
-          formRef: 'Part 11 · Item 1.B',
+          formRef: 'Part 11 (or Part 12) · Item 1.B',
           showIf: is('readsEnglish', 'B'),
           question: t('¿En qué idioma se lo leerán?', 'What language will it be read in?'),
-          fields: [{ id: 'fluentLanguage', type: 'text', required: true, label: { es: 'Idioma', en: 'Language' }, formRef: 'Part 11 · Item 1.B', placeholder: 'Spanish', maxLength: 40 }],
+          fields: [{ id: 'fluentLanguage', type: 'text', required: true, label: { es: 'Idioma', en: 'Language' }, formRef: 'Part 11 (or Part 12) · Item 1.B', placeholder: 'Spanish', maxLength: 40 }],
         },
         {
           id: 'preparer',
           kind: 'choice',
-          formRef: 'Part 11 · Item 2 · Petitioner’s Statement Regarding the Preparer',
+          formRef: 'Part 11 (or Part 12) · Item 2 · Petitioner’s Statement Regarding the Preparer',
           question: t('¿Alguien más (no usted) preparó esta petición?', 'Did someone else prepare this petition for you?'),
-          why: t('Si es así, esa persona también debe llenar y firmar la Parte 14 a mano.', 'If so, that person must also complete and sign Part 14 by hand.'),
+          why: t('Si es así, sus datos van en la Parte 14 y esa persona la firma a mano.', 'If so, their details go in Part 14 and that person signs it by hand.'),
           options: yesNo,
         },
         {
           id: 'preparerName',
           kind: 'fields',
-          formRef: 'Part 11 · Item 2',
+          formRef: 'Part 11 (or Part 12) · Item 2',
           showIf: is('preparer', 'yes'),
           question: t('¿Quién la preparó?', 'Who prepared it?'),
-          fields: [{ id: 'preparer.name', type: 'text', required: true, label: { es: 'Nombre del preparador', en: 'Preparer’s name' }, formRef: 'Part 11 · Item 2', maxLength: 50 }],
+          fields: [{ id: 'preparer.name', type: 'text', required: true, label: { es: 'Nombre del preparador', en: 'Preparer’s name' }, formRef: 'Part 11 (or Part 12) · Item 2', maxLength: 50 }],
         },
         {
           id: 'contactInfo',
           kind: 'fields',
-          formRef: 'Part 11 · Items 3–5 · Petitioner’s Contact Information',
+          formRef: 'Part 11 · Items 3–5 (or Part 12 · Items 5–7) · Contact Information',
           question: t('¿Cómo puede contactarle USCIS?', 'How can USCIS contact you?'),
-          why: t('En casos VAWA, dé solo un teléfono y correo seguros, a los que la persona que le maltrató no tenga acceso.', 'In VAWA cases, give only a safe phone and email that your abuser cannot access.'),
+          why: t(
+            'Si presenta por otra persona, ponga sus propios datos: usted firma. En casos VAWA, dé solo un teléfono y correo seguros, a los que la persona que le maltrató no tenga acceso.',
+            'If you are filing for another person, give your own details: you sign. In VAWA cases, give only a safe phone and email that your abuser cannot access.',
+          ),
           fields: [
-            { id: 'phone', type: 'phone', required: true, label: { es: 'Teléfono de día', en: 'Daytime phone' }, formRef: 'Part 11 · Item 3', placeholder: '213 555 0123' },
-            { id: 'mobile', type: 'phone', label: { es: 'Celular', en: 'Mobile phone' }, formRef: 'Part 11 · Item 4' },
-            { id: 'email', type: 'email', label: { es: 'Correo electrónico', en: 'Email' }, formRef: 'Part 11 · Item 5' },
+            { id: 'phone', type: 'phone', required: true, label: { es: 'Teléfono de día', en: 'Daytime phone' }, formRef: 'Part 11 · Item 3 (or Part 12 · Item 5)', placeholder: '213 555 0123' },
+            { id: 'mobile', type: 'phone', label: { es: 'Celular', en: 'Mobile phone' }, formRef: 'Part 11 · Item 4 (or Part 12 · Item 6)' },
+            { id: 'email', type: 'email', label: { es: 'Correo electrónico', en: 'Email' }, formRef: 'Part 11 · Item 5 (or Part 12 · Item 7)' },
           ],
         },
       ],
     },
+    assistanceSection({ usedInterpreter, usedPreparer, interpreterPart: 'Part 13', preparerPart: 'Part 14' }),
   ],
 };

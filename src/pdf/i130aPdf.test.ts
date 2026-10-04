@@ -61,12 +61,53 @@ export const spouseBeneficiary: Answers = {
   fluentLanguage: 'Spanish',
 };
 
+/** Someone interpreted and someone else prepared the form. */
+const helped: Answers = {
+  ...spouseBeneficiary,
+  readsEnglish: 'interpreter',
+  preparer: 'yes',
+  'preparer.name': 'Luis Ortega',
+  'interp.family': 'Ríos',
+  'interp.given': 'Ana',
+  'interp.business': 'Ayuda Legal',
+  'interp.street': '10 Elm St',
+  'interp.unit': 'Apt 3',
+  'interp.city': 'Dallas',
+  'interp.state': 'TX',
+  'interp.zip': '75201',
+  'interp.country': 'United States',
+  'interp.phone': '214 555 0100',
+  'interp.mobile': '214 555 0101',
+  'interp.email': 'ana@example.com',
+  'interp.language': 'Spanish',
+  'prep.family': 'Ortega',
+  'prep.given': 'Luis',
+  'prep.business': 'Ortega Law',
+  'prep.street': '22 Calle Sol',
+  'prep.unit': 'Flr 2',
+  'prep.city': 'Tijuana',
+  'prep.province': 'Baja California',
+  'prep.postal': '22000',
+  'prep.country': 'Mexico',
+  'prep.phone': '664 555 0102',
+  'prep.mobile': '664 555 0103',
+  'prep.email': 'luis@example.com',
+  'prep.statement': 'attorneyNotExtends',
+};
+
+/** Every preparer's statement, with the same person or someone else preparing. */
+const helpVariants: Answers[] = ['notAttorney', 'attorneyExtends', 'attorneyNotExtends'].flatMap((statement) => [
+  { ...helped, 'prep.statement': statement, 'interp.unit': 'Ste 1', 'prep.unit': 'Apt 2', 'prep.state': 'CA', 'prep.zip': '92101' },
+  { ...helped, 'prep.statement': statement, 'prep.same': 'yes' },
+]);
+
 describe('I-130A PDF', () => {
   it('plans only fields that exist, with the right kind', async () => {
     const index = fieldIndex((await PDFDocument.load(template)).getForm());
     const variants: Answers[] = [
       spouseBeneficiary,
       { ...spouseBeneficiary, readsEnglish: 'yes', 'abroadJob.has': 'yes', 'abroadJob.name': 'X', 'abroadJob.unit': 'Ste 2', 'abroadJob.state': 'TX', 'home2.unit': 'Flr 3', 'home2.state': 'NY', 'abroad.unit': 'Apt 1', 'job2.state': 'CA', 'job1.state': 'CA' },
+      ...helpVariants,
     ];
     for (const plan of variants.map(planI130A)) {
       for (const name of Object.keys(plan.text)) expect(index.get(name), name).toBeInstanceOf(PDFTextField);
@@ -100,5 +141,29 @@ describe('I-130A PDF', () => {
     expect(on('Pt4Line1Checkbox[0]')).toBe(true); // B: interpreter
     expect(text('Pt4Line3_DaytimePhoneNumber1[0]')).toBe('2135550188');
     expect(text('Pt4Line6a_Signature[0]')).toBeUndefined();
+  });
+
+  it('writes the interpreter and the preparer', async () => {
+    const filled = async (a: Answers) => fieldIndex((await PDFDocument.load(await fillI130A(template, a))).getForm());
+    const f = await filled(helped);
+    const text = (n: string) => (f.get(n) as PDFTextField).getText();
+    const on = (n: string) => (f.get(n) as PDFCheckBox).isChecked();
+    expect(on('Pt4_Checkbox[0]')).toBe(true);
+    expect(text('Pt4Line2_RepresentativeName[0]')).toBe('Luis Ortega');
+    expect(text('Pt5Line1a_InterpreterFamilyName[0]')).toBe('Rios');
+    expect(on('Pt5Line3b_Unit[0]')).toBe(true); // Apt
+    expect(text('Pt5Line4_InterpreterDaytimeTelephone[1]')).toBe('2145550101'); // mobile
+    expect(text('Pt5_NameofLanguage[0]')).toBe('Spanish');
+    expect(text('Pt5Line6a_Signature[0]')).toBeUndefined();
+    expect(text('Pt6Line1a_PreparerFamilyName[0]')).toBe('Ortega');
+    expect(on('Pt6Line3b_Unit[2]')).toBe(true); // Flr
+    expect(text('Pt6Line3f_Province[0]')).toBe('Baja California');
+    expect(text('Pt6Line5_PreparerFaxNumber[0]')).toBe('6645550103'); // printed "Mobile"
+    expect(on('Pt6Line7_Checkbox[1]') && on('Pt6Line7b_Checkbox[1]')).toBe(true); // attorney, does not extend
+    expect(text('Pt6Line8a_Signature[0]')).toBeUndefined();
+    const same = await filled({ ...helped, 'prep.same': 'yes', 'prep.statement': 'notAttorney' });
+    expect((same.get('Pt6Line1a_PreparerFamilyName[0]') as PDFTextField).getText()).toBe('Rios');
+    expect((same.get('Pt6Line7_Checkbox[0]') as PDFCheckBox).isChecked()).toBe(true);
+    expect(((await filled(spouseBeneficiary)).get('Pt5Line1a_InterpreterFamilyName[0]') as PDFTextField).getText()).toBeUndefined();
   });
 });

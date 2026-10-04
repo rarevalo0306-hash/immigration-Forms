@@ -162,6 +162,46 @@ export const spouseCase: Answers = {
   fluentLanguage: 'Spanish',
 };
 
+/** Someone interpreted and someone else prepared the form. */
+const helped: Answers = {
+  ...spouseCase,
+  readsEnglish: 'interpreter',
+  preparer: 'yes',
+  'preparer.name': 'Luis Ortega',
+  'interp.family': 'Ríos',
+  'interp.given': 'Ana',
+  'interp.business': 'Ayuda Legal',
+  'interp.street': '10 Elm St',
+  'interp.unit': 'Apt 3',
+  'interp.city': 'Dallas',
+  'interp.state': 'TX',
+  'interp.zip': '75201',
+  'interp.country': 'United States',
+  'interp.phone': '214 555 0100',
+  'interp.mobile': '214 555 0101',
+  'interp.email': 'ana@example.com',
+  'interp.language': 'Spanish',
+  'prep.family': 'Ortega',
+  'prep.given': 'Luis',
+  'prep.business': 'Ortega Law',
+  'prep.street': '22 Calle Sol',
+  'prep.unit': 'Flr 2',
+  'prep.city': 'Tijuana',
+  'prep.province': 'Baja California',
+  'prep.postal': '22000',
+  'prep.country': 'Mexico',
+  'prep.phone': '664 555 0102',
+  'prep.mobile': '664 555 0103',
+  'prep.email': 'luis@example.com',
+  'prep.statement': 'attorneyNotExtends',
+};
+
+/** Every preparer's statement, with the same person or someone else preparing. */
+const helpVariants: Answers[] = ['notAttorney', 'attorneyExtends', 'attorneyNotExtends'].flatMap((statement) => [
+  { ...helped, 'prep.statement': statement, 'interp.unit': 'Ste 1', 'prep.unit': 'Apt 2', 'prep.state': 'CA', 'prep.zip': '92101' },
+  { ...helped, 'prep.statement': statement, 'prep.same': 'yes' },
+]);
+
 async function filled(a: Answers) {
   return fieldIndex((await PDFDocument.load(await fillI130(template, a))).getForm());
 }
@@ -173,6 +213,7 @@ describe('I-130 PDF', () => {
       spouseCase,
       { ...spouseCase, relationship: 'child', childRelationship: 'stepchild', 'pet.status': 'lpr', 'pet.lpr.class': 'IR1', 'pet.lpr.date': '01/01/2015', 'pet.lpr.city': 'Houston', 'pet.lpr.state': 'TX', 'pet.lprByMarriage': 'yes', 'pet.mailingSame': 'yes', 'pet.spouse.more1': 'yes', 'pet.spouse2.family': 'X', 'ben.spouse.more1': 'yes', 'ben.spouse2.family': 'Y', 'ben.marital': 'separated', 'pet.marital': 'annulled', processingPlace: 'consular', 'consulate.city': 'Ciudad Juarez', 'consulate.country': 'Mexico', prevPetition: 'yes', 'prev.family': 'Z', 'prev.state': 'TX', 'ben.priorPetition': 'unknown', 'ben.usAddress.differs': 'yes', 'ben.usAddress.street': '1 A St', 'ben.usAddress.state': 'TX', readsEnglish: 'yes', 'pet.race': ['white', 'asian', 'black', 'indian', 'pacific'], 'ben.proceedings.type': ['removal', 'exclusion', 'rescission', 'judicial'] },
       { ...spouseCase, relationship: 'sibling', siblingAdopted: 'yes', 'pet.citizenHow': 'parents', 'otherRelative.more1': 'yes', 'otherRelative2.family': 'W', 'ben.marital': 'widowed', 'pet.ethnicity': 'notHispanic', 'pet.eyes': 'OTH', 'pet.hair': 'BLD' },
+      ...helpVariants,
     ];
     for (const plan of variants.map(planI130)) {
       for (const name of Object.keys(plan.text)) expect(index.get(name), name).toBeInstanceOf(PDFTextField);
@@ -233,6 +274,30 @@ describe('I-130 PDF', () => {
     expect(text('Pt6Line1b_Language[0]')).toBe('Spanish');
     expect(text('Pt6Line3_DaytimePhoneNumber[0]')).toBe('2135550123');
     expect(text('P5_Line6a_SignatureofApplicant[0]')).toBeUndefined();
+  });
+
+  it('writes the interpreter and the preparer', async () => {
+    const f = await filled(helped);
+    const text = (n: string) => (f.get(n) as PDFTextField).getText();
+    const on = (n: string) => (f.get(n) as PDFCheckBox).isChecked();
+    expect(on('Pt6Line2_Checkbox[0]')).toBe(true);
+    expect(text('Pt6Line2_RepresentativeName[0]')).toBe('Luis Ortega');
+    expect(text('Pt7Line1a_InterpreterFamilyName[0]')).toBe('Rios');
+    expect(on('Pt7Line3_Unit[0]')).toBe(true); // Apt
+    expect(text('Pt7Line3_AptSteFlrNumber[0]')).toBe('3');
+    expect(text('Pt4Line53_DaytimePhoneNumber[0]')).toBe('2145550101'); // interpreter's mobile
+    expect(text('Pt7_NameofLanguage[0]')).toBe('Spanish');
+    expect(text('Pt7Line7a_Signature[0]')).toBeUndefined();
+    expect(text('Pt8Line1a_PreparerFamilyName[0]')).toBe('Ortega');
+    expect(on('Pt8Line3_Unit[2]')).toBe(true); // Flr
+    expect(text('Pt8Line3_Province[0]')).toBe('Baja California');
+    expect(text('Pt8Line5_PreparerFaxNumber[0]')).toBe('6645550103'); // printed "Mobile"
+    expect(on('Pt8Line7_Checkbox[1]') && on('Pt8Line7b_Checkbox[1]')).toBe(true); // attorney, does not extend
+    expect(text('Pt8Line8a_Signature[0]')).toBeUndefined();
+    const same = planI130({ ...helped, 'prep.same': 'yes', 'prep.statement': 'notAttorney' });
+    expect(same.text['Pt8Line1a_PreparerFamilyName[0]']).toBe('Ríos');
+    expect(same.checkValue).toContainEqual(['Pt8Line7_Checkbox', 'A']);
+    expect(planI130(spouseCase).text['Pt7Line1a_InterpreterFamilyName[0]']).toBeUndefined();
   });
 
   it('skips the current-address row when the mailing address is home', async () => {

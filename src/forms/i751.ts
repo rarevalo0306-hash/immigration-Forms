@@ -1,10 +1,13 @@
 import type { Field, FormDefinition, YesNoItem } from './types';
 import type { T } from '../i18n';
 import { all, anyAddress, biographic, date, is, nameFields, rows, yesNo } from './helpers';
+import { assistanceSection, usedPreparer } from './assistance';
 
 // Questions follow USCIS Form I-751, Petition to Remove Conditions on Residence, edition 04/01/24.
 // The person filling in the app is the conditional resident; on a joint petition the spouse (or
 // stepparent) answers their own statement in Part 8. The PDF mapping lives in src/pdf/i751Pdf.ts.
+// One interpreter (Part 9) and one preparer (Part 10) serve both spouses; they are filled in from
+// the last section and sign and date by hand.
 
 export const I751_EDITION = '04/01/24';
 
@@ -56,13 +59,13 @@ export const i751: FormDefinition = {
     es: [
       'Confirme en uscis.gov/i-751 que la edición {edition} sigue vigente y revise la tarifa; si cambió, use la nueva y copie sus respuestas de esta hoja.',
       'Adjunte copia de su tarjeta de residente (frente y reverso) y pruebas de que el matrimonio es real: cuentas o contratos a nombre de los dos, actas de nacimiento de hijos, fotos, declaraciones de personas que los conocen.',
-      'Imprima el PDF. Usted firma la Parte 7, Ítem 6.a; si la petición es conjunta, su cónyuge firma la Parte 8, Ítem 6.a. A mano, con tinta negra.',
+      'Imprima el PDF. Usted firma la Parte 7, Ítem 6.a; si la petición es conjunta, su cónyuge firma la Parte 8, Ítem 6.a. A mano, con tinta negra. Si un intérprete o preparador le ayudó, ellos firman y fechan a mano las Partes 9 y 10.',
       'Envíelo dentro de los 90 días antes de que venza su tarjeta (salvo que pida una exención). El recibo extiende su residencia mientras espera.',
     ],
     en: [
       'Check at uscis.gov/i-751 that edition {edition} is still current and check the fee; if it changed, use the new one and copy your answers from this sheet.',
       'Attach a copy of your green card (front and back) and evidence the marriage is real: joint accounts or leases, children’s birth certificates, photos, affidavits from people who know you.',
-      'Print the PDF. You sign Part 7, Item 6.a; on a joint petition your spouse signs Part 8, Item 6.a. By hand, in black ink.',
+      'Print the PDF. You sign Part 7, Item 6.a; on a joint petition your spouse signs Part 8, Item 6.a. By hand, in black ink. If an interpreter or preparer helped you, they sign and date Parts 9 and 10 by hand.',
       'File within 90 days before your card expires (unless you ask for a waiver). The receipt notice extends your residence while you wait.',
     ],
   },
@@ -366,6 +369,23 @@ export const i751: FormDefinition = {
           fields: [{ id: 'fluentLanguage', type: 'text', required: true, label: { es: 'Idioma', en: 'Language' }, formRef: 'Part 7 · Item 1.b', placeholder: 'Spanish' }],
         },
         {
+          id: 'preparer',
+          kind: 'choice',
+          formRef: 'Part 7 · Item 2',
+          question: t('¿Alguien más (no usted) le preparó esta petición?', 'Did someone else prepare this petition for you?'),
+          why: t('En una petición conjunta se anota también en la declaración de su cónyuge.', 'On a joint petition it also goes in your spouse’s statement.'),
+          options: yesNo,
+        },
+        {
+          id: 'preparerName',
+          kind: 'fields',
+          formRef: 'Part 7 · Item 2',
+          showIf: is('preparer', 'yes'),
+          question: t('¿Quién la preparó?', 'Who prepared it?'),
+          // Whether they are an attorney (Item 2's "is / is not") comes from the preparer's statement.
+          fields: [{ id: 'preparer.name', type: 'text', required: true, label: { es: 'Nombre del preparador', en: 'Preparer’s name' }, formRef: 'Part 7 · Item 2' }],
+        },
+        {
           id: 'contactInfo',
           kind: 'fields',
           formRef: 'Part 7 · Items 3–5 · Petitioner’s Contact Information',
@@ -417,5 +437,12 @@ export const i751: FormDefinition = {
         },
       ],
     },
+    assistanceSection({
+      // One interpreter serves the petitioner, the spouse or both.
+      usedInterpreter: (a) => a.readsEnglish === 'B' || (isJoint(a) && a['spouse.readsEnglish'] === 'B'),
+      usedPreparer,
+      interpreterPart: 'Part 9',
+      preparerPart: 'Part 10',
+    }),
   ],
 };

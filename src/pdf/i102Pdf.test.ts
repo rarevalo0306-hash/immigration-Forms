@@ -47,6 +47,28 @@ export const julio: Answers = {
   email: 'julio.ramirez@example.com',
 };
 
+/** A friend interpreted and a nonprofit prepared Julio's form: Parts 5 and 6. */
+const helped: Answers = {
+  ...julio,
+  readsEnglish: 'B',
+  preparer: 'yes',
+  'interp.family': 'Gómez',
+  'interp.given': 'Rosa',
+  'interp.business': 'Servicios Latinos',
+  'interp.phone': '(323) 555-0101',
+  'interp.mobile': '1 323 555 0102',
+  'interp.email': 'rosa@example.com',
+  'interp.language': 'Spanish',
+  'prep.same': 'no',
+  'prep.family': 'Lee',
+  'prep.given': 'Ana',
+  'prep.business': 'East LA Immigrant Center',
+  'prep.phone': '323 555 0199',
+  'prep.mobile': '323 555 0198',
+  'prep.email': 'ana@example.com',
+  'prep.statement': 'notAttorney',
+};
+
 const longText = 'Immigration Court in Los Angeles, California. '.repeat(30);
 
 describe('I-102 PDF', () => {
@@ -60,6 +82,9 @@ describe('I-102 PDF', () => {
     const index = fieldIndex((await PDFDocument.load(template)).getForm());
     const variants: Answers[] = [
       julio,
+      helped,
+      { ...helped, 'prep.same': 'yes' },
+      ...['attorneyExtends', 'attorneyNotExtends'].map((st) => ({ ...helped, 'prep.statement': st })),
       ...REASONS.map((r) => ({ ...julio, reason: r.value })),
       ...['land', 'air', 'sea'].map((portType) => ({ ...julio, portType })),
       ...['Apt 3', 'Ste 200', 'Flr 2'].map((unit) => ({ ...julio, 'mailing.unit': unit, mailingSame: 'no', 'home.street': '1 Main St', 'home.unit': unit, 'home.city': 'Fresno', 'home.state': 'CA', 'home.zip': '93701', 'home.careOf': 'Ana' })),
@@ -130,6 +155,20 @@ describe('I-102 PDF', () => {
     expect(checked('Line2a_Yes[0]')).toBe(false);
     expect(text('Pt4Line1_DaytimePhoneNumber1[0]')).toBe('3235550147');
     expect(text('Pt4Line4_SignatureofApplicant[0]') ?? '').toBe('');
+    expect(text('Pt5Line1_InterpreterFamilyName[0]') ?? '').toBe('');
+  });
+
+  it('fills the interpreter and preparer parts', async () => {
+    const f = fieldIndex((await PDFDocument.load(await fillI102(template, helped))).getForm());
+    const text = (n: string) => (f.get(n) as PDFTextField).getText() ?? '';
+    expect(text('Pt5Line1_InterpreterFamilyName[0]')).toBe('Gomez');
+    expect(text('Pt5Line4_MobilePhoneNumber1[0]')).toBe('3235550102');
+    expect(text('Pt5FluentinLanguage[0]')).toBe('Spanish');
+    expect(text('Pt6Line1_PreparerFamilyName[0]')).toBe('Lee');
+    expect(text('Pt6Line4_DaytimePhoneNumber1[0]')).toBe('3235550198');
+    expect(text('Pt6Line6_SignatureofPreparer[0]')).toBe('');
+    const same = fieldIndex((await PDFDocument.load(await fillI102(template, { ...helped, 'prep.same': 'yes' }))).getForm());
+    expect((same.get('Pt6Line1_PreparerFamilyName[0]') as PDFTextField).getText()).toBe('Gomez');
   });
 
   it('moves long explanations to Part 7 and types unknown ports in', async () => {

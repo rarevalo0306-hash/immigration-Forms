@@ -2,6 +2,7 @@ import { PDFCheckBox, PDFDocument, PDFDropdown, PDFTextField, StandardFonts } fr
 import type { Answers } from '../forms/types';
 import { CRIME_ITEMS, ELIGIBILITY_ITEMS, PROCEEDINGS, PROCESSING_ITEMS } from '../forms/i918';
 import { parseUnit } from '../engine/validation';
+import { assistance, type HelperPerson, usedInterpreter, usedPreparer } from '../forms/assistance';
 import { fieldIndex, optionBoxes, selectOption, setFieldText, toFormText, wrap } from './common';
 
 // Fields of USCIS Form I-918, edition 01/20/25 (public/forms/i-918.pdf), named by the last segment
@@ -15,6 +16,12 @@ import { fieldIndex, optionBoxes, selectOption, setFieldText, toFormText, wrap }
 // - Part 5, Item 2's preparer name is "P5_Line2_Attorney", Item 4 (mobile) is
 //   "P5_Line5_SafePhoneNumber3" and Item 5 (email) "P5_Line6_EmailAddress"; Item 1.a exports A and
 //   1.b exports B.
+// - Part 6 (interpreter) starts on page 8 and Part 7 (preparer) runs to page 10. The interpreter's
+//   mobile phone (Item 5) is "P6_Line4_InterpretersDaytimeTelephoneNumber3[1]", their language
+//   "Part7_Line6_Language"; the preparer's mobile is "P7_Line5_PreparersFaxNumber3". The unit boxes
+//   "Pt6Line3_Unit" / "Pt7Line3_Unit" are [2] APT, [0] STE, [1] FLR left to right, export values
+//   matching the labels. Part 7, Item 7 is "P7_Line7_Checkbox" (A / B) and "P7_Line7_Extend"
+//   ([1] Y = extends, printed first; [0] N = does not extend).
 // - Part 8, Item 7.d is "P8_Line6d_AdditionalInfo[1]". Part 8 repeats the name and A-Number as
 //   "Pt1Line1*[1]" and "P1_Line5_AlienNumber[1]".
 
@@ -254,6 +261,48 @@ export function planI918(a: Answers): I918Plan {
   put('P5_Line3_DaytimePhoneNumber3[0]', digits(str(a, 'phone')));
   put('P5_Line5_SafePhoneNumber3[0]', digits(str(a, 'mobile')));
   put('P5_Line6_EmailAddress[0]', str(a, 'email'));
+
+  // Parts 6 and 7. Signatures and dates stay empty.
+  const helper = (p: string, h: HelperPerson) => {
+    put(`${p}_StreetNumberName[0]`, h.street);
+    const u = parseUnit(h.unit);
+    if (u) {
+      checkValue.push([`${p}_Unit`, u.kind]);
+      put(`${p}_AptSteFlrNumber[0]`, u.number);
+    }
+    put(`${p}_CityOrTown[0]`, h.city);
+    state(`${p}_State[0]`, h.state);
+    put(`${p}_ZipCode[0]`, h.zip);
+    put(`${p}_Province[0]`, h.province);
+    put(`${p}_PostalCode[0]`, h.postal);
+    put(`${p}_Country[0]`, h.country);
+  };
+  const help = assistance(a, { interpreter: usedInterpreter(a), preparer: usedPreparer(a) });
+  if (help.interpreter) {
+    const h = help.interpreter;
+    put('P6_Line1a_InterpretersFamilyName[0]', h.family);
+    put('P6_Line1b_InterpretersGivenName[0]', h.given);
+    put('P6_Line2_IntrpretersBusinessName[0]', h.business);
+    helper('Pt6Line3', h);
+    put('P6_Line4_InterpretersDaytimeTelephoneNumber3[0]', digits(h.phone));
+    put('P6_Line4_InterpretersDaytimeTelephoneNumber3[1]', digits(h.mobile));
+    put('P6_Line5_EmailAddress[0]', h.email);
+    put('Part7_Line6_Language[0]', h.language);
+  }
+  if (help.preparer) {
+    const h = help.preparer;
+    put('P7_Line1a_PreparersFamilyName[0]', h.family);
+    put('P7_Line1b_PreparersGivenName[0]', h.given);
+    put('P7_Line2_PreparersBusinessName[0]', h.business);
+    helper('Pt7Line3', h);
+    put('P7_Line4_PreparersDaytimeTelephoneNumber3[0]', digits(h.phone));
+    put('P7_Line5_PreparersFaxNumber3[0]', digits(h.mobile));
+    put('P7_Line6_EmailAddress[0]', h.email);
+    if (h.statement === 'notAttorney') checkValue.push(['P7_Line7_Checkbox', 'A']);
+    if (h.statement === 'attorneyExtends' || h.statement === 'attorneyNotExtends') checkValue.push(['P7_Line7_Checkbox', 'B']);
+    if (h.statement === 'attorneyExtends') checkValue.push(['P7_Line7_Extend', 'Y']);
+    if (h.statement === 'attorneyNotExtends') checkValue.push(['P7_Line7_Extend', 'N']);
+  }
 
   return { text, check, checkValue, select, notes: notes.filter((n) => n.text) };
 }

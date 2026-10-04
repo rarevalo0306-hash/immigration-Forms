@@ -1,15 +1,16 @@
 import type { Answers, Field, FormDefinition, Question, YesNoItem } from './types';
 import type { T } from '../i18n';
 import { all, anyAddress, date, is, nameFields, rows, sexField, yesNo } from './helpers';
+import { assistanceSection, usedInterpreter, usedPreparer } from './assistance';
 
 // Questions follow USCIS Form I-918, Petition for U Nonimmigrant Status, edition 01/20/25.
 // The PDF mapping lives in src/pdf/i918Pdf.ts.
 //
-// Out of scope: Supplement A (the petition for each qualifying family member) and Supplement B
-// (the law enforcement certification, signed by a police officer, prosecutor, judge or other
-// certifying official) are separate forms; the intro and next steps explain them. Parts 6 and 7
-// (interpreter and preparer), the signature and its date, and the attorney box on page 1 are left
-// blank to be completed by hand.
+// Supplement A (the petition for each qualifying family member) is its own form in Camino
+// (src/forms/i918supa.ts). Out of scope: Supplement B (the law enforcement certification, signed by
+// a police officer, prosecutor, judge or other certifying official), a separate form; the intro and next steps explain them. Every signature and
+// date, and the attorney box on page 1, are left blank to be completed by hand. Parts 6 and 7
+// (interpreter and preparer) are filled from the shared assistance section.
 
 export const I918_EDITION = '01/20/25';
 
@@ -154,8 +155,8 @@ export const i918: FormDefinition = {
     en: 'Ask for U nonimmigrant status if you were the victim of a qualifying crime in the U.S., were harmed by it and helped the police or prosecutors.',
   },
   intro: {
-    es: 'La visa U protege a víctimas de ciertos delitos (violencia doméstica, agresión sexual, trata, secuestro, chantaje y otros) que ayudaron o están dispuestas a ayudar a las autoridades. Aquí se llena la petición principal (I-918) para usted. Además necesita el Suplemento B, una certificación que firma la policía, la fiscalía, un juez u otra autoridad que investigó el delito: es obligatorio, no lo puede llenar usted y debe pedirlo a esa agencia. Para incluir a su familia se usa el Suplemento A, que no está en esta app. Su caso es confidencial: la ley prohíbe que USCIS comparta su información con la persona que le hizo daño. Es un caso legal delicado: le recomendamos que lo revise un abogado o un representante acreditado (muchas organizaciones ayudan gratis a víctimas).',
-    en: 'The U visa protects victims of certain crimes (domestic violence, sexual assault, trafficking, kidnapping, extortion and others) who helped or are willing to help the authorities. This app completes the main petition (Form I-918) for you. You also need Supplement B, a certification signed by the police, prosecutor, judge or other authority that investigated the crime: it is required, you cannot fill it out yourself, and you must request it from that agency. Family members are added with Supplement A, which is not in this app. Your case is confidential: the law forbids USCIS from sharing your information with the person who harmed you. It is a sensitive legal case: we recommend an attorney or accredited representative review it (many organizations help victims for free).',
+    es: 'La visa U protege a víctimas de ciertos delitos (violencia doméstica, agresión sexual, trata, secuestro, chantaje y otros) que ayudaron o están dispuestas a ayudar a las autoridades. Aquí se llena la petición principal (I-918) para usted. Además necesita el Suplemento B, una certificación que firma la policía, la fiscalía, un juez u otra autoridad que investigó el delito: es obligatorio, no lo puede llenar usted y debe pedirlo a esa agencia. Para incluir a su familia se usa el Suplemento A, que también puede llenar en esta app. Su caso es confidencial: la ley prohíbe que USCIS comparta su información con la persona que le hizo daño. Es un caso legal delicado: le recomendamos que lo revise un abogado o un representante acreditado (muchas organizaciones ayudan gratis a víctimas).',
+    en: 'The U visa protects victims of certain crimes (domestic violence, sexual assault, trafficking, kidnapping, extortion and others) who helped or are willing to help the authorities. This app completes the main petition (Form I-918) for you. You also need Supplement B, a certification signed by the police, prosecutor, judge or other authority that investigated the crime: it is required, you cannot fill it out yourself, and you must request it from that agency. Family members are added with Supplement A, which you can also fill out in this app. Your case is confidential: the law forbids USCIS from sharing your information with the person who harmed you. It is a sensitive legal case: we recommend an attorney or accredited representative review it (many organizations help victims for free).',
   },
   minutes: 50,
   pdf: {
@@ -170,7 +171,7 @@ export const i918: FormDefinition = {
       'Pida el Suplemento B (Formulario I-918, Supplement B) a la policía, fiscalía, juez u otra agencia que investigó el delito. Es obligatorio: una autoridad debe firmarlo en los 6 meses antes de que usted presente, y usted envía el original firmado.',
       'Escriba su declaración personal: qué pasó, cómo le afectó y cómo ayudó a las autoridades. Adjunte también pruebas del delito y del daño (reportes de policía, órdenes de protección, cartas médicas o de terapia, fotos) y una copia de su pasaporte o acta de nacimiento.',
       'Si contestó Sí a alguna pregunta de la Parte 3 o entró sin permiso, presente también el Formulario I-192 (perdón de inadmisibilidad). Si quiere incluir a su esposo/a, hijos o (si es menor de 21) padres y hermanos, llene un Suplemento A por cada uno.',
-      'Imprima el PDF y firme la Parte 5, Ítem 6.a, a mano con tinta negra. Si un intérprete o preparador le ayudó, ellos llenan y firman a mano las Partes 6 y 7. Si alguna explicación de la Parte 8 no cabe, siga en una hoja aparte con su nombre, A-Number, firma y fecha.',
+      'Imprima el PDF y firme la Parte 5, Ítem 6.a, a mano con tinta negra. Si un intérprete o preparador le ayudó, sus datos ya están en las Partes 6 y 7; ellos las revisan y las firman y fechan a mano. Si alguna explicación de la Parte 8 no cabe, siga en una hoja aparte con su nombre, A-Number, firma y fecha.',
       'Envíe todo a la dirección de USCIS indicada en uscis.gov/i-918 (la oficina que atiende casos de víctimas). Si teme que alguien vea su correo, use una dirección segura. Hable con un abogado o representante acreditado antes de enviar.',
     ],
     en: [
@@ -178,7 +179,7 @@ export const i918: FormDefinition = {
       'Request Supplement B (Form I-918, Supplement B) from the police, prosecutor, judge or other agency that investigated the crime. It is required: a certifying official must sign it within the 6 months before you file, and you send the signed original.',
       'Write your personal statement: what happened, how it affected you and how you helped the authorities. Also attach evidence of the crime and the harm (police reports, protective orders, medical or counseling letters, photos) and a copy of your passport or birth certificate.',
       'If you answered Yes to any Part 3 question or entered without permission, also file Form I-192 (waiver of inadmissibility). To include your spouse, children or (if you are under 21) parents and siblings, complete a Supplement A for each one.',
-      'Print the PDF and sign Part 5, Item 6.a, by hand in black ink. If an interpreter or preparer helped you, they complete and sign Parts 6 and 7 by hand. If an explanation in Part 8 does not fit, continue on a separate sheet with your name, A-Number, signature and date.',
+      'Print the PDF and sign Part 5, Item 6.a, by hand in black ink. If an interpreter or preparer helped you, their details are already in Parts 6 and 7; they review them and sign and date by hand. If an explanation in Part 8 does not fit, continue on a separate sheet with your name, A-Number, signature and date.',
       'Mail everything to the USCIS address listed at uscis.gov/i-918 (the office that handles victim cases). If you fear someone may see your mail, use a safe address. Talk to an attorney or accredited representative before mailing.',
     ],
   },
@@ -539,7 +540,7 @@ export const i918: FormDefinition = {
           notice: {
             tone: 'info',
             title: t('Suplemento A', 'Supplement A'),
-            body: t('Si contesta Sí, debe llenar un Suplemento A por cada familiar. Esta app no lo llena; también puede presentarlo después.', 'If you answer Yes, you must complete a Supplement A for each family member. This app does not complete it; you can also file it later.'),
+            body: t('Si contesta Sí, debe llenar un Suplemento A por cada familiar. Puede llenarlo en esta app (I-918 Suplemento A), uno por familiar; también puede presentarlo después.', 'If you answer Yes, you must complete a Supplement A for each family member. You can fill it out in this app (I-918 Supplement A), one per family member; you can also file it later.'),
           },
           options: yesNo,
         },
@@ -566,7 +567,7 @@ export const i918: FormDefinition = {
           kind: 'choice',
           formRef: 'Part 5 · Item 2',
           question: t('¿Alguien más (no usted) preparó esta petición?', 'Did someone else prepare this petition for you?'),
-          why: t('Si es así, esa persona también debe llenar y firmar la Parte 7 a mano.', 'If so, that person must also complete and sign Part 7 by hand.'),
+          why: t('Si es así, al final le pediremos sus datos para la Parte 7; esa persona la firma a mano.', 'If so, we ask for their details for Part 7 at the end; that person signs it by hand.'),
           options: yesNo,
         },
         { id: 'preparerName', kind: 'fields', formRef: 'Part 5 · Item 2', showIf: is('preparer', 'yes'), question: t('¿Quién la preparó?', 'Who prepared it?'), fields: [text('preparer.name', 'Nombre del preparador', 'Preparer’s name', 'Part 5 · Item 2')] },
@@ -584,6 +585,6 @@ export const i918: FormDefinition = {
         },
       ],
     },
+    assistanceSection({ usedInterpreter, usedPreparer, interpreterPart: 'Part 6', preparerPart: 'Part 7' }),
   ],
 };
-

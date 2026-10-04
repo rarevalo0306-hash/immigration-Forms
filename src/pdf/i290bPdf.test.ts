@@ -36,6 +36,28 @@ export const carlos: Answers = {
   email: 'carlos.ramirez@example.com',
 };
 
+/** A friend interpreted and a nonprofit prepared Carlos's motion: Parts 5 and 6. */
+const helped: Answers = {
+  ...carlos,
+  readsEnglish: 'B',
+  preparer: 'yes',
+  'interp.family': 'Gómez',
+  'interp.given': 'Rosa',
+  'interp.business': 'Servicios Latinos',
+  'interp.phone': '(713) 555-0101',
+  'interp.mobile': '1 713 555 0102',
+  'interp.email': 'rosa@example.com',
+  'interp.language': 'Spanish',
+  'prep.same': 'no',
+  'prep.family': 'Lee',
+  'prep.given': 'Ana',
+  'prep.business': 'Houston Immigrant Center',
+  'prep.phone': '713 555 0199',
+  'prep.mobile': '713 555 0198',
+  'prep.email': 'ana@example.com',
+  'prep.statement': 'notAttorney',
+};
+
 const long = (n: number) => [...Array(n)].map((_, i) => `Paragraph ${i + 1}. The officer did not consider the evidence of record, including the affidavits and the employment letters submitted with the petition.`).join('\n');
 
 describe('I-290B PDF', () => {
@@ -48,6 +70,9 @@ describe('I-290B PDF', () => {
       { ...carlos, filingType: 'both', 'mailing.unit': 'Floor 3', 'decision.office': 'Other', 'decision.officeOther': 'Mexico City Field Office' },
       { ...carlos, filer: 'business', 'business.name': 'Ramirez Construction LLC', 'mailing.state': '', 'mailing.zip': '', 'mailing.province': 'Jalisco', 'mailing.postal': '44100', 'mailing.country': 'Mexico' },
       ...OFFICES.map((o) => ({ ...carlos, 'decision.office': o })),
+      helped,
+      { ...helped, 'prep.same': 'yes' },
+      ...['attorneyExtends', 'attorneyNotExtends'].map((st) => ({ ...helped, 'prep.statement': st })),
     ];
     for (const plan of variants.map(planI290B)) {
       for (const name of Object.keys(plan.text)) expect(index.get(name), name).toBeInstanceOf(PDFTextField);
@@ -91,6 +116,20 @@ describe('I-290B PDF', () => {
     expect(text('P4_Line5_Email[0]')).toBe('carlos.ramirez@example.com');
     expect(text('Pt7_Line3d_AdditionalInfo[0]') ?? '').toBe('');
     expect(text('P4_Line6b_DateofSignature[0]') ?? '').toBe('');
+    expect(text('P5_Line1a_InterpreterFamilyName[0]') ?? '').toBe('');
+  });
+
+  it('fills the interpreter and preparer parts', async () => {
+    const f = fieldIndex((await PDFDocument.load(await fillI290B(template, helped))).getForm());
+    const text = (n: string) => (f.get(n) as PDFTextField).getText() ?? '';
+    expect(text('P5_Line1a_InterpreterFamilyName[0]')).toBe('Gomez');
+    expect(text('P5_Line4_InterDayTel[1]')).toBe('7135550102');
+    expect(text('P5_Line5b_Fluent[0]')).toBe('Spanish');
+    expect(text('P6_Line1a_PreparerFamilyName[0]')).toBe('Lee');
+    expect(text('Pt6_Line5_PrepFaxPhone[0]')).toBe('7135550198');
+    expect(text('P6_L8a_PrepSignature[0]')).toBe('');
+    const same = fieldIndex((await PDFDocument.load(await fillI290B(template, { ...helped, 'prep.same': 'yes' }))).getForm());
+    expect((same.get('P6_Line1a_PreparerFamilyName[0]') as PDFTextField).getText()).toBe('Gomez');
   });
 
   it('marks Item 1.b, which is the third box, for a brief sent later', async () => {

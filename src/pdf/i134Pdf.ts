@@ -1,6 +1,7 @@
 import { PDFCheckBox, PDFDocument, PDFDropdown, type PDFField, type PDFForm, PDFTextField, StandardFonts } from 'pdf-lib';
 import type { Answers } from '../forms/types';
 import { ASSETS } from '../forms/i134';
+import { assistance, usedInterpreter, usedPreparer } from '../forms/assistance';
 import { parseUnit } from '../engine/validation';
 import { optionBoxes, selectOption, setFieldText, toFormText, wrap } from './common';
 
@@ -20,6 +21,9 @@ import { optionBoxes, selectOption, setFieldText, toFormText, wrap } from './com
 //   "Part4_Line4_SafePhoneNumber3" on both pages (P5[0] is Part 4, P9[0] is Part 5).
 // - Part 8's rows are "Pt9Line3*" (Item 3), then "Pt9Line4*[0..2]" for Items 4-6, with
 //   "Pt9Line3d_AdditionalInfo[1..3]" as their text.
+// - Part 6 (interpreter, page 8) is "P10[0].Pt6Line1_*", "P3_Line4/5_*" (daytime/mobile phone), "P3_Line6_Email"
+//   and "P4_Line6_Language"; Part 7 (preparer, page 9) is "P11[0].P4_Line1_Interpreter*Name" and
+//   "Pt7Line4_DaytimeTelephoneNum" / "Pt7Line3_MobileTelephoneNum". Neither part has address or statement boxes.
 
 export interface I134Plan {
   text: Record<string, string>;
@@ -264,6 +268,28 @@ export function planI134(a: Answers): I134Plan {
     put(`${p}Part4_Line3_DaytimePhoneNumber3[0]`, digits(str(a, 'phone')));
     put(`${p}Part4_Line4_SafePhoneNumber3[0]`, digits(str(a, 'mobile')));
     put(`${p}Part4_Line5_EmailAddress[0]`, str(a, 'email'));
+  }
+
+  // Parts 6 and 7. Signatures and dates stay empty.
+  const help = assistance(a, { interpreter: usedInterpreter(a), preparer: usedPreparer(a) });
+  if (help.interpreter) {
+    const h = help.interpreter;
+    put('P10[0].Pt6Line1_InterpreterFamilyName[0]', h.family);
+    put('P10[0].Pt6Line1_InterpreterGivenName[0]', h.given);
+    put('P10[0].Pt6Line2_BusinessOrOrgName[0]', h.business);
+    put('P10[0].P3_Line4_DaytimeTelePhoneNumber[0]', digits(h.phone));
+    put('P10[0].P3_Line5_MobileTelePhoneNumber[0]', digits(h.mobile));
+    put('P10[0].P3_Line6_Email[0]', h.email);
+    put('P10[0].P4_Line6_Language[0]', h.language);
+  }
+  if (help.preparer) {
+    const h = help.preparer;
+    put('P11[0].P4_Line1_InterpreterFamilyName[0]', h.family);
+    put('P11[0].P4_Line1_InterpreterGivenName[0]', h.given);
+    put('P11[0].P4_Line2_NameofBusinessorOrgName[0]', h.business);
+    put('P11[0].Pt7Line4_DaytimeTelephoneNum[0]', digits(h.phone));
+    put('P11[0].Pt7Line3_MobileTelephoneNum[0]', digits(h.mobile));
+    put('P11[0].Pt7Line6_Email[0]', h.email);
   }
 
   return { text, check, checkValue, select, contributions, notes: notes.filter((n) => n.text) };

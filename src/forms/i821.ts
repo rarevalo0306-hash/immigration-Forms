@@ -1,11 +1,15 @@
-import type { Field, FormDefinition, Question } from './types';
+import type { Answers, Field, FormDefinition, Option, Question } from './types';
 import type { T } from '../i18n';
-import { biographic, date, is, nameFields, rows, sexField, yesNo } from './helpers';
+import { all, anyAddress, biographic, date, is, nameFields, rows, sexField, yesNo } from './helpers';
+import { assistanceSection } from './assistance';
 import { flaggedI821, P7_GROUPS, toYesNoItems } from './i821Part7';
 
 // Questions follow USCIS Form I-821, Application for Temporary Protected Status, edition 01/20/25.
-// Parts 4-6 (spouse, former spouses and children) are only for late initial filings and are left
-// to fill by hand. The PDF mapping lives in src/pdf/i821Pdf.ts; Part 7 lives in i821Part7.ts.
+// Parts 4-6 (spouse, former spouses and children) are asked only of late initial filers, as the
+// form says; the form has room for two former spouses and two children, the rest go by hand in
+// Part 11. Parts 9 and 10 (interpreter and preparer) are filled from the "Who helped you" section;
+// those people still sign and date by hand. The PDF mapping lives in src/pdf/i821Pdf.ts; Part 7
+// lives in i821Part7.ts.
 
 export const I821_EDITION = '01/20/25';
 
@@ -23,6 +27,21 @@ const usAddress = (prefix: string, ref: string, careOf = false): Field[] => [
 
 const four = (id: string, ref: string, es: string, en: string): Field[] =>
   ['a', 'b', 'c', 'd'].map((l, i) => ({ id: `${id}${i + 1}`, type: 'text', required: i === 0, label: { es: i === 0 ? es : `${es} (otro)`, en: i === 0 ? en : `${en} (another)` }, formRef: `${ref}.${l}` }));
+
+/** Yes / No / I don't know, for what the applicant may not know about a relative's TPS. */
+const ynu: Option[] = [...yesNo, { value: 'unknown', label: { es: 'No sé', en: 'I don’t know' } }];
+
+const pick = (id: string, es: string, en: string, formRef: string, options: Option[] = ynu): Field => ({ id, type: 'select', label: { es, en }, formRef, options });
+
+const text = (id: string, es: string, en: string, formRef: string, extra: Partial<Field> = {}): Field => ({ id, type: 'text', label: { es, en }, formRef, ...extra });
+
+/** Parts 4-6 are only for late initial filers. */
+const late = all(is('appType', '1a'), is('lateInitial', 'yes'));
+
+const tpsDatesWhy = t(
+  'Si todavía tiene TPS, deje "Hasta" en blanco. Si no sabe las fechas, deje las dos en blanco.',
+  'If they still have TPS, leave "To" blank. If you don’t know the dates, leave both blank.',
+);
 
 const legal = {
   tone: 'legal' as const,
@@ -43,8 +62,8 @@ export const i821: FormDefinition = {
     en: 'Apply for or re-register your TPS if you are from a designated country (for example Venezuela, Honduras, El Salvador or Haiti). Filed with Form I-765.',
   },
   intro: {
-    es: 'Con el I-821 pide el TPS por primera vez o lo vuelve a registrar. Solo se puede presentar dentro del periodo de registro que USCIS anuncia para cada país: revise uscis.gov/tps antes de presentar. Si presenta una solicitud inicial tardía, también debe llenar a mano las Partes 4 a 6 (cónyuge, excónyuges e hijos).',
-    en: 'With Form I-821 you apply for TPS for the first time or re-register. You can only file within the registration period USCIS announces for each country: check uscis.gov/tps before filing. If you file a late initial application, you must also fill in Parts 4-6 (spouse, former spouses and children) by hand.',
+    es: 'Con el I-821 pide el TPS por primera vez o lo vuelve a registrar. Solo se puede presentar dentro del periodo de registro que USCIS anuncia para cada país: revise uscis.gov/tps antes de presentar. Si presenta una solicitud inicial tardía, también le preguntamos por su cónyuge, excónyuges e hijos (Partes 4 a 6).',
+    en: 'With Form I-821 you apply for TPS for the first time or re-register. You can only file within the registration period USCIS announces for each country: check uscis.gov/tps before filing. If you file a late initial application, we also ask about your spouse, former spouses and children (Parts 4-6).',
   },
   minutes: 45,
   pdf: {
@@ -58,13 +77,17 @@ export const i821: FormDefinition = {
       'Confirme en uscis.gov/tps que su país sigue designado, que el periodo de registro está abierto y que la edición {edition} sigue vigente; revise la tarifa.',
       'Si pide permiso de trabajo, llene también el I-765 (categoría (a)(12) o (c)(19)) y envíelos juntos. Puede llenar el I-765 en esta misma app.',
       'Adjunte prueba de su nacionalidad (pasaporte o acta de nacimiento), de su fecha de entrada y de que ha vivido en EE.UU. desde la fecha que pide el país.',
+      'Si presenta una solicitud inicial tardía, revise en el aviso del Registro Federal de su país las condiciones para presentar tarde y adjunte pruebas de que cumple una (por ejemplo, el acta de matrimonio o de nacimiento que muestra el parentesco). Si tiene más de dos excónyuges o hijos, escriba los demás a mano en la Parte 11.',
       'Imprima el PDF y firme la Parte 8, Ítem 6.a, a mano con tinta negra.',
+      'Si alguien le interpretó o le preparó el formulario, esa persona firma y fecha a mano la Parte 9 (intérprete) o la Parte 10 (preparador).',
     ],
     en: [
       'Check at uscis.gov/tps that your country is still designated, that the registration period is open and that edition {edition} is still current; check the fee.',
       'If you want a work permit, also complete Form I-765 (category (a)(12) or (c)(19)) and file them together. You can fill in the I-765 in this same app.',
       'Attach proof of your nationality (passport or birth certificate), of your date of entry and of living in the U.S. since the date set for your country.',
+      'If you file a late initial application, check your country’s Federal Register notice for the late-filing conditions and attach proof that you meet one (for example, the marriage or birth certificate showing the relationship). If you have more than two former spouses or children, write the rest by hand in Part 11.',
       'Print the PDF and sign Part 8, Item 6.a, by hand in black ink.',
+      'If someone interpreted or prepared the form for you, that person signs and dates Part 9 (interpreter) or Part 10 (preparer) by hand.',
     ],
   },
   sections: [
@@ -103,6 +126,18 @@ export const i821: FormDefinition = {
           question: t('¿Ha pedido TPS antes?', 'Have you applied for TPS before?'),
           why: t('Si sí, escriba cada solicitud anterior con su número de recibo y resultado. Si no, déjelo en blanco.', 'If yes, list each earlier application with its receipt number and outcome. If not, leave blank.'),
           fields: [{ id: 'prior.explain', type: 'longText', label: { es: 'Solicitudes anteriores (en inglés)', en: 'Earlier applications' }, formRef: 'Part 11 · Part 1 · Item 1.a' }],
+        },
+        {
+          id: 'lateInitial',
+          kind: 'choice',
+          formRef: 'Parts 4–6 · Late initial filing',
+          showIf: is('appType', '1a'),
+          question: t('¿Presenta tarde su primera solicitud (después del periodo inicial de registro de su país)?', 'Are you filing a late initial application (after your country’s initial registration period)?'),
+          why: t(
+            'USCIS acepta solicitudes iniciales tardías solo en ciertos casos, por ejemplo si durante el periodo inicial era cónyuge o hijo/a de alguien con derecho al TPS. Revise el aviso del Registro Federal de su país. Si es así, el formulario pide datos de su cónyuge, excónyuges e hijos.',
+            'USCIS accepts late initial applications only in certain cases, for example if during the initial period you were the spouse or child of someone eligible for TPS. Check your country’s Federal Register notice. If so, the form asks about your spouse, former spouses and children.',
+          ),
+          options: yesNo,
         },
         {
           id: 'ead',
@@ -309,6 +344,155 @@ export const i821: FormDefinition = {
       questions: biographic('Part 3'),
     },
     {
+      id: 'spouse',
+      part: 'Part 4',
+      title: t('Su cónyuge actual', 'Your current spouse'),
+      questions: [
+        {
+          id: 'spouseInfo',
+          kind: 'fields',
+          formRef: 'Part 4 · Items 1–3.c, 5 · Your Current Spouse',
+          showIf: all(late, is('marital', 'M', 'E')),
+          question: t('¿Quién es su cónyuge actual?', 'Who is your current spouse?'),
+          fields: [
+            ...nameFields('spouse', 'Part 4 · Items 3.a–3.c'),
+            { id: 'spouse.aNumber', type: 'aNumber', label: { es: 'A-Number (si tiene y lo sabe)', en: 'A-Number (if any and if known)' }, formRef: 'Part 4 · Item 2' },
+            { id: 'spouse.uscisAccount', type: 'uscisAccount', label: { es: 'Número de cuenta en línea de USCIS (si tiene y lo sabe)', en: 'USCIS online account number (if any and if known)' }, formRef: 'Part 4 · Item 1' },
+            date('spouse.dob', 'Fecha de nacimiento', 'Date of birth', 'Part 4 · Item 5'),
+          ],
+        },
+        {
+          id: 'spouseAddress',
+          kind: 'fields',
+          formRef: 'Part 4 · Items 4.a–4.h · Mailing Address of Spouse',
+          showIf: all(late, is('marital', 'M', 'E')),
+          question: t('¿Cuál es la dirección postal de su cónyuge?', 'What is your spouse’s mailing address?'),
+          fields: anyAddress('spouse', 'Part 4 · Items 4.a–4.h'),
+        },
+        {
+          id: 'spouseMarriage',
+          kind: 'fields',
+          formRef: 'Part 4 · Items 7–8.d · Place of Marriage',
+          showIf: all(late, is('marital', 'M', 'E')),
+          question: t('¿Dónde se casaron?', 'Where did you marry?'),
+          why: t('La fecha del matrimonio es la que dio en la Parte 2.', 'The date of the marriage is the one you gave in Part 2.'),
+          fields: [
+            text('spouse.marriagePlace', 'Lugar (por ejemplo, el registro civil o la iglesia; opcional)', 'Place (for example the civil registry or church; optional)', 'Part 4 · Item 7'),
+            text('spouse.marriageCity', 'Ciudad', 'City or town', 'Part 4 · Item 8.a', { required: true }),
+            { id: 'spouse.marriageState', type: 'state', label: { es: 'Estado (si fue en EE.UU.)', en: 'State (if in the U.S.)' }, formRef: 'Part 4 · Item 8.b' },
+            text('spouse.marriageProvince', 'Provincia (fuera de EE.UU.)', 'Province (outside the U.S.)', 'Part 4 · Item 8.c', { maxLength: 20 }),
+            text('spouse.marriageCountry', 'País', 'Country', 'Part 4 · Item 8.d', { required: true }),
+          ],
+        },
+        {
+          id: 'spouse.tps',
+          kind: 'choice',
+          formRef: 'Part 4 · Item 9',
+          showIf: all(late, is('marital', 'M', 'E')),
+          question: t('¿Su cónyuge ha tenido TPS alguna vez?', 'Has your spouse ever had TPS?'),
+          options: ynu,
+        },
+        {
+          id: 'spouseTps',
+          kind: 'fields',
+          formRef: 'Part 4 · Items 10.a–11',
+          showIf: all(late, is('marital', 'M', 'E'), is('spouse.tps', 'yes')),
+          question: t('El TPS de su cónyuge', 'Your spouse’s TPS'),
+          why: tpsDatesWhy,
+          fields: [
+            date('spouse.tpsFrom', 'Desde', 'From', 'Part 4 · Item 10.a', false),
+            date('spouse.tpsTo', 'Hasta', 'To', 'Part 4 · Item 10.b', false),
+            pick('spouse.tpsValid', '¿Su TPS sigue vigente?', 'Is your spouse’s TPS still valid?', 'Part 4 · Item 11'),
+          ],
+        },
+      ],
+    },
+    {
+      id: 'formerSpouses',
+      part: 'Part 5',
+      title: t('Sus excónyuges', 'Your former spouses'),
+      questions: [
+        {
+          id: 'formerSpouse.more0',
+          kind: 'choice',
+          formRef: 'Part 5 · Former Spouses',
+          showIf: all(late, (a: Answers) => a.marital !== 'S'),
+          question: t('¿Ha estado casado/a antes con otra persona?', 'Were you married before to someone else?'),
+          options: yesNo,
+        },
+        ...rows({
+          max: 2,
+          id: 'formerSpouse',
+          first: all(late, (a: Answers) => a.marital !== 'S', is('formerSpouse.more0', 'yes')),
+          question: (i) => (i === 1 ? t('Su primer matrimonio anterior', 'Your first former marriage') : t('Su segundo matrimonio anterior', 'Your second former marriage')),
+          more: t('¿Tuvo otro matrimonio anterior?', 'Did you have another former marriage?'),
+          formRef: 'Part 5 · Items 1.a–20',
+          why: () => tpsDatesWhy,
+          fields: (i) => {
+            const n = i === 1 ? 0 : 10;
+            const ref = (k: number | string, l = '') => `Part 5 · Item ${typeof k === 'number' ? k + n : k}${l}`;
+            const p = `former${i}`;
+            return [
+              ...nameFields(p, ref(1)),
+              text(`${p}.nationality`, 'Nacionalidad o nacionalidades', 'Nationalities', ref(2), { required: true }),
+              { id: `${p}.aNumber`, type: 'aNumber', label: { es: 'A-Number (si tiene y lo sabe)', en: 'A-Number (if any and if known)' }, formRef: ref(3) },
+              date(`${p}.dob`, 'Fecha de nacimiento', 'Date of birth', ref(4)),
+              date(`${p}.dod`, 'Fecha de fallecimiento (si falleció)', 'Date of death (if deceased)', ref(5), false),
+              date(`${p}.from`, 'Se casaron el', 'Married from', ref(6, '.a')),
+              date(`${p}.to`, 'El matrimonio terminó el', 'Married until', ref(6, '.b')),
+              text(`${p}.ended`, 'Cómo terminó (en inglés: divorce, widowed, annulled)', 'How the marriage ended', ref(7), { required: true, placeholder: 'divorce' }),
+              pick(`${p}.tps`, '¿Ha tenido TPS?', 'Did or does this former spouse have TPS?', ref(8)),
+              date(`${p}.tpsFrom`, 'TPS desde (si tuvo)', 'TPS from (if any)', ref(9, '.a'), false),
+              date(`${p}.tpsTo`, 'TPS hasta (si tuvo)', 'TPS to (if any)', ref(9, '.b'), false),
+              pick(`${p}.applying`, '¿Está pidiendo o renovando el TPS ahora?', 'Is this former spouse applying for or re-registering for TPS now?', ref(10)),
+            ];
+          },
+          overflow: { es: 'El formulario tiene espacio para 2 excónyuges. Si son más, escriba los demás a mano en la Parte 11.', en: 'The form has room for 2 former spouses. If there are more, write the rest by hand in Part 11.' },
+        }),
+      ],
+    },
+    {
+      id: 'children',
+      part: 'Part 6',
+      title: t('Sus hijos', 'Your children'),
+      questions: [
+        {
+          id: 'child.more0',
+          kind: 'choice',
+          formRef: 'Part 6 · Your Children',
+          showIf: late,
+          question: t('¿Tiene hijos?', 'Do you have any children?'),
+          why: t('Incluya a todos sus hijos, de cualquier edad y dondequiera que vivan.', 'Include all your children, of any age and wherever they live.'),
+          options: yesNo,
+        },
+        ...rows({
+          max: 2,
+          id: 'child',
+          first: all(late, is('child.more0', 'yes')),
+          question: (i) => (i === 1 ? t('Su primer hijo/a', 'Your first child') : t('Su segundo hijo/a', 'Your second child')),
+          more: t('¿Tiene otro hijo/a?', 'Do you have another child?'),
+          formRef: 'Part 6 · Items 1.a–14',
+          why: () => t('Si su hijo/a tiene o tuvo TPS, escriba las fechas si las sabe.', 'If your child has or had TPS, enter the dates if you know them.'),
+          fields: (i) => {
+            const n = i === 1 ? 0 : 7;
+            const ref = (k: number, l = '') => `Part 6 · Item ${k + n}${l}`;
+            const p = `child${i}`;
+            return [
+              ...nameFields(p, ref(1)),
+              { id: `${p}.uscisAccount`, type: 'uscisAccount', label: { es: 'Número de cuenta en línea de USCIS (si tiene y lo sabe)', en: 'USCIS online account number (if any and if known)' }, formRef: ref(2) },
+              { id: `${p}.aNumber`, type: 'aNumber', label: { es: 'A-Number (si tiene y lo sabe)', en: 'A-Number (if any and if known)' }, formRef: ref(3) },
+              date(`${p}.dob`, 'Fecha de nacimiento', 'Date of birth', ref(4)),
+              ...anyAddress(p, `${ref(5)} · Mailing Address`),
+              date(`${p}.tpsFrom`, 'TPS desde (si tuvo)', 'TPS from (if any)', ref(6, '.a'), false),
+              date(`${p}.tpsTo`, 'TPS hasta (si tuvo)', 'TPS to (if any)', ref(6, '.b'), false),
+              pick(`${p}.applying`, '¿Está pidiendo o renovando el TPS ahora?', 'Is this child applying for or re-registering for TPS now?', ref(7)),
+            ];
+          },
+          overflow: { es: 'El formulario tiene espacio para 2 hijos. Si son más, escriba los demás a mano en la Parte 11.', en: 'The form has room for 2 children. If there are more, write the rest by hand in Part 11.' },
+        }),
+      ],
+    },
+    {
       id: 'eligibility',
       part: 'Part 7',
       title: t('Elegibilidad', 'Eligibility'),
@@ -410,6 +594,22 @@ export const i821: FormDefinition = {
           fields: [{ id: 'fluentLanguage', type: 'text', required: true, label: { es: 'Idioma', en: 'Language' }, formRef: 'Part 8 · Item 1.b', placeholder: 'Spanish', maxLength: 18 }],
         },
         {
+          id: 'preparer',
+          kind: 'choice',
+          formRef: 'Part 8 · Item 2 · Preparer',
+          question: t('¿Alguien más (no usted) preparó esta solicitud?', 'Did someone else prepare this application for you?'),
+          why: t('Si es así, esa persona también llena y firma la Parte 10.', 'If so, that person also completes and signs Part 10.'),
+          options: yesNo,
+        },
+        {
+          id: 'preparerName',
+          kind: 'fields',
+          formRef: 'Part 8 · Item 2',
+          showIf: is('preparer', 'yes'),
+          question: t('¿Quién la preparó?', 'Who prepared it?'),
+          fields: [{ id: 'preparer.name', type: 'text', required: true, label: { es: 'Nombre del preparador', en: 'Preparer’s name' }, formRef: 'Part 8 · Item 2 · Preparer’s Name' }],
+        },
+        {
           id: 'contactInfo',
           kind: 'fields',
           formRef: 'Part 8 · Items 3–5 · Applicant’s Contact Information',
@@ -422,5 +622,6 @@ export const i821: FormDefinition = {
         },
       ],
     },
+    assistanceSection({ usedInterpreter: is('readsEnglish', '1b'), usedPreparer: is('preparer', 'yes'), interpreterPart: 'Part 9', preparerPart: 'Part 10' }),
   ],
 };

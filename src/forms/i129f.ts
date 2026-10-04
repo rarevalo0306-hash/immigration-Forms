@@ -1,9 +1,14 @@
-import type { Field, FormDefinition, Option, Question, YesNoItem } from './types';
+import type { Field, FormDefinition, Option, Question, Section, YesNoItem } from './types';
 import type { T } from '../i18n';
 import { all, anyAddress, biographic, date, is, nameFields, sexField, yesNo } from './helpers';
+import { assistanceSection } from './assistance';
 
 // Questions follow USCIS Form I-129F, Petition for Alien Fiancé(e), edition 01/20/25. The person
 // filling in the app is the U.S. citizen petitioner. The PDF mapping lives in src/pdf/i129fPdf.ts.
+// The interpreter (Part 6) and preparer (Part 7) parts are filled from the last section; they sign by
+// hand. This edition asks them no mailing address and has no preparer's statement boxes, and the
+// petitioner's part has no statement boxes about them: the two questions in Part 5 only decide
+// whether to ask for them.
 
 export const I129F_EDITION = '01/20/25';
 
@@ -109,6 +114,13 @@ export const CRIME_ITEMS: YesNoItem[] = [
 
 const anyListedCrime = (a: Record<string, unknown>) => ['crime.2a', 'crime.2b', 'crime.2c'].some((id) => a[id] === 'yes');
 
+/** Parts 6–7. This edition asks no mailing address for them and has no preparer's statement boxes. */
+const assistance = (): Section => {
+  const s = assistanceSection({ usedInterpreter: is('readsEnglish', 'B'), usedPreparer: is('preparer', 'yes'), interpreterPart: 'Part 6', preparerPart: 'Part 7' });
+  const dropped = new Set(['interp.address', 'prep.address', 'prep.statement']);
+  return { ...s, questions: s.questions.filter((q) => !dropped.has(q.id)) };
+};
+
 export const i129f: FormDefinition = {
   id: 'i-129f',
   number: 'I-129F',
@@ -135,12 +147,14 @@ export const i129f: FormDefinition = {
       'Adjunte prueba de su ciudadanía, una foto tipo pasaporte de cada uno, pruebas de que se vieron en persona en los últimos 2 años y una declaración de cada uno de que piensan casarse dentro de los 90 días de la llegada.',
       'Imprima el PDF y firme la Parte 5, Ítem 4, a mano con tinta negra.',
       'Si contestó Sí a alguna pregunta penal, adjunte copias certificadas de los documentos de la corte y la policía.',
+      'Si alguien le interpretó o preparó la petición, esa persona firma y pone la fecha a mano en la Parte 6 (intérprete) o la Parte 7 (preparador).',
     ],
     en: [
       'Check at uscis.gov/i-129f that edition {edition} is still current and check the fee; if it changed, use the new one and copy your answers from this sheet.',
       'Attach proof of your citizenship, a passport-style photo of each of you, evidence you met in person in the last 2 years and a statement from each of you that you intend to marry within 90 days of arrival.',
       'Print the PDF and sign Part 5, Item 4, by hand in black ink.',
       'If you answered Yes to any criminal question, attach certified court and police records.',
+      'If someone interpreted or prepared the petition for you, they sign and date Part 6 (interpreter) or Part 7 (preparer) by hand.',
     ],
   },
   sections: [
@@ -663,7 +677,27 @@ export const i129f: FormDefinition = {
             { id: 'email', type: 'email', label: { es: 'Correo electrónico', en: 'Email' }, formRef: 'Part 5 · Item 3', maxLength: 38 },
           ],
         },
+        {
+          id: 'readsEnglish',
+          kind: 'choice',
+          formRef: 'Part 5 · Petitioner’s Certification',
+          question: t('¿Puede leer y entender la petición en inglés?', 'Can you read and understand the petition in English?'),
+          why: t('Si alguien se la traduce, esa persona llena y firma la Parte 6 (intérprete).', 'If someone translates it for you, they fill in and sign Part 6 (interpreter).'),
+          options: [
+            { value: 'A', label: t('Sí, leo inglés', 'Yes, I read English') },
+            { value: 'B', label: t('No, un intérprete me la leerá', 'No, an interpreter will read it to me') },
+          ],
+        },
+        {
+          id: 'preparer',
+          kind: 'choice',
+          formRef: 'Part 7 · Contact Information, Declaration, and Signature of the Person Preparing this Petition',
+          question: t('¿Alguien más (no usted) preparó esta petición?', 'Did someone else prepare this petition for you?'),
+          why: t('Si es así, esa persona también llena y firma la Parte 7.', 'If so, that person also completes and signs Part 7.'),
+          options: yesNo,
+        },
       ],
     },
+    assistance(),
   ],
 };

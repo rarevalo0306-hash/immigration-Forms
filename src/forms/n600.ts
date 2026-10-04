@@ -1,11 +1,13 @@
 import type { Answers, Field, FormDefinition, Option, Question } from './types';
 import type { T } from '../i18n';
 import { all, anyAddress, date, is, nameFields, rows, sexField, yesNo } from './helpers';
+import { assistanceSection, usedInterpreter, usedPreparer } from './assistance';
 
 // Questions follow USCIS Form N-600, Application for Certificate of Citizenship, edition 01/20/25.
 // The PDF mapping lives in src/pdf/n600Pdf.ts. Part 2 is always about the child, whether the child
 // or a parent fills it in; the U.S. citizen parent is "parent1" (Part 3) and the other parent
-// "parent2" (Part 4).
+// "parent2" (Part 4). The interpreter's Part 9 and the preparer's Part 10 are filled from the shared
+// questions in src/forms/assistance.ts; every signature and its date is left for hand.
 
 export const N600_EDITION = '01/20/25';
 
@@ -240,13 +242,13 @@ export const n600: FormDefinition = {
       'Confirme en uscis.gov/n-600 que la edición {edition} sigue vigente y revise la tarifa (puede pedir exención con el I-912 en esta app). También se puede presentar en línea.',
       'Adjunte copias del acta de nacimiento del hijo/a, de la tarjeta de residente (si tiene), del acta de matrimonio de los padres y de la prueba de ciudadanía del padre o madre ciudadano. Si hay adopción o custodia, agregue esos documentos.',
       'Si reclama ciudadanía al nacer en el extranjero, adjunte prueba de que el padre o madre vivió en EE.UU. el tiempo requerido (escuela, trabajo, impuestos, servicio militar).',
-      'Imprima el PDF y firme la Parte 8, Ítem 6, a mano con tinta negra. Firma el hijo/a si es mayor de 14, o el padre, madre o tutor si presenta por un menor.',
+      'Imprima el PDF y firme la Parte 8, Ítem 6, a mano con tinta negra. Firma el hijo/a si es mayor de 14, o el padre, madre o tutor si presenta por un menor. Si un intérprete o preparador le ayudó, revise sus datos en las Partes 9 y 10: ellos firman y ponen la fecha a mano.',
     ],
     en: [
       'Check at uscis.gov/n-600 that edition {edition} is still current and check the fee (you can request a waiver with Form I-912 in this app). It can also be filed online.',
       'Attach copies of the child’s birth certificate, green card (if any), the parents’ marriage certificate and the U.S. citizen parent’s proof of citizenship. If there was an adoption or custody order, add those documents.',
       'If claiming citizenship at birth abroad, attach proof that the parent lived in the U.S. for the required time (school, work, taxes, military service).',
-      'Print the PDF and sign Part 8, Item 6, by hand in black ink. The child signs if 14 or older, or the parent or guardian when filing for a minor.',
+      'Print the PDF and sign Part 8, Item 6, by hand in black ink. The child signs if 14 or older, or the parent or guardian when filing for a minor. If an interpreter or preparer helped, check their details in Parts 9 and 10: they sign and date by hand.',
     ],
   },
   sections: [
@@ -594,7 +596,7 @@ export const n600: FormDefinition = {
           ]),
         },
         { id: 'interpreterLanguage', kind: 'fields', formRef: 'Part 8 · Item 1.B', showIf: is('readsEnglish', 'B'), question: t('¿En qué idioma?', 'In what language?'), fields: [text('fluentLanguage', 'Idioma', 'Language', 'Part 8 · Item 1.B', { placeholder: 'Spanish' })] },
-        { id: 'preparer', kind: 'choice', formRef: 'Part 8 · Item 2', question: t('¿Alguien más preparó esta solicitud?', 'Did someone else prepare this application?'), why: t('Si es así, esa persona llena y firma la Parte 10 a mano.', 'If so, that person completes and signs Part 10 by hand.'), options: yesNo },
+        { id: 'preparer', kind: 'choice', formRef: 'Part 8 · Item 2', question: t('¿Alguien más preparó esta solicitud?', 'Did someone else prepare this application?'), why: t('Si es así, sus datos van en la Parte 10 y esa persona la firma a mano.', 'If so, their details go in Part 10 and that person signs it by hand.'), options: yesNo },
         { id: 'preparerName', kind: 'fields', formRef: 'Part 8 · Item 2', showIf: is('preparer', 'yes'), question: t('¿Quién la preparó?', 'Who prepared it?'), fields: [text('preparer.name', 'Nombre del preparador', 'Preparer’s name', 'Part 8 · Item 2')] },
         {
           id: 'contactInfo',
@@ -609,5 +611,6 @@ export const n600: FormDefinition = {
         },
       ],
     },
+    assistanceSection({ usedInterpreter, usedPreparer, interpreterPart: 'Part 9', preparerPart: 'Part 10' }),
   ],
 };

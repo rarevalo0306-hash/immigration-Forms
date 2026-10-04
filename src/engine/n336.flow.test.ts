@@ -38,5 +38,9 @@ describe('N-336 flow', () => {
     expect(ids({ readsEnglish: 'A' })).not.toContain('interpreterLanguage');
     expect(ids({ preparer: 'yes' })).toContain('preparerName');
     expect(ids({})).toContain('reasonsQ');
+    expect(ids({ readsEnglish: 'B' })).toContain('interp.who');
+    expect(ids({ readsEnglish: 'A' })).not.toContain('interp.who');
+    expect(ids({ preparer: 'yes' })).toContain('prep.statement');
+    expect(ids({ readsEnglish: 'B', preparer: 'yes', 'prep.same': 'yes' })).not.toContain('prep.who');
   });
 });

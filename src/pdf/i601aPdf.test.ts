@@ -62,6 +62,41 @@ export const luis: Answers = {
   phone: '323 555 0144',
 };
 
+/** An interpreter in the U.S. and a different preparer abroad. */
+export const helpers: Answers = {
+  readsEnglish: 'B',
+  fluentLanguage: 'Spanish',
+  preparer: 'yes',
+  'preparer.name': 'Ana Lee',
+  'interp.family': 'Gómez',
+  'interp.given': 'Rosa',
+  'interp.business': 'Ayuda Hispana',
+  'interp.street': '100 Main St',
+  'interp.unit': 'Ste 210',
+  'interp.city': 'Houston',
+  'interp.state': 'TX',
+  'interp.zip': '77002',
+  'interp.country': 'United States',
+  'interp.phone': '713 555 0100',
+  'interp.mobile': '713 555 0101',
+  'interp.email': 'rosa@example.com',
+  'interp.language': 'Spanish',
+  'prep.same': 'no',
+  'prep.family': 'Lee',
+  'prep.given': 'Ana',
+  'prep.business': 'Lee Immigration Law',
+  'prep.street': 'Calle Real 5',
+  'prep.unit': 'Flr 3',
+  'prep.city': 'Tegucigalpa',
+  'prep.province': 'Francisco Morazan',
+  'prep.postal': '11101',
+  'prep.country': 'Honduras',
+  'prep.phone': '504 2555 0100',
+  'prep.mobile': '504 9555 0101',
+  'prep.email': 'ana@example.com',
+  'prep.statement': 'attorneyExtends',
+};
+
 describe('I-601A PDF', () => {
   it('names Items 32-45 one number early', () => {
     expect(backgroundBase('p1.32')).toBe('Pt1Checkbox31_Checkbox');
@@ -114,6 +149,9 @@ describe('I-601A PDF', () => {
         preparer: 'yes',
         'preparer.name': 'Ana Ruiz',
       },
+      { ...luis, ...helpers },
+      { ...luis, ...helpers, 'prep.same': 'yes', 'prep.statement': 'notAttorney', 'interp.unit': 'Apt 4' },
+      { ...luis, ...helpers, 'prep.statement': 'attorneyNotExtends' },
       ...['BL', 'HA', 'GN', 'BU', 'GR', 'MA', 'PN', 'UN'].map((eyes, i) => ({ ...luis, eyes, hair: ['BR', 'BN', 'GR', 'WH', 'RD', 'SA', 'NH', 'OT'][i], 'qualifying1.relationship': 'ABCD'[i % 4], basis: String((i % 4) + 2), proceedings: 'yes', proceedingsStatus: 'B' })),
     ];
     for (const plan of variants.map(planI601A)) {
@@ -147,6 +185,30 @@ describe('I-601A PDF', () => {
     expect(text('Pt5Line1_ApplicantStatement[0]')).toContain('diabetes');
     expect(checked('Pt6Checkbox1[0]')).toBe(true); // B: interpreter
     expect(text('Pt9Line3d_AdditionalInfo[0]')).toBe('');
+  });
+
+  it('fills the interpreter and preparer parts', async () => {
+    const read = async (a: Answers) => {
+      const f = fieldIndex((await PDFDocument.load(await fillI601A(template, a))).getForm());
+      return { text: (n: string) => (f.get(n) as PDFTextField).getText() ?? '', checked: (n: string) => (f.get(n) as PDFCheckBox).isChecked() };
+    };
+    let { text, checked } = await read({ ...luis, ...helpers });
+    expect(text('Pt7Line1a_InterpreterFamilyName[0]')).toBe('Gomez');
+    expect(checked('Pt7Line3b_Unit[0]')).toBe(true);
+    expect(text('Pt7Line3b_AptSteFlrNumber[0]')).toBe('210');
+    expect(text('Pt7Line4_DaytimeTelephoneNumber3[0]')).toBe('7135550100');
+    expect(text('Pt7Line6_NameOfLanguage[0]')).toBe('Spanish');
+    expect(text('Pt8Line1a_PreparerFamilyName[0]')).toBe('Lee');
+    expect(checked('Pt8Line3b_Unit[1]')).toBe(true);
+    expect(text('Pt8Line3f_Province[0]')).toBe('Francisco Morazan');
+    expect(checked('Pt8Line7_Checkbox[1]')).toBe(true);
+    expect(text('Pt8Line8a_SignatureofPreparer[0]')).toBe('');
+    ({ text, checked } = await read({ ...luis, ...helpers, 'prep.same': 'yes', 'prep.statement': 'notAttorney' }));
+    expect(text('Pt8Line1b_PreparerGivenName[0]')).toBe('Rosa');
+    expect(checked('Pt8Line3b_Unit[0]')).toBe(true);
+    expect(checked('Pt8Line7_Checkbox[0]')).toBe(true);
+    ({ text } = await read(luis));
+    expect(text('Pt7Line1a_InterpreterFamilyName[0]')).toBe('');
   });
 
   it('moves a long statement to Part 9', async () => {

@@ -67,6 +67,40 @@ const parolee: Answers = {
   phone: '312 555 0100',
 };
 
+/** Guadalupe's cousin interpreted; a legal clinic in Chicago prepared the form. */
+const helped: Answers = {
+  ...guadalupe,
+  preparer: 'yes',
+  'preparer.name': 'Ana Lee',
+  'interp.family': 'Gómez',
+  'interp.given': 'Rosa',
+  'interp.business': 'Servicios Latinos',
+  'interp.street': '1500 W 18th St',
+  'interp.unit': 'Ste 210',
+  'interp.city': 'Chicago',
+  'interp.state': 'IL',
+  'interp.zip': '60608',
+  'interp.country': 'United States',
+  'interp.phone': '(312) 555-0101',
+  'interp.mobile': '1 312 555 0102',
+  'interp.email': 'rosa@example.com',
+  'interp.language': 'Spanish',
+  'prep.same': 'no',
+  'prep.family': 'Lee',
+  'prep.given': 'Ana',
+  'prep.business': 'Pilsen Legal Clinic',
+  'prep.street': '1831 S Racine Ave',
+  'prep.unit': 'Floor 2',
+  'prep.city': 'Chicago',
+  'prep.state': 'IL',
+  'prep.zip': '60608',
+  'prep.country': 'United States',
+  'prep.phone': '312 555 0199',
+  'prep.mobile': '312 555 0198',
+  'prep.email': 'ana@example.com',
+  'prep.statement': 'attorneyNotExtends',
+};
+
 describe('I-131A PDF', () => {
   it('plans only fields that exist, with the right kind', async () => {
     const index = fieldIndex((await PDFDocument.load(template)).getForm());
@@ -79,6 +113,9 @@ describe('I-131A PDF', () => {
       { ...guadalupe, abandoned: 'yes', 'abandoned.details': 'Signed I-407 at O Hare in 2019 under pressure.', carrierBefore: 'yes', 'carrier.date': '05/01/2021', 'carrier.disposition': 'Used for travel', 'carrier.details': 'Card lost in 2021.' },
       { ...guadalupe, reason: 'Other', 'reason.other': 'My card was taken by the police at a checkpoint and never returned to me.', otherIsLpr: 'yes', reentryExpires: '02/01/2027' },
       { ...parolee, reason: 'Other', 'reason.other': 'Short', otherIsLpr: 'no', revoked: 'no', proceedings: 'no' },
+      helped,
+      { ...helped, 'prep.same': 'yes', 'interp.unit': 'Apt 4', 'interp.street': 'Calle 5', 'interp.state': '', 'interp.zip': '', 'interp.province': 'Jalisco', 'interp.postal': '44100', 'interp.country': 'Mexico' },
+      ...['notAttorney', 'attorneyExtends'].map((st) => ({ ...helped, 'prep.statement': st })),
     ];
     for (const plan of variants.map(planI131A)) {
       for (const name of Object.keys(plan.text)) expect(index.get(name), name).toBeInstanceOf(PDFTextField);
@@ -138,5 +175,25 @@ describe('I-131A PDF', () => {
     expect(text('Pt7_Line3d_AdditionalInfo[0]')).toContain('removal proceedings');
     expect(text('Pt7_Line4c_ItemNumber[0]')).toBe('10.a');
     expect(text('P4_Line6a_SignatureofApplicant[0]')).toBe('');
+    expect(text('P5_Line1a_InterpreterFamilyName[0]')).toBe('');
+  });
+
+  it('fills the interpreter and preparer parts', async () => {
+    const f = fieldIndex((await PDFDocument.load(await fillI131A(template, helped))).getForm());
+    const text = (n: string) => (f.get(n) as PDFTextField).getText() ?? '';
+    const checked = (n: string) => (f.get(n) as PDFCheckBox).isChecked();
+    expect(text('P5_Line1a_InterpreterFamilyName[0]')).toBe('Gomez');
+    expect(checked('P5_Line3b_Unit[2]')).toBe(true); // Ste.
+    expect(text('P5_Line3b_AptSteFlrNumber[0]')).toBe('210');
+    expect((f.get('P5_Line3d_State[0]') as PDFDropdown).getSelected()).toEqual(['IL']);
+    expect(text('P5_Line4_InterDayTel[1]')).toBe('3125550102');
+    expect(text('P5_Line5b_Fluent[0]')).toBe('Spanish');
+    expect(text('P6_Line1a_PreparerFamilyName[0]')).toBe('Lee');
+    expect(checked('Pt6_Line3b_Unit[0]')).toBe(true); // Flr.
+    expect(text('Pt6_Line5_PrepFaxPhone[0]')).toBe('3125550198');
+    expect(checked('Pt6_Line7_Checkbox[1]')).toBe(true); // 7.b
+    expect(checked('Pt6_Line7b_DoesNotExtend[0]')).toBe(true);
+    expect(checked('Pt6_Line7b_Extend[0]')).toBe(false);
+    expect(text('P6_L8a_PrepSignature[0]')).toBe('');
   });
 });

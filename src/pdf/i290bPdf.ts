@@ -1,6 +1,7 @@
 import { PDFCheckBox, PDFDocument, PDFDropdown, type PDFFont, PDFTextField, StandardFonts } from 'pdf-lib';
 import type { Answers } from '../forms/types';
 import { parseUnit } from '../engine/validation';
+import { assistance, usedInterpreter, usedPreparer } from '../forms/assistance';
 import { fieldIndex, optionBoxes, selectOption, setFieldText, toFormText, wrap } from './common';
 
 // Fields of USCIS Form I-290B, edition 05/31/24 (public/forms/i-290b.pdf), named by the last
@@ -16,6 +17,9 @@ import { fieldIndex, optionBoxes, selectOption, setFieldText, toFormText, wrap }
 //   dropdown whose options carry leading spaces.
 // - Part 4, Items 1-3 are "P4_Line3_TelephoneNumber", "P4_Line4_TelephoneNumber" and
 //   "P4_Line5_Email". Part 7's name is "Pt1_Line1*[1]" and its A-Number "Pt1_Line6_AlienNumber[1]".
+// - Parts 5 and 6 hold only name, business, phones (10 digits) and email. Part 5's daytime and
+//   mobile phones are "P5_Line4_InterDayTel[0]" and "[1]", the language "P5_Line5b_Fluent"; Part 6's
+//   mobile is "Pt6_Line5_PrepFaxPhone".
 
 export interface Note {
   page: string;
@@ -93,6 +97,28 @@ export function planI290B(a: Answers): I290BPlan {
   put('P4_Line3_TelephoneNumber[0]', digits(str(a, 'phone')).slice(-10));
   put('P4_Line4_TelephoneNumber[0]', digits(str(a, 'mobile')).slice(-10));
   put('P4_Line5_Email[0]', str(a, 'email'));
+
+  // Parts 5 and 6: the interpreter and the preparer. Signatures and dates are written by hand.
+  const help = assistance(a, { interpreter: usedInterpreter(a), preparer: usedPreparer(a) });
+  if (help.interpreter) {
+    const p = help.interpreter;
+    put('P5_Line1a_InterpreterFamilyName[0]', p.family);
+    put('P5_Line1b_InterpreterGivenName[0]', p.given);
+    put('P5_Line2_InterpreterBusiness[0]', p.business);
+    put('P5_Line4_InterDayTel[0]', digits(p.phone).slice(-10));
+    put('P5_Line4_InterDayTel[1]', digits(p.mobile).slice(-10));
+    put('P5_Line5_EmailAddress[0]', p.email);
+    put('P5_Line5b_Fluent[0]', p.language);
+  }
+  if (help.preparer) {
+    const p = help.preparer;
+    put('P6_Line1a_PreparerFamilyName[0]', p.family);
+    put('P6_Line1b_PreparerGivenName[0]', p.given);
+    put('P6_Line2_BusinessName[0]', p.business);
+    put('Pt6_Line4_PrepDayPhone[0]', digits(p.phone).slice(-10));
+    put('Pt6_Line5_PrepFaxPhone[0]', digits(p.mobile).slice(-10));
+    put('Pt6_Line6_PrepEmailAddress[0]', p.email);
+  }
 
   return { text, check, checkValue, select, statement: str(a, 'basis.statement'), notes: notes.filter((n) => !n.text.endsWith(': ')) };
 }

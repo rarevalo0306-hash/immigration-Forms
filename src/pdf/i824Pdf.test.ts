@@ -127,6 +127,28 @@ for (let i = 1; i <= 4; i++) {
 }
 fourDependents['dependents.extra'] = 'Sofia Perez, 02/02/2018, born Guatemala, citizen of Guatemala, child.';
 
+/** A friend interpreted and a nonprofit prepared Jorge's form: Parts 5 and 6. */
+const helped: Answers = {
+  ...jorge,
+  readsEnglish: 'B',
+  preparer: 'yes',
+  'interp.family': 'Gómez',
+  'interp.given': 'Rosa',
+  'interp.business': 'Servicios Latinos',
+  'interp.phone': '(916) 555-0101',
+  'interp.mobile': '1 916 555 0102',
+  'interp.email': 'rosa@example.com',
+  'interp.language': 'Spanish',
+  'prep.same': 'no',
+  'prep.family': 'Lee',
+  'prep.given': 'Ana',
+  'prep.business': 'Sacramento Immigrant Center',
+  'prep.phone': '916 555 0199',
+  'prep.mobile': '916 555 0198',
+  'prep.email': 'ana.lee.immigration.help@example.com',
+  'prep.statement': 'notAttorney',
+};
+
 describe('I-824 PDF', () => {
   it('plans only fields that exist, with the right kind', async () => {
     const index = fieldIndex((await PDFDocument.load(template)).getForm());
@@ -139,6 +161,9 @@ describe('I-824 PDF', () => {
       { ...carmen, request: '1e', 'mailing.unit': 'Apt 1', 'home.unit': 'Ste 9' },
       { ...jorge, filerRole: 'petitioner', 'mailing.unit': 'Flr 3', 'dependents.address.unit': 'Ste 4' },
       { ...jorge, 'dependents.address.unit': 'Flr 5', 'beneficiary.mailing.unit': 'Flr 1' },
+      helped,
+      { ...helped, 'prep.same': 'yes' },
+      ...['attorneyExtends', 'attorneyNotExtends'].map((st) => ({ ...helped, 'prep.statement': st })),
     ];
     for (const plan of variants.map(planI824)) {
       for (const name of Object.keys(plan.text)) expect(index.get(name), name).toBeInstanceOf(PDFTextField);
@@ -181,6 +206,24 @@ describe('I-824 PDF', () => {
     expect(text('Part4_Line5_ApplicantMobilePhoneNumber[0]')).toBe('9165550199');
     expect(text('Part7_Line3c_ItemNumber[0]')).toBe('1');
     expect(text('Part4_Line4_Signature[0]') ?? '').toBe('');
+    expect(text('Part5_Line1_InterpretersFamilyName[0]') ?? '').toBe('');
+  });
+
+  it('fills the interpreter and preparer parts', async () => {
+    const f = fieldIndex((await PDFDocument.load(await fillI824(template, helped))).getForm());
+    const text = (n: string) => (f.get(n) as PDFTextField).getText() ?? '';
+    expect(text('Part5_Line1_InterpretersFamilyName[0]')).toBe('Gomez');
+    expect(text('Part5_Line4_InterpretersMobileTelephoneNumber[0]')).toBe('9165550102');
+    expect(text('Part5_Line5_InterpreterEmailAddress[0]')).toBe('rosa@example.com');
+    expect(text('Part5_Line6_Language[0]')).toBe('Spanish');
+    expect(text('Part6_Line1_PreparerFamilyName[0]')).toBe('Lee');
+    expect(text('Part6_Line4_PreparersMobileNumber3[0]')).toBe('9165550198');
+    // The preparer's email is longer than the box: it goes to Part 7.
+    expect(text('Part6_Line5_PreparerEmailAddress[0]')).toBe('See Part 7');
+    expect(planI824(helped).notes).toContainEqual({ page: '5', part: '6', item: '5', text: "Preparer's email address: ana.lee.immigration.help@example.com" });
+    expect(text('Part6_Line6_PreparerSignature[0]')).toBe('');
+    const same = fieldIndex((await PDFDocument.load(await fillI824(template, { ...helped, 'prep.same': 'yes' }))).getForm());
+    expect((same.get('Part6_Line1_PreparerFamilyName[0]') as PDFTextField).getText()).toBe('Gomez');
   });
 
   it('carries a long explanation into the next Part 7 boxes', async () => {

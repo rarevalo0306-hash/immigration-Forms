@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { forms } from '.';
 import { checkEdition, editionReport, formPageUrl, parseEdition } from './editions';
+import { onUscis } from './filing';
 
 const page = (edition: string) =>
   `<html><body><h2>Forms and Document Downloads</h2><p><strong>Edition Date</strong> ${edition} . You can find the edition date at the bottom of the page.</p></body></html>`;
@@ -12,8 +13,10 @@ describe('USCIS edition check', () => {
     expect(parseEdition('<p>Page Not Found</p>')).toBeNull();
   });
 
-  it('every form has an edition in the same MM/DD/YY format', () => {
-    for (const f of forms) expect(f.edition, f.id).toMatch(/^\d{2}\/\d{2}\/\d{2}$/);
+  it('every USCIS form has an edition in the same MM/DD/YY format', () => {
+    for (const f of forms.filter((f) => onUscis(f.id))) expect(f.edition, f.id).toMatch(/^\d{2}\/\d{2}\/\d{2}$/);
+    // The immigration court's forms carry a revision month instead, and are left out of the weekly check.
+    expect(onUscis('eoir-33')).toBe(false);
   });
 
   it('forms without their own page are checked on their main form’s page', () => {

@@ -54,6 +54,41 @@ export const carlos: Answers = {
   email: 'carlos@example.com',
 };
 
+/** An interpreter in Los Angeles and a preparer in Tijuana. */
+const helpers: Answers = {
+  readsEnglish: 'B',
+  fluentLanguage: 'Spanish',
+  preparer: 'yes',
+  'preparer.name': 'Luis Pérez',
+  'interp.family': 'Gómez',
+  'interp.given': 'Rosa',
+  'interp.business': 'Ayuda Hispana LLC',
+  'interp.street': '500 Oak St',
+  'interp.unit': 'Ste 210',
+  'interp.city': 'Los Angeles',
+  'interp.state': 'CA',
+  'interp.zip': '90012',
+  'interp.country': 'United States',
+  'interp.phone': '(213) 555-0111',
+  'interp.mobile': '213 555 0112',
+  'interp.email': 'rosa@example.com',
+  'interp.language': 'Spanish',
+  'prep.same': 'no',
+  'prep.family': 'Pérez',
+  'prep.given': 'Luis',
+  'prep.business': 'Pérez Law Office',
+  'prep.street': '77 Av Revolución',
+  'prep.unit': 'Flr 3',
+  'prep.city': 'Tijuana',
+  'prep.province': 'Baja California',
+  'prep.postal': '22000',
+  'prep.country': 'Mexico',
+  'prep.phone': '664 555 0100',
+  'prep.mobile': '664 555 0101',
+  'prep.email': 'luis@example.com',
+  'prep.statement': 'attorneyExtends',
+};
+
 describe('I-864EZ PDF', () => {
   it('counts the household', () => {
     expect(householdSize(carlos)).toBe(3);
@@ -66,6 +101,9 @@ describe('I-864EZ PDF', () => {
       carlos,
       { ...carlos, 'ez.w2': 'no', 'ez.onlyOne': 'no', 'ez.petitioner': 'no', mailingSame: 'no', 'home.street': '1 Main St', 'home.unit': 'Ste 2', 'home.city': 'Mesa', 'home.state': 'AZ', 'mailing.unit': 'Flr 3', status: 'B', activeDuty: 'yes', employment: 'retired', 'job.retiredSince': '01/01/2020', filedTaxes: 'no', readsEnglish: 'B', fluentLanguage: 'Spanish', preparer: 'yes', 'preparer.name': 'Ana Ruiz', 'principal.mailing.unit': 'Apt 1', 'principal.aNumber': '123456789' },
       { ...carlos, status: 'C', aNumber: 'A098765432' },
+      { ...carlos, ...helpers },
+      { ...carlos, ...helpers, 'prep.same': 'yes', 'prep.statement': 'notAttorney' },
+      { ...carlos, ...helpers, readsEnglish: 'A', 'prep.statement': 'attorneyNotExtends' },
     ];
     for (const plan of variants.map(planI864EZ)) {
       for (const name of Object.keys(plan.text)) expect(index.get(name), name).toBeInstanceOf(PDFTextField);
@@ -73,6 +111,21 @@ describe('I-864EZ PDF', () => {
       for (const name of Object.keys(plan.select)) expect(index.get(name), name).toBeInstanceOf(PDFDropdown);
       for (const [base, value] of plan.checkValue) expect(optionBoxes(index, base).map((o) => o.value), `${base}=${value}`).toContain(value);
     }
+  });
+
+  it('fills the interpreter and preparer parts', async () => {
+    const f = fieldIndex((await PDFDocument.load(await fillI864EZ(template, { ...carlos, ...helpers }))).getForm());
+    const text = (n: string) => (f.get(n) as PDFTextField).getText() ?? '';
+    expect(text('P6_Line2_Attorney[0]')).toBe('Luis Perez');
+    expect(text('P7_Line1a_InterpretersFamilyName[0]')).toBe('Gomez');
+    expect(text('P7_Line4_InterpretersDaytimePhoneNumber[1]')).toBe('2135550112');
+    expect(text('P7_Language[0]')).toBe('Spanish');
+    expect(text('P8_Line1b_PreparersGivenName[0]')).toBe('Luis');
+    expect(text('P8_Line2_PreparersBusinessName[0]')).toBe('Perez Law Office');
+    expect(text('P8_Line5_PreparersFaxNumber[0]')).toBe('6645550101');
+    expect(text('P8_Line8a_PreparersSignature[0]')).toBe('');
+    expect(planI864EZ({ ...carlos, ...helpers, 'prep.same': 'yes' }).text['P8_Line1a_PreparersFamilyName[0]']).toBe('Gómez');
+    expect(Object.keys(planI864EZ(carlos).text).filter((k) => /^P[78]_/.test(k))).toEqual([]);
   });
 
   it('writes the answers into the official form', async () => {

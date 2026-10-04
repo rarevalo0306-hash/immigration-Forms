@@ -80,6 +80,41 @@ export const marisol: Answers = {
   email: 'marisol.r@example.com',
 };
 
+/** An interpreter in the U.S. and a different preparer abroad. */
+export const helpers: Answers = {
+  readsEnglish: 'B',
+  fluentLanguage: 'Spanish',
+  preparer: 'yes',
+  'preparer.name': 'Ana Lee',
+  'interp.family': 'Gómez',
+  'interp.given': 'Rosa',
+  'interp.business': 'Ayuda Hispana',
+  'interp.street': '100 Main St',
+  'interp.unit': 'Ste 210',
+  'interp.city': 'Houston',
+  'interp.state': 'TX',
+  'interp.zip': '77002',
+  'interp.country': 'United States',
+  'interp.phone': '713 555 0100',
+  'interp.mobile': '713 555 0101',
+  'interp.email': 'rosa@example.com',
+  'interp.language': 'Spanish',
+  'prep.same': 'no',
+  'prep.family': 'Lee',
+  'prep.given': 'Ana',
+  'prep.business': 'Lee Immigration Law',
+  'prep.street': 'Calle Real 5',
+  'prep.unit': 'Flr 3',
+  'prep.city': 'Tegucigalpa',
+  'prep.province': 'Francisco Morazan',
+  'prep.postal': '11101',
+  'prep.country': 'Honduras',
+  'prep.phone': '504 2555 0100',
+  'prep.mobile': '504 9555 0101',
+  'prep.email': 'ana@example.com',
+  'prep.statement': 'attorneyExtends',
+};
+
 describe('I-918 PDF', () => {
   it('knows the page of each Part 3 item', () => {
     expect(processingPage('p3.1a')).toBe('3');
@@ -131,6 +166,9 @@ describe('I-918 PDF', () => {
       { ...marisol, 'home.unit': 'Apt 3', 'mailing.unit': 'Apt 5', 'foreign.unit': 'Apt 7', outsideUS: 'yes', notify: 'address' },
       { ...marisol, 'home.unit': 'Ste 3', 'mailing.unit': 'Flr 9', 'foreign.unit': 'Flr 1', outsideUS: 'yes', notify: 'address', ...Object.fromEntries(ELIGIBILITY_ITEMS.map((i) => [i.id, 'no'])) },
       ...['Single', 'Divorced', 'Widowed'].map((marital) => ({ ...marisol, marital })),
+      { ...marisol, ...helpers },
+      { ...marisol, ...helpers, 'prep.same': 'yes', 'prep.statement': 'notAttorney', 'interp.unit': 'Apt 4' },
+      { ...marisol, ...helpers, 'prep.statement': 'attorneyNotExtends' },
     ];
     for (const plan of variants.map(planI918)) {
       for (const name of Object.keys(plan.text)) expect(index.get(name), name).toBeInstanceOf(PDFTextField);
@@ -177,6 +215,32 @@ describe('I-918 PDF', () => {
     expect(text('P5_Line6_EmailAddress[0]')).toBe('marisol.r@example.com');
     expect(text('P5_Line7a_Signature[0]')).toBe('');
     expect(text('P8_Line3d_AdditionalInfo[0]')).toBe('');
+  });
+
+  it('fills the interpreter and preparer parts', async () => {
+    const read = async (a: Answers) => {
+      const f = fieldIndex((await PDFDocument.load(await fillI918(template, a))).getForm());
+      return { text: (n: string) => (f.get(n) as PDFTextField).getText() ?? '', checked: (n: string) => (f.get(n) as PDFCheckBox).isChecked() };
+    };
+    let { text, checked } = await read({ ...marisol, ...helpers });
+    expect(text('P6_Line1a_InterpretersFamilyName[0]')).toBe('Gomez');
+    expect(checked('Pt6Line3_Unit[0]')).toBe(true);
+    expect(text('Pt6Line3_AptSteFlrNumber[0]')).toBe('210');
+    expect(text('P6_Line4_InterpretersDaytimeTelephoneNumber3[1]')).toBe('7135550101');
+    expect(text('Part7_Line6_Language[0]')).toBe('Spanish');
+    expect(text('P7_Line1a_PreparersFamilyName[0]')).toBe('Lee');
+    expect(checked('Pt7Line3_Unit[1]')).toBe(true);
+    expect(text('P7_Line5_PreparersFaxNumber3[0]')).toBe('50495550101');
+    expect(checked('P7_Line7_Checkbox[1]')).toBe(true);
+    expect(checked('P7_Line7_Extend[1]')).toBe(true);
+    expect(checked('P7_Line7_Extend[0]')).toBe(false);
+    expect(text('P7_Line8a_InterpretersSignature[0]')).toBe('');
+    ({ text, checked } = await read({ ...marisol, ...helpers, 'prep.same': 'yes', 'prep.statement': 'attorneyNotExtends' }));
+    expect(text('P7_Line1b_PreparersGivenName[0]')).toBe('Rosa');
+    expect(checked('Pt7Line3_Unit[0]')).toBe(true);
+    expect(checked('P7_Line7_Extend[0]')).toBe(true);
+    ({ text } = await read(marisol));
+    expect(text('P6_Line1a_InterpretersFamilyName[0]')).toBe('');
   });
 
   it('runs a long Part 3 explanation on into the next Part 8 blocks', async () => {

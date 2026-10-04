@@ -7,7 +7,7 @@ import { birthCert, courtRecords, fee, marriageCert, passportCopy, priorMarriage
 export const formId = 'i-589';
 
 const spouseIncluded = (a: Answers) => a.marital === 'M' && a['spouse.include'] === 'yes';
-const childIncluded = (a: Answers) => a.hasChildren === 'yes' && [1, 2, 3, 4].some((i) => a[`child${i}.include`] === 'yes');
+const childIncluded = (a: Answers) => a.hasChildren === 'yes' && [1, 2, 3, 4, 5, 6].some((i) => a[`child${i}.include`] === 'yes');
 const familyIncluded = (a: Answers) => spouseIncluded(a) || childIncluded(a);
 
 export const docs: DocItem[] = [

@@ -2,6 +2,7 @@ import { PDFCheckBox, PDFDocument, PDFDropdown, type PDFFont, PDFTextField, Stan
 import type { Answers } from '../forms/types';
 import { GROUND_GROUPS, GROUNDS_A, GROUNDS_C } from '../forms/i601';
 import { parseUnit } from '../engine/validation';
+import { assistance, usedInterpreter, usedPreparer } from '../forms/assistance';
 import { fieldIndex, optionBoxes, selectOption, setFieldText, toFormText, wrap } from './common';
 
 // Fields of USCIS Form I-601, edition 01/20/25 (public/forms/i-601.pdf), named by the last
@@ -13,6 +14,9 @@ import { fieldIndex, optionBoxes, selectOption, setFieldText, toFormText, wrap }
 // - Part 6's given and middle names are "Pt6Line1b_GivenName" and "Pt6Line1c_MiddleName",
 //   unlike every other field in the file. The Part 10 name and A-Number repeat Part 1's names
 //   ("p1Line3aFamilyName[1]", "p1Line1ANum[1]").
+// - Parts 8 (interpreter, left column of page 8) and 9 (preparer, right column) are "p8Line*" and
+//   "p9Line*"; the interpreter's language is "P8Language". They have no address or statement boxes,
+//   and their phone boxes hold 10 digits (a longer foreign number goes to Part 10).
 // - The Yes/No pairs are in mixed order (Items 16.a and 19 list No first); they are picked by
 //   export value.
 
@@ -263,6 +267,36 @@ export function planI601(a: Answers): I601Plan {
   put('p7Line1DayPhone[0]', digits(str(a, 'phone')));
   put('p7Line2MobilePhone[0]', digits(str(a, 'mobile')));
   put('p7Line3Email[0]', str(a, 'email'));
+
+  // Parts 8 and 9. Signatures and dates stay empty.
+  // Their phone boxes hold 10 digits; longer (foreign) numbers go to one Part 10 entry per person.
+  const helperPhones = (part: string, who: string, [day, mobile]: string[], h: { phone: string; mobile: string }) => {
+    const long: string[] = [];
+    for (const [field, raw, label] of [[day, h.phone, 'daytime'], [mobile, h.mobile, 'mobile']]) {
+      const n = digits(raw).replace(/^1(?=\d{10}$)/, '');
+      if (n.length <= 10) put(field, n);
+      else long.push(`${label} ${raw}`);
+    }
+    if (long.length) notes.push({ page: '8', part, item: '3-4', text: `${who} telephone: ${long.join('; ')}` });
+  };
+  const help = assistance(a, { interpreter: usedInterpreter(a), preparer: usedPreparer(a) });
+  if (help.interpreter) {
+    const h = help.interpreter;
+    put('p8Line1aFamilyName[0]', h.family);
+    put('p8Line1bGivenName[0]', h.given);
+    put('p8Line2OrgName[0]', h.business);
+    helperPhones('8', "Interpreter's", ['p8Line3DayPhone[0]', 'p8Line4MobilePhone[0]'], h);
+    put('p8Line5Email[0]', h.email);
+    put('P8Language[0]', h.language);
+  }
+  if (help.preparer) {
+    const h = help.preparer;
+    put('p9Line1aFamilyName[0]', h.family);
+    put('p9Line1bGivenName[0]', h.given);
+    put('p9Line2BusinessName[0]', h.business);
+    helperPhones('9', "Preparer's", ['p9Line3DayPhone[0]', 'p9Line4MobilePhone[0]'], h);
+    put('p9Line5Email[0]', h.email);
+  }
 
   return { text, check, checkValue, select, statements: statements.filter((s) => s.text), notes: notes.filter((n) => n.text) };
 }

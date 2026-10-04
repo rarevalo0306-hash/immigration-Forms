@@ -1,12 +1,13 @@
 import type { Field, FormDefinition, Option } from './types';
 import type { T } from '../i18n';
 import { all, anyAddress, date, is, nameFields, rows, yesNo } from './helpers';
+import { assistanceSection, usedInterpreter, usedPreparer } from './assistance';
 
 // Questions follow USCIS Form I-134, Declaration of Financial Support, edition 01/20/25. The person
 // filling in the app is the supporter (Part 2); when they file for themselves as the beneficiary,
 // Part 3 and Part 2, Items 18-19 are skipped and the statement goes to Part 4 instead of Part 5.
-// Out of scope (left for hand): Parts 6 and 7 (interpreter and preparer contact, certification and
-// signature) and every signature and date. The PDF mapping lives in src/pdf/i134Pdf.ts.
+// Parts 6 and 7 (interpreter and preparer) are filled from the shared assistance section; the PDF has no
+// address boxes there, so those answers stay off the form. Every signature and date is left for hand. The PDF mapping lives in src/pdf/i134Pdf.ts.
 
 export const I134_EDITION = '01/20/25';
 
@@ -73,13 +74,13 @@ export const i134: FormDefinition = {
     es: [
       'Confirme en uscis.gov/i-134 que la edición {edition} sigue vigente; si cambió, use la nueva y copie sus respuestas de esta hoja. Para los procesos de parole que se piden en línea (I-134A), use la cuenta de USCIS en vez de este PDF.',
       'Adjunte pruebas de sus ingresos y bienes: su declaración federal de impuestos más reciente (o transcripción del IRS), cartas de su empleador o talones de pago recientes, y estados de cuenta de sus bancos u otros bienes. Adjunte también prueba de su estatus en EE.UU.',
-      'Imprima el PDF y firme a mano con tinta negra la Parte 5, Ítem 6 (o la Parte 4, Ítem 6 si llena el formulario para usted mismo). Si un intérprete o preparador le ayudó, ellos llenan y firman a mano las Partes 6 y 7.',
+      'Imprima el PDF y firme a mano con tinta negra la Parte 5, Ítem 6 (o la Parte 4, Ítem 6 si llena el formulario para usted mismo). Si un intérprete o preparador le ayudó, sus datos ya están en las Partes 6 y 7; ellos las revisan y las firman y fechan a mano.',
       'Envíe el I-134 a quien se lo pidió: normalmente el beneficiario lo lleva a su entrevista en el consulado, o se presenta según las instrucciones del programa de parole.',
     ],
     en: [
       'Check at uscis.gov/i-134 that edition {edition} is still current; if it changed, use the new one and copy your answers from this sheet. For parole processes filed online (Form I-134A), use your USCIS account instead of this PDF.',
       'Attach evidence of your income and assets: your latest federal tax return (or IRS transcript), an employer letter or recent pay stubs, and statements for your bank accounts or other assets. Also attach proof of your U.S. status.',
-      'Print the PDF and sign Part 5, Item 6 (or Part 4, Item 6 if you file for yourself) by hand in black ink. If an interpreter or preparer helped you, they complete and sign Parts 6 and 7 by hand.',
+      'Print the PDF and sign Part 5, Item 6 (or Part 4, Item 6 if you file for yourself) by hand in black ink. If an interpreter or preparer helped you, their details are already in Parts 6 and 7; they review them and sign and date by hand.',
       'Send Form I-134 to whoever asked for it: usually the beneficiary takes it to their consular interview, or it is filed as the parole program’s instructions say.',
     ],
   },
@@ -534,7 +535,7 @@ export const i134: FormDefinition = {
           kind: 'choice',
           formRef: 'Part 5 · Item 2 · Preparer',
           question: t('¿Alguien más (no usted) preparó este formulario?', 'Did someone else prepare this form for you?'),
-          why: t('Si es así, esa persona también debe llenar y firmar la Parte 7 a mano.', 'If so, that person must also complete and sign Part 7 by hand.'),
+          why: t('Si es así, al final le pediremos sus datos para la Parte 7; esa persona la firma a mano.', 'If so, we ask for their details for Part 7 at the end; that person signs it by hand.'),
           options: yesNo,
         },
         {
@@ -558,5 +559,6 @@ export const i134: FormDefinition = {
         },
       ],
     },
+    assistanceSection({ usedInterpreter, usedPreparer, interpreterPart: 'Part 6', preparerPart: 'Part 7', address: false, statement: false }),
   ],
 };

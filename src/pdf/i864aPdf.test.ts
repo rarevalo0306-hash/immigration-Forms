@@ -55,6 +55,41 @@ export const householdMember: Answers = {
   phone: '213 555 0199',
 };
 
+/** An interpreter in Los Angeles and a preparer in Tijuana. */
+const helpers: Answers = {
+  readsEnglish: 'B',
+  'readsEnglish.language': 'Spanish',
+  preparer: 'yes',
+  'preparer.name': 'Luis Pérez',
+  'interp.family': 'Gómez',
+  'interp.given': 'Rosa',
+  'interp.business': 'Ayuda Hispana LLC',
+  'interp.street': '500 Oak St',
+  'interp.unit': 'Ste 210',
+  'interp.city': 'Los Angeles',
+  'interp.state': 'CA',
+  'interp.zip': '90012',
+  'interp.country': 'United States',
+  'interp.phone': '(213) 555-0111',
+  'interp.mobile': '213 555 0112',
+  'interp.email': 'rosa@example.com',
+  'interp.language': 'Spanish',
+  'prep.same': 'no',
+  'prep.family': 'Pérez',
+  'prep.given': 'Luis',
+  'prep.business': 'Pérez Law Office',
+  'prep.street': '77 Av Revolución',
+  'prep.unit': 'Flr 3',
+  'prep.city': 'Tijuana',
+  'prep.province': 'Baja California',
+  'prep.postal': '22000',
+  'prep.country': 'Mexico',
+  'prep.phone': '664 555 0100',
+  'prep.mobile': '664 555 0101',
+  'prep.email': 'luis@example.com',
+  'prep.statement': 'attorneyExtends',
+};
+
 describe('I-864A PDF', () => {
   it('plans only fields that exist, with the right kind', async () => {
     const index = fieldIndex((await PDFDocument.load(template)).getForm());
@@ -64,6 +99,9 @@ describe('I-864A PDF', () => {
       { ...householdMember, relationship: 'A', employment: 'retired', 'job.retiredSince': '01/01/2020' },
       { ...householdMember, relationship: 'B', employment: 'unemployed', 'job.unemployedSince': '01/01/2024', relative: '1' },
       ...['1', '2', '3'].map((relative) => ({ ...householdMember, relative })),
+      { ...householdMember, ...helpers },
+      { ...householdMember, ...helpers, 'prep.same': 'yes', 'prep.statement': 'notAttorney' },
+      { ...householdMember, ...helpers, readsEnglish: 'A', 'prep.statement': 'attorneyNotExtends' },
     ];
     for (const plan of variants.map(planI864A)) {
       for (const name of Object.keys(plan.text)) expect(index.get(name), name).toBeInstanceOf(PDFTextField);
@@ -73,6 +111,24 @@ describe('I-864A PDF', () => {
     }
     // Only the household member who isn't the immigrant gives a relationship.
     expect(planI864A({ ...householdMember, relationship: 'B', relative: '1' }).checkValue.map(([b]) => b)).not.toContain('P2_Line3_A_Relationship');
+  });
+
+  it('fills the interpreter and preparer parts', async () => {
+    const f = fieldIndex((await PDFDocument.load(await fillI864A(template, { ...householdMember, ...helpers }))).getForm());
+    const text = (n: string) => (f.get(n) as PDFTextField).getText() ?? '';
+    const checked = (n: string) => (f.get(n) as PDFCheckBox).isChecked();
+    expect(checked('P5Line5_Checkbox[2]')).toBe(true); // Part 5, Item 6
+    expect(text('P5Line5c_language[0]')).toBe('Luis Perez');
+    expect(checked('Part6_Line2_Checkbox[0]')).toBe(true);
+    expect(text('P6Line2_Attorney[0]')).toBe('Luis Perez');
+    expect(text('P8Line1a_InterpretersFamilyName[0]')).toBe('Gomez');
+    expect(text('P8Line4_InterpretersDaytimePhoneNumber[1]')).toBe('2135550112');
+    expect(text('P8_Language[0]')).toBe('Spanish');
+    expect(text('P9Line1b_PreparersGivenName[0]')).toBe('Luis');
+    expect(text('P9Line5_PreparersFaxNumber[0]')).toBe('6645550101');
+    // The sponsor's interpreter counts too.
+    expect(planI864A({ ...householdMember, ...helpers, readsEnglish: 'A', 'sponsor.readsEnglish': 'B' }).text['P8_Language[0]']).toBe('Spanish');
+    expect(Object.keys(planI864A({ ...householdMember, ...helpers, readsEnglish: 'A', preparer: 'no' }).text).filter((k) => /^P[89]/.test(k))).toEqual([]);
   });
 
   it('writes the answers into the official form', async () => {

@@ -1,6 +1,7 @@
 import { PDFCheckBox, PDFDocument, PDFDropdown, PDFTextField, StandardFonts } from 'pdf-lib';
 import type { Answers } from '../forms/types';
 import { parseUnit } from '../engine/validation';
+import { assistance, usedInterpreter, usedPreparer } from '../forms/assistance';
 import { fieldIndex, optionBoxes, selectOption, setFieldText, toFormText, wrap } from './common';
 
 // Fields of USCIS Form I-824, edition 04/01/24 (public/forms/i-824.pdf), named by the last
@@ -13,6 +14,9 @@ import { fieldIndex, optionBoxes, selectOption, setFieldText, toFormText, wrap }
 //   "Part3_Line5i_DependentDaytimeTelephoneNumber3[0]" and Item 25 is
 //   "Part3_Line25_InterpretersDaytimeTelephoneNumber3[0]". Item 33 (foreign address) has no State/ZIP.
 // - Part 4, Item 2 (mobile) is "Part4_Line5_ApplicantMobilePhoneNumber[0]".
+// - Parts 5 and 6 hold only name, business, phones (10 digits) and email (30 characters; a longer
+//   one goes to Part 7). The interpreter's language is "Part5_Line6_Language"; the business boxes
+//   are "Part5_Line2_IntrpretersBusinessName" (sic) and "Part6_Line2_PreparerBusinessName".
 // - Part 7's name and A-Number are "Part1_Line2a_FamilyName[1]"… and "Part1_Line6_AlienNumber[1]".
 
 export interface I824Plan {
@@ -177,6 +181,33 @@ export function planI824(a: Answers): I824Plan {
   put('Part4_Line1_ApplicantDaytimePhoneNumber[0]', digits(str(a, 'phone')));
   put('Part4_Line5_ApplicantMobilePhoneNumber[0]', digits(str(a, 'mobile')));
   put('Part4_Line3_ApplicantEmailAddress[0]', str(a, 'email'));
+
+  // Parts 5 and 6: the interpreter and the preparer. Signatures and dates are written by hand.
+  const help = assistance(a, { interpreter: usedInterpreter(a), preparer: usedPreparer(a) });
+  const email = (field: string, value: string, part: string, label: string) => {
+    if (value.length <= 30) return put(field, value);
+    put(field, 'See Part 7');
+    notes.push({ page: '5', part, item: '5', text: `${label} email address: ${value}` });
+  };
+  if (help.interpreter) {
+    const p = help.interpreter;
+    put('Part5_Line1_InterpretersFamilyName[0]', p.family);
+    put('Part5_Line1_InterpretersGivenName[0]', p.given);
+    put('Part5_Line2_IntrpretersBusinessName[0]', p.business);
+    put('Part5_Line3_InterpretersDaytimeTelephoneNumber[0]', digits(p.phone).slice(-10));
+    put('Part5_Line4_InterpretersMobileTelephoneNumber[0]', digits(p.mobile).slice(-10));
+    email('Part5_Line5_InterpreterEmailAddress[0]', p.email, '5', "Interpreter's");
+    put('Part5_Line6_Language[0]', p.language);
+  }
+  if (help.preparer) {
+    const p = help.preparer;
+    put('Part6_Line1_PreparerFamilyName[0]', p.family);
+    put('Part6_Line1_PreparerGivenName[0]', p.given);
+    put('Part6_Line2_PreparerBusinessName[0]', p.business);
+    put('Part6_Line3_PreparersDaytimeTelephoneNumber3[0]', digits(p.phone).slice(-10));
+    put('Part6_Line4_PreparersMobileNumber3[0]', digits(p.mobile).slice(-10));
+    email('Part6_Line5_PreparerEmailAddress[0]', p.email, '6', "Preparer's");
+  }
 
   // Part 7: the optional explanation goes about the request (Part 2, Item 1).
   const additional = str(a, 'additional.text');

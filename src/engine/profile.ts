@@ -37,7 +37,7 @@ const ROLES: Record<string, Partial<Record<Role, string>>> = {
 };
 
 /** Forms that call the home address something else. */
-const HOME_ALIAS: Record<string, string> = { 'i-765': 'physical', 'i-821d': 'present', 'ar-11': 'present' };
+const HOME_ALIAS: Record<string, string> = { 'i-765': 'physical', 'i-821d': 'present', 'ar-11': 'present', 'eoir-33': 'present' };
 
 /**
  * Forms where "same address?" means mailing and home are one place. (On the I-914 and I-918 it

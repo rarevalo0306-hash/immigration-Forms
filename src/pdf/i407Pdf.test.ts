@@ -34,6 +34,28 @@ export const mariaElena: Answers = {
   filer: 'self',
 };
 
+/** Rosa interpreted and her office prepared the form: Parts 2 and 3. */
+export const helped: Answers = {
+  ...mariaElena,
+  readsEnglish: 'B',
+  preparer: 'yes',
+  'interp.family': 'Gómez',
+  'interp.given': 'Rosa',
+  'interp.business': 'Servicios Latinos',
+  'interp.phone': '(213) 555-0101',
+  'interp.mobile': '1 213 555 0102',
+  'interp.email': 'rosa@example.com',
+  'interp.language': 'Spanish',
+  'prep.same': 'no',
+  'prep.family': 'Lee',
+  'prep.given': 'Ana',
+  'prep.business': 'Lee Law',
+  'prep.phone': '213 555 0199',
+  'prep.mobile': '213 555 0198',
+  'prep.email': 'ana@example.com',
+  'prep.statement': 'notAttorney',
+};
+
 describe('I-407 PDF', () => {
   it('plans only fields that exist, with the right kind', async () => {
     const index = fieldIndex((await PDFDocument.load(template)).getForm());
@@ -43,6 +65,9 @@ describe('I-407 PDF', () => {
       { ...mariaElena, 'mailing.unit': 'Floor 2', 'mailing.careOf': 'Ana Ruiz' },
       ...['S', 'M', 'O'].map((cardReason) => ({ ...mariaElena, cardReason })),
       ...['A', 'C', 'D'].map((submission) => ({ ...mariaElena, submission })),
+      helped,
+      { ...helped, 'prep.same': 'yes' },
+      ...['attorneyExtends', 'attorneyNotExtends'].map((s) => ({ ...helped, 'prep.statement': s })),
     ];
     for (const plan of variants.map(planI407)) {
       for (const name of [...Object.keys(plan.text), ...Object.keys(plan.long)]) expect(index.get(name), name).toBeInstanceOf(PDFTextField);
@@ -76,5 +101,19 @@ describe('I-407 PDF', () => {
     expect(text('P1_Line14_OtherDocuments[0]')).toContain('Reentry permit');
     expect(text('P1_Line19_YourName[0]')).toBe('Maria Elena Torres Ruiz');
     expect(text('P1_Line20_Signature[0]') ?? '').toBe('');
+    expect(text('P2_Line1_InterpreterFamilyName[0]') ?? '').toBe('');
+  });
+
+  it('fills the interpreter and preparer parts', async () => {
+    const f = fieldIndex((await PDFDocument.load(await fillI407(template, helped))).getForm());
+    const text = (n: string) => (f.get(n) as PDFTextField).getText() ?? '';
+    expect(text('P2_Line1_InterpreterFamilyName[0]')).toBe('Gomez');
+    expect(text('P2_Line4_InterMobileTel[0]')).toBe('2135550102');
+    expect(text('P3_InterpreterCertification[0]')).toBe('Spanish');
+    expect(text('P3_Line1_PreparerFamilyName[0]')).toBe('Lee');
+    expect(text('P3_Line3_PreparerDayTel[0]')).toBe('2135550199');
+    expect(text('P2_Line6_Signature[0]')).toBe('');
+    const same = fieldIndex((await PDFDocument.load(await fillI407(template, { ...helped, 'prep.same': 'yes' }))).getForm());
+    expect((same.get('P3_Line1_PreparerFamilyName[0]') as PDFTextField).getText()).toBe('Gomez');
   });
 });

@@ -141,22 +141,44 @@ export const marta: Answers = {
   counselList: 'yes',
 };
 
-const children: Answers = {};
-for (let i = 1; i <= 4; i++) {
+/** Six children: four in Part A.II and two on Supplement A. */
+export const children: Answers = {};
+for (let i = 1; i <= 6; i++) {
   Object.assign(children, {
     [`child${i}.family`]: 'Paz',
     [`child${i}.given`]: `Child ${i}`,
     [`child${i}.sex`]: i % 2 ? 'male' : 'female',
     [`child${i}.aNumber`]: `20000000${i}`,
-    [`child${i}.inUS`]: i === 4 ? 'no' : 'yes',
+    [`child${i}.inUS`]: i === 4 || i === 6 ? 'no' : 'yes',
     [`child${i}.location`]: 'Honduras',
     [`child${i}.entryDate`]: '01/20/2026',
     [`child${i}.status`]: 'B2',
     [`child${i}.court`]: i === 2 ? 'yes' : 'no',
     [`child${i}.include`]: i === 3 ? 'no' : 'yes',
+    [`child${i}.marital`]: 'Single',
+    [`child${i}.ssn`]: `12345678${i}`,
+    [`child${i}.passport`]: `P${i}`,
     [`child.more${i}`]: 'yes',
   });
 }
+
+/** A preparer in the U.S. (Part E). */
+export const preparer: Answers = {
+  preparer: 'yes',
+  'prep.family': 'Lee',
+  'prep.given': 'Ana',
+  'prep.business': 'Lee Immigration Law',
+  'prep.street': '100 Main St',
+  'prep.unit': 'Ste 210',
+  'prep.city': 'Houston',
+  'prep.state': 'TX',
+  'prep.zip': '77002',
+  'prep.country': 'United States',
+  'prep.phone': '1 713 555 0100',
+  'prep.mobile': '713 555 0101',
+  'prep.email': 'ana@example.com',
+  'prep.statement': 'attorneyExtends',
+};
 
 describe('I-589 PDF', () => {
   it('plans only fields that exist, with the right kind', async () => {
@@ -173,6 +195,9 @@ describe('I-589 PDF', () => {
       { ...marta, marital: 'S', hasChildren: 'no', court: 'B', fluentEnglish: 'yes', familyHelped: 'no', preparer: 'yes', counselList: 'no' },
       { ...marta, 'spouse.inUS': 'no', 'spouse.location': 'Honduras', 'spouse.sex': 'female', sex: 'male', marital: 'M', court: 'C' },
       ...['D', 'W'].map((marital) => ({ ...marta, marital })),
+      { ...marta, ...preparer },
+      { ...marta, ...preparer, 'prep.statement': 'notAttorney', 'prep.unit': 'Apt 4', 'prep.state': '', 'prep.zip': '', 'prep.province': 'Cortes', 'prep.postal': '21101', 'prep.country': 'Honduras' },
+      { ...marta, ...preparer, 'prep.statement': 'attorneyNotExtends', readsEnglish: 'B', 'prep.same': 'yes' },
     ];
     for (const plan of variants.map(planI589)) {
       for (const name of Object.keys(plan.text)) expect(index.get(name), name).toBeInstanceOf(PDFTextField);
@@ -188,6 +213,19 @@ describe('I-589 PDF', () => {
     expect(p.check).toContain('PtAIILine20_Yes2[0]');
     expect(p.check).toContain('CheckBoxAIII5\\.s2[0]');
     expect(p.check).toContain('CheckBox31[0]');
+    // Children 5 and 6 go on Supplement A, by position.
+    expect(p.text['TextField12[2]']).toBe('Child 5');
+    expect(p.text['TextField12[6]']).toBe('200000005');
+    expect(p.checkValue).toContainEqual(['CheckBox12_Sex', 'M']);
+    expect(p.checkValue).toContainEqual(['CheckBox57', 'Y']);
+    expect(p.check).toContain('SuppA_CheckBox21[0]');
+    expect(p.text['TextField12[12]']).toBe('Child 6');
+    expect(p.text['SuppLALine13_Specify2[0]']).toBe('Honduras');
+    expect(p.checkValue).toContainEqual(['SuppAL12_CheckBox', 'F']);
+    expect(p.text['ApplicantName[0]']).toBe('Marta Elena Reyes');
+    expect(planI589(marta).text['ApplicantName[0]']).toBeUndefined();
+    // A seventh child has no room: the chain stops at six.
+    expect(planI589({ ...full, 'child7.given': 'Child 7' }).text['TextField12[12]']).toBe('Child 6');
   });
 
   it('writes the answers into the official form', async () => {
@@ -228,6 +266,60 @@ describe('I-589 PDF', () => {
     expect(checked('PtD_ckboxynd1[0]')).toBe(true); // Yes, family helped
     expect(text('TextField32[0]')).toBe('');
     expect(text('TextField22[0]')).toBe('');
+  });
+
+  it('fills children 5 and 6 on Supplement A', async () => {
+    const f = fieldIndex((await PDFDocument.load(await fillI589(template, { ...marta, ...children, 'children.total': '6' }))).getForm());
+    const text = (n: string) => (f.get(n) as PDFTextField).getText() ?? '';
+    const checked = (n: string) => (f.get(n) as PDFCheckBox).isChecked();
+    expect(text('ChildFirst4[0]')).toBe('Child 4');
+    expect(text('PtAILine1_ANumber[1]')).toBe('212345678');
+    expect(text('ApplicantName[0]')).toBe('Marta Elena Reyes');
+    expect(text('TextField12[0]')).toBe('Paz');
+    expect(text('TextField12[2]')).toBe('Child 5');
+    expect(text('TextField12[8]')).toBe('Single');
+    expect(text('TextField12[9]')).toBe('123456785');
+    // Child 5's sex boxes share child 1's name: [0]/[1] are child 1's (exporting 1/2), [2]/[3] child 5's.
+    expect(checked('CheckBox12_Sex[0]')).toBe(true);
+    expect(checked('CheckBox12_Sex[2]')).toBe(true);
+    expect(checked('CheckBox12_Sex[3]')).toBe(false);
+    expect(checked('CheckBox57[0]')).toBe(true);
+    expect(text('ChildExp5[0]')).toBe('01/20/2026');
+    expect(text('ChildCurrent5[0]')).toBe('B2');
+    expect(checked('SuppA_CheckBox20[1]')).toBe(true);
+    expect(checked('SuppA_CheckBox21[0]')).toBe(true);
+    expect(text('TextField12[12]')).toBe('Child 6');
+    expect(text('TextField12[16]')).toBe('200000006');
+    expect(checked('SuppAL12_CheckBox[1]')).toBe(true);
+    expect(checked('SuppAL13_CheckBox[1]')).toBe(true);
+    expect(text('SuppLALine13_Specify2[0]')).toBe('Honduras');
+    expect(text('ChildCurrent6[0]')).toBe('');
+    expect(text('TextField28[0]')).toBe(''); // the signature
+  });
+
+  it('fills the preparer in Part E', async () => {
+    const read = async (a: Answers) => {
+      const f = fieldIndex((await PDFDocument.load(await fillI589(template, a))).getForm());
+      return (n: string) => (f.get(n) as PDFTextField).getText() ?? '';
+    };
+    let text = await read({ ...marta, ...preparer });
+    expect(text('PtE_PreparerName[0]')).toBe('Ana Lee');
+    expect(text('TextField25[1]')).toBe('713');
+    expect(text('TextField25[0]')).toBe('555-0100');
+    expect(text('PtE_StreetNumAndName[0]')).toBe('100 Main St');
+    expect(text('PtE_AptNumber[0]')).toBe('Ste210');
+    expect(text('PtE_City[0]')).toBe('Houston');
+    expect(text('PtE_State[0]')).toBe('TX');
+    expect(text('PtE_ZipCode[0]')).toBe('77002');
+    expect(text('PtE_PreparerSignature[0]')).toBe('');
+    expect(text('AttorneyStateBarNumber[0]')).toBe('');
+    text = await read({ ...marta, ...preparer, 'prep.unit': 'Apt 4', 'prep.state': '', 'prep.zip': '', 'prep.province': 'Cortes', 'prep.postal': '21101', 'prep.country': 'Honduras', 'prep.phone': '504 2555 0100' });
+    expect(text('PtE_AptNumber[0]')).toBe('4');
+    expect(text('PtE_City[0]')).toBe('Houston, Cortes, Honduras');
+    expect(text('PtE_ZipCode[0]')).toBe('21101');
+    expect(text('TextField25[0]')).toBe('');
+    text = await read(marta);
+    expect(text('PtE_PreparerName[0]')).toBe('');
   });
 
   it('moves explanations that do not fit to Supplement B', async () => {

@@ -46,15 +46,20 @@ const contact = (prefix: string, ref: string): Field[] => [
 /**
  * The questions for the interpreter's and preparer's parts.
  * `interpreterPart` / `preparerPart` are the form's own part names (e.g. 'Part 7'); leave one out
- * when the form has no such part.
+ * when the form has no such part. Many editions have no boxes for the helpers' addresses or the
+ * preparer's statement: pass `address: false` / `statement: false` so nobody is asked for them,
+ * and `omitFields` for single boxes the PDF lacks (e.g. 'prep.mobile').
  */
 export function assistanceSection(opts: {
   usedInterpreter: (a: Answers) => boolean;
   usedPreparer: (a: Answers) => boolean;
   interpreterPart?: string;
   preparerPart?: string;
+  address?: boolean;
+  statement?: boolean;
+  omitFields?: string[];
 }): Section {
-  const { usedInterpreter, usedPreparer, interpreterPart: ip, preparerPart: pp } = opts;
+  const { usedInterpreter, usedPreparer, interpreterPart: ip, preparerPart: pp, address = true, statement = true, omitFields = [] } = opts;
   const both = all(usedInterpreter, usedPreparer);
   const needsPreparer = all(usedPreparer, (a) => !(ip && both(a) && a['prep.same'] === 'yes'));
   const questions: Section['questions'] = [];
@@ -152,11 +157,15 @@ export function assistanceSection(opts: {
       },
     );
   }
+  const dropped = new Set([...(address ? [] : ['interp.address', 'prep.address']), ...(statement ? [] : ['prep.statement'])]);
+  const omit = new Set(omitFields);
   return {
     id: 'assistance',
     part: [ip, pp].filter(Boolean).join(' · '),
     title: t('Quién le ayudó', 'Who helped you'),
-    questions,
+    questions: questions
+      .filter((q) => !dropped.has(q.id))
+      .map((q) => (q.kind === 'fields' && omit.size ? { ...q, fields: q.fields.filter((f) => !omit.has(f.id)) } : q)),
   };
 }
 

@@ -1,9 +1,11 @@
 import type { FormDefinition } from './types';
 import type { T } from '../i18n';
 import { all, anyAddress, biographic, date, is, nameFields, sexField, yesNo } from './helpers';
+import { assistanceSection, usedInterpreter, usedPreparer } from './assistance';
 
 // Questions follow USCIS Form I-90, Application to Replace Permanent Resident Card, edition
-// 01/20/25. The PDF mapping lives in src/pdf/i90Pdf.ts.
+// 01/20/25. The PDF mapping lives in src/pdf/i90Pdf.ts. The interpreter (Part 6) and preparer
+// (Part 7) are filled in from the last section; they sign and date by hand.
 
 export const I90_EDITION = '01/20/25';
 
@@ -39,13 +41,13 @@ export const i90: FormDefinition = {
     es: [
       'Confirme en uscis.gov/i-90 que la edición {edition} sigue vigente y revise la tarifa; si cambió, use la nueva y copie sus respuestas de esta hoja. El I-90 también se puede presentar en línea.',
       'Adjunte copia de su tarjeta actual (frente y reverso) si la tiene y, si cambió su nombre, el documento legal del cambio.',
-      'Imprima el PDF y firme la Parte 5, Ítem 6.a, a mano con tinta negra.',
+      'Imprima el PDF y firme la Parte 5, Ítem 6.a, a mano con tinta negra. Si un intérprete o preparador le ayudó, ellos firman y fechan a mano las Partes 6 y 7.',
       'Guarde el recibo de USCIS: junto con su tarjeta vencida le sirve como prueba de residencia mientras espera.',
     ],
     en: [
       'Check at uscis.gov/i-90 that edition {edition} is still current and check the fee; if it changed, use the new one and copy your answers from this sheet. Form I-90 can also be filed online.',
       'Attach a copy of your current card (front and back) if you have it and, if your name changed, the legal document for the change.',
-      'Print the PDF and sign Part 5, Item 6.a, by hand in black ink.',
+      'Print the PDF and sign Part 5, Item 6.a, by hand in black ink. If an interpreter or preparer helped you, they sign and date Parts 6 and 7 by hand.',
       'Keep the USCIS receipt notice: with your expired card it proves your residence while you wait.',
     ],
   },
@@ -321,6 +323,21 @@ export const i90: FormDefinition = {
           fields: [{ id: 'fluentLanguage', type: 'text', required: true, label: { es: 'Idioma', en: 'Language' }, formRef: 'Part 5 · Item 1.b', placeholder: 'Spanish' }],
         },
         {
+          id: 'preparer',
+          kind: 'choice',
+          formRef: 'Part 5 · Item 2',
+          question: t('¿Alguien más (no usted) le preparó esta solicitud?', 'Did someone else prepare this application for you?'),
+          options: yesNo,
+        },
+        {
+          id: 'preparerName',
+          kind: 'fields',
+          formRef: 'Part 5 · Item 2',
+          showIf: is('preparer', 'yes'),
+          question: t('¿Quién la preparó?', 'Who prepared it?'),
+          fields: [{ id: 'preparer.name', type: 'text', required: true, label: { es: 'Nombre del preparador', en: 'Preparer’s name' }, formRef: 'Part 5 · Item 2' }],
+        },
+        {
           id: 'contactInfo',
           kind: 'fields',
           formRef: 'Part 5 · Items 3–5 · Applicant’s Contact Information',
@@ -333,5 +350,6 @@ export const i90: FormDefinition = {
         },
       ],
     },
+    assistanceSection({ usedInterpreter, usedPreparer, interpreterPart: 'Part 6', preparerPart: 'Part 7' }),
   ],
 };

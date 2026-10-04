@@ -124,6 +124,33 @@ export const everything: Answers = {
   email: 'jose@example.com',
 };
 
+/** An interpreter and a different preparer helped. */
+const helped: Answers = {
+  readsEnglish: 'B',
+  preparer: 'yes',
+  'interp.family': 'Gómez',
+  'interp.given': 'Lucía',
+  'interp.business': 'Ayuda Legal',
+  'interp.street': '10 Elm St',
+  'interp.unit': 'Ste 5',
+  'interp.city': 'Los Angeles',
+  'interp.state': 'CA',
+  'interp.zip': '90011',
+  'interp.country': 'United States',
+  'interp.phone': '1 (213) 555-0100',
+  'interp.mobile': '213 555 0101',
+  'interp.email': 'lucia@example.com',
+  'interp.language': 'Spanish',
+  'prep.same': 'no',
+  'prep.family': 'Ruiz',
+  'prep.given': 'Mario',
+  'prep.business': 'Ruiz Forms',
+  'prep.phone': '213 555 0200',
+  'prep.mobile': '213 555 0201',
+  'prep.email': 'mario@example.com',
+  'prep.statement': 'notAttorney',
+};
+
 async function filled(a: Answers) {
   return (await PDFDocument.load(await fillN400(template, a))).getForm();
 }
@@ -132,7 +159,13 @@ describe('N-400 PDF', () => {
   it('plans only fields that exist, with the right kind', async () => {
     const form = (await PDFDocument.load(template)).getForm();
     const index = fieldIndex(form);
-    const plans = [planN400(everything), planN400({ ...everything, sex: 'female', marital: 'separated', mailingSame: 'yes', 'home.unit': 'Suite 9', ethnicity: 'notHispanic' })];
+    const plans = [
+      planN400(everything),
+      planN400({ ...everything, sex: 'female', marital: 'separated', mailingSame: 'yes', 'home.unit': 'Suite 9', ethnicity: 'notHispanic' }),
+      planN400({ ...everything, ...helped }),
+      planN400({ ...everything, ...helped, 'prep.same': 'yes', 'prep.statement': 'attorneyExtends' }),
+      planN400({ ...everything, ...helped, readsEnglish: 'A', 'prep.statement': 'attorneyNotExtends' }),
+    ];
     for (const plan of plans) {
       for (const name of Object.keys(plan.text)) expect(index.get(name), name).toBeInstanceOf(PDFTextField);
       for (const name of plan.check) expect(index.get(name), name).toBeInstanceOf(PDFCheckBox);
@@ -195,6 +228,25 @@ describe('N-400 PDF', () => {
     expect([text('P11_Line3A[0]'), text('P11_Line3B[0]'), text('P11_Line3C[0]')]).toEqual(['6', '9', '1']);
     expect(text('P11_Line3D[0]')).toMatch(/I-9/);
     expect(text('P11_Line6C[0]')).toBe('4');
+  });
+
+  it('fills the interpreter’s and preparer’s parts', async () => {
+    const seg = fieldIndex(await filled({ ...everything, ...helped }));
+    const text = (n: string) => (seg.get(n) as PDFTextField).getText();
+    expect(text('P14_Line1_nterpreterFamilyName[0]')).toBe('Gomez');
+    expect(text('P14_Line1_nterpreterGivenName[0]')).toBe('Lucia');
+    expect(text('P14_Line4_Telephone[0]')).toBe('2135550100');
+    expect(text('P14_NameOfLanguage[0]')).toBe('Spanish');
+    expect(text('P15_Line1_PreparerFamilyName[0]')).toBe('Ruiz');
+    expect(text('P15_Line6_Email[0]')).toBe('mario@example.com');
+    expect(text('P14_DateofSignature[0]')).toBeUndefined();
+
+    const same = fieldIndex(await filled({ ...everything, ...helped, 'prep.same': 'yes' }));
+    expect((same.get('P15_Line1_PreparerFamilyName[0]') as PDFTextField).getText()).toBe('Gomez');
+
+    const alone = fieldIndex(await filled(everything));
+    expect((alone.get('P14_Line1_nterpreterFamilyName[0]') as PDFTextField).getText()).toBeUndefined();
+    expect((alone.get('P15_Line1_PreparerFamilyName[0]') as PDFTextField).getText()).toBeUndefined();
   });
 
   it('answers No to Selective Service for women', async () => {

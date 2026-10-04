@@ -50,6 +50,41 @@ export const jorge: Answers = {
   email: 'jorge.ramirez@example.com',
 };
 
+/** An interpreter and a different preparer helped. */
+const helped: Answers = {
+  readsEnglish: 'B',
+  fluentLanguage: 'Spanish',
+  preparer: 'yes',
+  'preparer.name': 'Mario Ruiz',
+  'interp.family': 'Gómez',
+  'interp.given': 'Lucía',
+  'interp.business': 'Ayuda Legal',
+  'interp.street': '10 Elm St',
+  'interp.unit': 'Ste 5',
+  'interp.city': 'Los Angeles',
+  'interp.state': 'CA',
+  'interp.zip': '90011',
+  'interp.country': 'United States',
+  'interp.phone': '213 555 0100',
+  'interp.mobile': '213 555 0101',
+  'interp.email': 'lucia@example.com',
+  'interp.language': 'Spanish',
+  'prep.same': 'no',
+  'prep.family': 'Ruiz',
+  'prep.given': 'Mario',
+  'prep.business': 'Ruiz Forms',
+  'prep.street': 'Calle 5 de Mayo 12',
+  'prep.unit': 'Flr 3',
+  'prep.city': 'Tijuana',
+  'prep.province': 'Baja California',
+  'prep.postal': '22000',
+  'prep.country': 'Mexico',
+  'prep.phone': '213 555 0200',
+  'prep.mobile': '213 555 0201',
+  'prep.email': 'mario@example.com',
+  'prep.statement': 'notAttorney',
+};
+
 const long = (n: number) => [...Array(n)].map((_, i) => `Paragraph ${i + 1}. ${'The officer did not consider the evidence I brought to the interview. '.repeat(4)}`).join('\n');
 
 describe('N-336 PDF', () => {
@@ -92,6 +127,9 @@ describe('N-336 PDF', () => {
       ...['BLK', 'BRO', 'BLN', 'GRY', 'WHI', 'RED', 'SDY', 'BAL', 'XXX'].map((hair) => ({ ...jorge, hair })),
       ...['2', '8'].map((heightFeet) => ({ ...jorge, heightFeet, heightInches: '11' })),
       { ...jorge, heightInches: '0', 'home.state': 'TX', mailingSame: 'no', 'mailing.state': 'NY', 'mailing.street': '1 Main St' },
+      { ...jorge, ...helped },
+      { ...jorge, ...helped, 'prep.same': 'yes', 'prep.statement': 'attorneyExtends' },
+      { ...jorge, ...helped, 'interp.unit': 'Apt 2', 'prep.statement': 'attorneyNotExtends' },
     ];
     for (const plan of variants.map(planN336)) {
       for (const name of Object.keys(plan.text)) expect(index.get(name), name).toBeInstanceOf(PDFTextField);
@@ -145,6 +183,34 @@ describe('N-336 PDF', () => {
     expect(text('Pt10Line1b_language[0]')).toBe('Spanish');
     expect(text('Pt5Line5_Email[0]')).toBe('jorge.ramirez@example.com');
     expect(text('P5Line6_SignatureApplicant[0]')).toBe('');
+  });
+
+  it('fills the interpreter’s and preparer’s parts', async () => {
+    const f = fieldIndex((await PDFDocument.load(await fillN336(template, { ...jorge, ...helped }))).getForm());
+    const text = (n: string) => (f.get(n) as PDFTextField).getText() ?? '';
+    const checked = (n: string) => (f.get(n) as PDFCheckBox).isChecked();
+    expect(text('Pt6Line1_InterpreterFamilyName[0]')).toBe('Gomez');
+    expect(checked('Pt6Line3_Unit[0]')).toBe(true); // STE
+    expect(text('Pt6Line3_AptSteFlrNumber[0]')).toBe('5');
+    expect((f.get('Pt6Line3_State[0]') as PDFDropdown).getSelected()[0].trim()).toBe('CA');
+    expect(text('Pt4Line6a_NameOfLanguage[0]')).toBe('Spanish');
+    expect(text('Pt3Line5_MobileTelephoneNumber3[0]')).toBe('2135550101');
+    expect(text('Pt5Line1_PreparerFamilyName[0]')).toBe('Ruiz');
+    expect(checked('Pt7Line3_Unit[1]')).toBe(true); // FLR
+    expect(text('Pt7Line3_Province[0]')).toBe('Baja California');
+    expect(text('Pt7Line3_Country[0]')).toBe('Mexico');
+    expect(checked('Pt5LineCheckbox7[0]')).toBe(true); // A: not an attorney
+    expect(checked('Pt5LineCheckbox7[1]')).toBe(false);
+    expect(text('Pt5Line8_Signature[0]')).toBe('');
+
+    const lawyer = fieldIndex((await PDFDocument.load(await fillN336(template, { ...jorge, ...helped, 'prep.same': 'yes', 'prep.statement': 'attorneyNotExtends' }))).getForm());
+    expect((lawyer.get('Pt5Line1_PreparerFamilyName[0]') as PDFTextField).getText()).toBe('Gomez');
+    expect((lawyer.get('Pt5LineCheckbox7[1]') as PDFCheckBox).isChecked()).toBe(true);
+    expect((lawyer.get('Pt5Checkbox7b_notextends[0]') as PDFCheckBox).isChecked()).toBe(true);
+    expect((lawyer.get('Pt5Checkbox7b_extends[0]') as PDFCheckBox).isChecked()).toBe(false);
+
+    const alone = fieldIndex((await PDFDocument.load(await fillN336(template, { ...jorge, readsEnglish: 'A' }))).getForm());
+    expect((alone.get('Pt6Line1_InterpreterFamilyName[0]') as PDFTextField).getText()).toBeUndefined();
   });
 
   it('continues a long statement in Part 8', async () => {

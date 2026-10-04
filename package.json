@@ -9,7 +9,8 @@
     "preview": "vite preview",
     "typecheck": "tsc -b",
     "test": "vitest run",
-    "check-editions": "vite-node scripts/check-editions.ts"
+    "check-editions": "vite-node scripts/check-editions.ts",
+    "gen-catalog": "vite-node scripts/gen-catalog.ts"
   },
   "dependencies": {
     "pdf-lib": "^1.17.1",

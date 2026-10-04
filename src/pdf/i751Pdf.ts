@@ -2,13 +2,20 @@ import { PDFCheckBox, PDFDocument, PDFDropdown, PDFTextField } from 'pdf-lib';
 import type { Answers } from '../forms/types';
 import { HISTORY_ITEMS } from '../forms/i751';
 import { parseUnit } from '../engine/validation';
+import { assistance, usedPreparer, type HelperPerson } from '../forms/assistance';
 import { fieldIndex, optionBoxes, selectOption, setFieldText } from './common';
 
 // Fields of USCIS Form I-751, edition 04/01/24 (public/forms/i-751.pdf), named by the last segment
 // of their full name and placed by where they sit on the printed page. The Yes/No boxes of Part 1,
 // Items 18-23 are named one item early ("Line17_Checkbox" is Item 18), the mailing address is
 // "Line17*" and the children's living/applying boxes carry later item numbers; the mapping follows
-// the page, not the names.
+// the page, not the names. Parts 9 and 10 (interpreter, preparer) carry "P6"/"Pt9" and
+// "P7"/"Pt10" names (the preparer's street is "Pt9Line3_StreetNumberName"); neither has a mobile
+// phone box, the preparer's Item 5 is a fax number (left blank) and the interpreter's email box
+// is capped at 10 characters, so the cap is lifted when filling.
+
+/** Boxes whose length cap is a mistake: the printed box holds a full email address. */
+const UNCAPPED = new Set(['P6_Line5_InterpretersEmailAddress[0]']);
 
 export interface I751Plan {
   text: Record<string, string>;
@@ -218,6 +225,15 @@ export function planI751(a: Answers): I751Plan {
   put('P5_Line4_MobilePhoneNumber[0]', digits(str(a, 'mobile')));
   put('P5_Line5_EmailAddress[0]', str(a, 'email'));
   put('P7_Name[0]', fullName(a, 'name'));
+  // Item 2: who prepared the petition, and whether they are an attorney (from their statement).
+  const preparerBoxes = (box: string, name: string, who: string) => {
+    if (a.preparer !== 'yes') return;
+    check.push(box);
+    put(name, str(a, 'preparer.name'));
+    const statement = str(a, 'prep.statement');
+    if (statement) checkValue.push([who, statement === 'notAttorney' ? 'N' : 'Y']);
+  };
+  preparerBoxes('P5_Checkbox2[0]', 'P5_Line2_NameofRepresentative[0]', 'P5_Checkbox2_Who');
 
   // Part 8: the spouse or stepparent, on a joint petition only.
   if (joint) {
@@ -228,6 +244,66 @@ export function planI751(a: Answers): I751Plan {
     put('P5_Line4_MobilePhoneNumber[1]', digits(str(a, 'spouse.mobile')));
     put('P5_Line5_EmailAddress[1]', str(a, 'spouse.email'));
     put('Pt8_Name[0]', fullName(a, 'spouse'));
+    preparerBoxes('P5_Checkbox2[1]', 'P7Line2_NameofRepresentative[0]', 'P7_Checkbox2_Who');
+  }
+
+  // Parts 9 and 10: who helped. Their signatures and dates stay empty.
+  const help = assistance(a, { interpreter: a.readsEnglish === 'B' || (joint && a['spouse.readsEnglish'] === 'B'), preparer: usedPreparer(a) });
+  const helper = (p: HelperPerson, f: Required<Omit<AddressFields, 'careOf'>>) => {
+    put(f.street, p.street);
+    const u = parseUnit(p.unit);
+    if (u) {
+      checkValue.push([f.unit, u.kind]);
+      put(f.number, u.number);
+    }
+    put(f.city, p.city);
+    if (p.state) select[f.state] = p.state.toUpperCase();
+    put(f.zip, p.zip);
+    put(f.province, p.province);
+    put(f.postal, p.postal);
+    put(f.country, p.country);
+  };
+  if (help.interpreter) {
+    const p = help.interpreter;
+    put('P6_Line1a_InterpretersFamilyName[0]', p.family);
+    put('P6_Line1b_InterpretersGivenName[0]', p.given);
+    put('P6_Line2_NameofBusinessor[0]', p.business);
+    helper(p, {
+      street: 'P6_Line3a_StreetNumberName[0]',
+      unit: 'Pt9Line3_Unit',
+      number: 'Pt9Line3_AptSteFlrNumber[0]',
+      city: 'Pt9Line3_CityOrTown[0]',
+      state: 'Pt9Line3_State[0]',
+      zip: 'Pt9Line3_ZipCode[0]',
+      province: 'Pt9Line3_Province[0]',
+      postal: 'Pt9Line3_PostalCode[0]',
+      country: 'Pt9Line3_Country[0]',
+    });
+    put('P6_Line4_InterpretersDaytimePhoneNumber[0]', digits(p.phone));
+    put('P6_Line5_InterpretersEmailAddress[0]', p.email);
+    put('P6_Language[0]', p.language);
+  }
+  if (help.preparer) {
+    const p = help.preparer;
+    put('P7_Line1a_FamilyName[0]', p.family);
+    put('P7_Line1b_PreparersGivenName[0]', p.given);
+    put('P7_Line2_NameofBusinessor[0]', p.business);
+    helper(p, {
+      street: 'Pt9Line3_StreetNumberName[0]',
+      unit: 'Pt10Line3_Unit',
+      number: 'Pt10Line3_AptSteFlrNumber[0]',
+      city: 'P7_Line3c_CityTown[0]',
+      state: 'P7_Line3d_State[0]',
+      zip: 'P7_Line3e_ZipCode[0]',
+      province: 'P7_Line3f_Province[0]',
+      postal: 'P7_Line3g_PostalCode[0]',
+      country: 'P7_Line3h_Country[0]',
+    });
+    put('P7_Line4_PreparersDaytimePhoneNumber[0]', digits(p.phone));
+    put('P7_Line6_PreparersEmailAddress[0]', p.email);
+    if (p.statement === 'notAttorney') checkValue.push(['P7_checkbox7', 'A']);
+    if (p.statement === 'attorneyExtends') check.push('P7_checkbox7[1]', 'Pt10Item7b_Extends[0]');
+    if (p.statement === 'attorneyNotExtends') check.push('P7_checkbox7[1]', 'Pt10Item7b_NotExtend[0]');
   }
 
   // Part 11: explanations for Part 1, Items 20 and 22.
@@ -265,6 +341,7 @@ export async function fillI751(template: ArrayBuffer | Uint8Array, a: Answers): 
   for (const [name, raw] of Object.entries(plan.text)) {
     const field = get(name);
     if (!(field instanceof PDFTextField)) throw new Error(`Not a text field: ${name}`);
+    if (UNCAPPED.has(name)) field.setMaxLength(undefined);
     setFieldText(field, raw, 9);
   }
   for (const name of plan.check) {

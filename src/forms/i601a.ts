@@ -1,9 +1,11 @@
 import type { Answers, Field, FormDefinition, Option, YesNoItem } from './types';
 import type { T } from '../i18n';
 import { all, biographic, date, is, nameFields, rows, sexField, yesNo } from './helpers';
+import { assistanceSection, usedInterpreter, usedPreparer } from './assistance';
 
 // Questions follow USCIS Form I-601A, Application for Provisional Unlawful Presence Waiver,
-// edition 01/20/25. The PDF mapping lives in src/pdf/i601aPdf.ts.
+// edition 01/20/25. Parts 7 and 8 (interpreter and preparer) come from the shared assistance section;
+// every signature and date is left for hand. The PDF mapping lives in src/pdf/i601aPdf.ts.
 
 export const I601A_EDITION = '01/20/25';
 
@@ -94,14 +96,14 @@ export const i601a: FormDefinition = {
       'Confirme en uscis.gov/i-601a que la edición {edition} sigue vigente y revise la tarifa y las citas de biometría.',
       'Adjunte la notificación de aprobación de la petición (I-797), el recibo del pago de la visa del Centro Nacional de Visas (o la carta del programa de lotería) y prueba de que su familiar es ciudadano o residente.',
       'Las "dificultades extremas" se prueban con documentos: cartas médicas, comprobantes de ingresos y deudas, cartas de apoyo, información del país. Un abogado puede ayudarle a armar el expediente.',
-      'Imprima el PDF y firme la Parte 6, Ítem 6, a mano con tinta negra. Si un intérprete o preparador le ayudó, ellos llenan y firman las Partes 7 y 8.',
+      'Imprima el PDF y firme la Parte 6, Ítem 6, a mano con tinta negra. Si un intérprete o preparador le ayudó, sus datos ya están en las Partes 7 y 8; ellos las revisan y las firman y fechan a mano.',
       'Si lo aprueban, no salga del país hasta tener la cita en el consulado, y resuelva antes cualquier caso en corte de inmigración.',
     ],
     en: [
       'Check at uscis.gov/i-601a that edition {edition} is still current, and check the fee and biometrics appointments.',
       'Attach the petition approval notice (I-797), the National Visa Center fee receipt (or the visa lottery letter) and proof that your relative is a citizen or resident.',
       '"Extreme hardship" is proved with documents: medical letters, income and debt records, support letters, country information. An attorney can help you build the case.',
-      'Print the PDF and sign Part 6, Item 6, by hand in black ink. If an interpreter or preparer helped you, they complete and sign Parts 7 and 8.',
+      'Print the PDF and sign Part 6, Item 6, by hand in black ink. If an interpreter or preparer helped you, their details are already in Parts 7 and 8; they review them and sign and date by hand.',
       'If approved, do not leave the country until you have your consular appointment, and resolve any immigration court case first.',
     ],
   },
@@ -366,5 +368,6 @@ export const i601a: FormDefinition = {
         },
       ],
     },
+    assistanceSection({ usedInterpreter, usedPreparer, interpreterPart: 'Part 7', preparerPart: 'Part 8' }),
   ],
 };

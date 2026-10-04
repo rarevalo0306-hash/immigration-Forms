@@ -1,6 +1,7 @@
 import { PDFCheckBox, PDFDocument, PDFDropdown, type PDFField, type PDFForm, PDFTextField, StandardFonts, rgb } from 'pdf-lib';
 import type { Answers } from '../forms/types';
 import { parseUnit } from '../engine/validation';
+import { assistance, type HelperPerson, usedInterpreter, usedPreparer } from '../forms/assistance';
 import { lastSegment, optionBoxes, selectOption, setFieldText, toFormText, wrap } from './common';
 
 // Fields of USCIS Form I-730, edition 01/20/25 (public/forms/i-730.pdf), named by the last
@@ -17,6 +18,10 @@ import { lastSegment, optionBoxes, selectOption, setFieldText, toFormText, wrap 
 //   Item 27 is "P2_Line26_DateOfArrival".
 // - Part 5, Item 1.b's language blank is "P5_Line1b_NameofInterpreter", and Item 2's preparer name
 //   is "P5_Line2b_Consented". The sex boxes of Parts 1 and 2 are "sex[0-1]" and "sex[2-3]" (1 = Male).
+// - Parts 7 and 8 (pages 10-11): the unit boxes "P7_Line3_Unit" / "P8_Line3_Unit" are [2] APT, [0] STE,
+//   [1] FLR left to right, and their export values match the printed labels. The interpreter's phone
+//   boxes hold 10 digits. Part 8, Item 7 is "Pt8_Line7_chkbx" (A = not an attorney, B = attorney), with
+//   "Pt8_Line7b_Extend" / "Pt8_Line7b_DoesNotExtend".
 // The form has no additional-information part: a Part 3 explanation that doesn't fit its box
 // continues on pages added at the end.
 
@@ -61,6 +66,20 @@ interface AddressFields {
   postal: string;
   country: string;
 }
+
+const helperAddress = (p: string, street: string, city: string): AddressFields => ({
+  street: `${p}_Line3_${street}[0]`,
+  unit: `${p}_Line3_Unit`,
+  number: `${p}_Line3_Number[0]`,
+  city: `${p}_Line3_${city}[0]`,
+  state: `${p}_Line3_State[0]`,
+  zip: `${p}_Line3_ZipCode[0]`,
+  province: `${p}_Line3_Province[0]`,
+  postal: `${p}_Line3_PostalCode[0]`,
+  country: `${p}_Line3_Country[0]`,
+});
+const P7_ADDRESS = helperAddress('P7', 'InterpretersStreetName', 'City');
+const P8_ADDRESS = helperAddress('P8', 'PrepStreetName', 'CityTown');
 
 const P1_HOME: AddressFields = { street: 'P1_Line2_StreetName[0]', unit: 'P1_Line2_Unit', number: 'P1_Line2_Number[0]', city: 'P1_Line2_City[0]', state: 'P1_Line2_State[0]', zip: 'P1_Line2_ZipCode[0]', province: 'P1_Line2_Province[0]', postal: 'P1_Line2_PostalCode[0]', country: 'P1_Line2_Country[0]' };
 const P1_MAIL: AddressFields = { careOf: 'P1_Line3_InCareofName[0]', street: 'P1_Line3_StreetNumberName[0]', unit: 'P1_Line3__Unit', number: 'P1_Line3__UnitAptSteFlrNumber[0]', city: 'P1_Line3_CityTown[0]', state: 'P1_Line3_State[0]', zip: 'P1_Line3_ZipCode[0]', province: 'P1_Line3_Province[0]', postal: 'P1_Line3_PostalCode[0]', country: 'P1_Line3_Country[0]' };
@@ -260,6 +279,49 @@ export function planI730(a: Answers): I730Plan {
   put('P5_Line3_PetitionerDayTel[0]', digits(str(a, 'phone')).replace(/^1(?=\d{10}$)/, ''));
   put('P5_Line4_PetitionerMobileTel[0]', digits(str(a, 'mobile')).replace(/^1(?=\d{10}$)/, ''));
   put('P5_Line5_PetitionerEmailAddress[0]', str(a, 'email'));
+
+  // Parts 7 and 8. Signatures and dates stay empty.
+  const phone = (s: string) => digits(s).replace(/^1(?=\d{10}$)/, '');
+  const helper = (h: HelperPerson, f: AddressFields) => {
+    put(f.street, h.street);
+    const u = parseUnit(h.unit);
+    if (u) {
+      checkValue.push([f.unit, u.kind]);
+      put(f.number, u.number);
+    }
+    put(f.city, h.city);
+    state(f.state, h.state);
+    put(f.zip, h.zip);
+    put(f.province, h.province);
+    put(f.postal, h.postal);
+    put(f.country, h.country);
+  };
+  const help = assistance(a, { interpreter: usedInterpreter(a), preparer: usedPreparer(a) });
+  if (help.interpreter) {
+    const h = help.interpreter;
+    put('P7_Line1a_InterpreterFamilyName[0]', h.family);
+    put('P7_Line1b_InterpreterGivenName[0]', h.given);
+    put('P7_Line2_InterpreterBusiness[0]', h.business);
+    helper(h, P7_ADDRESS);
+    put('P7_Line4_DayTelephone[0]', phone(h.phone));
+    put('P7_Line5_MobileTelephone[0]', phone(h.mobile));
+    put('P7_Line6_InterEmailAddress[0]', h.email);
+    put('P7_Language[0]', h.language);
+  }
+  if (help.preparer) {
+    const h = help.preparer;
+    put('P8_Line1a_PrepFamilyName[0]', h.family);
+    put('P8_Line1a_PrepGivenName[0]', h.given);
+    put('P8_Line1a_PrepBusiness[0]', h.business);
+    helper(h, P8_ADDRESS);
+    put('P8_Line4_DayTelephone[0]', phone(h.phone));
+    put('P8_Line5_MobileTelephone[0]', phone(h.mobile));
+    put('P8_Line6_PrepEmailAddress[0]', h.email);
+    if (h.statement === 'notAttorney') checkValue.push(['Pt8_Line7_chkbx', 'A']);
+    if (h.statement === 'attorneyExtends' || h.statement === 'attorneyNotExtends') checkValue.push(['Pt8_Line7_chkbx', 'B']);
+    if (h.statement === 'attorneyExtends') check.push('Pt8_Line7b_Extend[0]');
+    if (h.statement === 'attorneyNotExtends') check.push('Pt8_Line7b_DoesNotExtend[0]');
+  }
 
   return { text, check, checkValue, select, explanation: a.late === 'yes' ? str(a, 'late.explain') : '' };
 }

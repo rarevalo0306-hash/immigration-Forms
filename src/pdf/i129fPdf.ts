@@ -2,6 +2,7 @@ import { PDFCheckBox, PDFDocument, PDFDropdown, type PDFField, PDFTextField } fr
 import type { Answers } from '../forms/types';
 import { CRIME_ITEMS } from '../forms/i129f';
 import { parseUnit } from '../engine/validation';
+import { assistance } from '../forms/assistance';
 import { fieldIndex, optionBoxes, selectOption, setFieldText } from './common';
 
 // Fields of USCIS Form I-129F, edition 01/20/25 (public/forms/i-129f.pdf), named by the last segment
@@ -284,6 +285,31 @@ export function planI129F(a: Answers): I129FPlan {
   put('Pt5Line1_DaytimePhoneNumber1[0]', digits(str(a, 'phone')));
   put('Pt5Line2_MobileNumber1[0]', digits(str(a, 'mobile')));
   put('Pt5Line3_Email[0]', str(a, 'email'));
+
+  // Parts 6–7: the interpreter and the preparer; their signatures and dates stay empty. This edition
+  // has no address or statement boxes for them. The interpreter's mobile (Item 4) is the second
+  // "Pt6Line4_InterpreterDaytimeTelephone"; "Pt6Line4_Signature" is the petitioner's signature.
+  const phone = (s: string) => digits(s).replace(/^1(?=\d{10}$)/, '');
+  const help = assistance(a, { interpreter: a.readsEnglish === 'B', preparer: a.preparer === 'yes' });
+  if (help.interpreter) {
+    const p = help.interpreter;
+    put('Pt6Line1_InterpreterFamilyName[0]', p.family);
+    put('Pt6Line1_InterpreterGivenName[0]', p.given);
+    put('Pt6Line2_NameofBusinessorOrgName[0]', p.business);
+    put('Pt6Line4_InterpreterDaytimeTelephone[0]', phone(p.phone));
+    put('Pt6Line4_InterpreterDaytimeTelephone[1]', phone(p.mobile));
+    put('Pt6Line5_Email[0]', p.email);
+    put('Pt6_NameOfLanguage[0]', p.language);
+  }
+  if (help.preparer) {
+    const p = help.preparer;
+    put('Pt7Line1_PreparerFamilyName[0]', p.family);
+    put('Pt7Line1b_PreparerGivenName[0]', p.given);
+    put('Pt7Line2_NameofBusinessorOrgName[0]', p.business);
+    put('Pt7Line3_DaytimePhoneNumber1[0]', phone(p.phone));
+    put('Pt7Line4_PreparerMobileNumber[0]', phone(p.mobile));
+    put('Pt7Line5_Email[0]', p.email);
+  }
 
   return { text, check, checkValue, unit: unitBoxes, select };
 }

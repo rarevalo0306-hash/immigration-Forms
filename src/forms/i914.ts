@@ -1,15 +1,18 @@
 import type { Answers, Field, FormDefinition, YesNoItem } from './types';
 import type { T } from '../i18n';
 import { all, date, is, nameFields, rows, sexField, yesNo } from './helpers';
+import { assistanceSection, usedInterpreter, usedPreparer } from './assistance';
 import { CLASSES_OF_ADMISSION } from './classOfAdmission';
 
 // Questions follow USCIS Form I-914, Application for T Nonimmigrant Status, edition 01/20/25.
 // The PDF mapping lives in src/pdf/i914Pdf.ts.
 //
-// Out of scope: Supplement A (the application for each eligible family member) and Supplement B
-// (the optional declaration signed by a law enforcement official) are separate forms; the intro
-// and next steps explain them. Parts 7 and 8 (interpreter and preparer), the signature and its
-// date (Part 6, Item 6), and the attorney box on page 1 are left blank to be completed by hand.
+// Supplement A (the application for each eligible family member) is its own form in Camino
+// (src/forms/i914supa.ts). Out of scope: Supplement B (the optional declaration signed by a law
+// enforcement official), a separate form; the intro
+// and next steps explain them. The signatures and their dates (Part 6, Item 6, and the
+// interpreter's and preparer's in Parts 7 and 8; the rest of those parts comes from the "Who helped
+// you" section) and the attorney box on page 1 are left blank to be completed by hand.
 
 export const I914_EDITION = '01/20/25';
 
@@ -154,8 +157,8 @@ export const i914: FormDefinition = {
     en: 'Ask for T nonimmigrant status if you were a victim of human trafficking (forced labor or commercial sex) and are in the U.S. because of it.',
   },
   intro: {
-    es: 'La visa T protege a víctimas de trata de personas: a quienes obligaron, con fuerza, engaño o amenazas, a trabajar o a tener sexo comercial (o a cualquier menor de 18 en sexo comercial). Aquí se llena la solicitud principal (I-914) para usted. El Suplemento B es una declaración que puede firmar la policía u otra autoridad que investigó la trata: no es obligatorio, pero ayuda mucho; usted no lo llena y debe pedirlo a esa agencia. Para incluir a su familia se usa el Suplemento A, que no está en esta app. Su caso es confidencial: la ley prohíbe que USCIS comparta su información con los tratantes. Es un caso legal delicado: le recomendamos que lo revise un abogado o un representante acreditado (muchas organizaciones ayudan gratis a víctimas). Si necesita ayuda o está en peligro, llame a la Línea Nacional contra la Trata de Personas, 1-888-373-7888 (gratis, confidencial, en español, las 24 horas), o al 911.',
-    en: 'The T visa protects victims of human trafficking: people who were forced, tricked or threatened into labor or commercial sex (or any minor under 18 in commercial sex). This app completes the main application (Form I-914) for you. Supplement B is a declaration that the police or another authority that investigated the trafficking may sign: it is not required, but it helps a lot; you do not fill it out and must request it from that agency. Family members are added with Supplement A, which is not in this app. Your case is confidential: the law forbids USCIS from sharing your information with the traffickers. It is a sensitive legal case: we recommend an attorney or accredited representative review it (many organizations help victims for free). If you need help or are in danger, call the National Human Trafficking Hotline at 1-888-373-7888 (free, confidential, 24 hours, in Spanish), or 911.',
+    es: 'La visa T protege a víctimas de trata de personas: a quienes obligaron, con fuerza, engaño o amenazas, a trabajar o a tener sexo comercial (o a cualquier menor de 18 en sexo comercial). Aquí se llena la solicitud principal (I-914) para usted. El Suplemento B es una declaración que puede firmar la policía u otra autoridad que investigó la trata: no es obligatorio, pero ayuda mucho; usted no lo llena y debe pedirlo a esa agencia. Para incluir a su familia se usa el Suplemento A, que también puede llenar en esta app. Su caso es confidencial: la ley prohíbe que USCIS comparta su información con los tratantes. Es un caso legal delicado: le recomendamos que lo revise un abogado o un representante acreditado (muchas organizaciones ayudan gratis a víctimas). Si necesita ayuda o está en peligro, llame a la Línea Nacional contra la Trata de Personas, 1-888-373-7888 (gratis, confidencial, en español, las 24 horas), o al 911.',
+    en: 'The T visa protects victims of human trafficking: people who were forced, tricked or threatened into labor or commercial sex (or any minor under 18 in commercial sex). This app completes the main application (Form I-914) for you. Supplement B is a declaration that the police or another authority that investigated the trafficking may sign: it is not required, but it helps a lot; you do not fill it out and must request it from that agency. Family members are added with Supplement A, which you can also fill out in this app. Your case is confidential: the law forbids USCIS from sharing your information with the traffickers. It is a sensitive legal case: we recommend an attorney or accredited representative review it (many organizations help victims for free). If you need help or are in danger, call the National Human Trafficking Hotline at 1-888-373-7888 (free, confidential, 24 hours, in Spanish), or 911.',
   },
   minutes: 50,
   pdf: {
@@ -170,7 +173,7 @@ export const i914: FormDefinition = {
       'Escriba y firme su declaración personal (obligatoria): cómo lo engañaron o reclutaron, qué le obligaron a hacer, cómo lo controlaban, cómo colaboró con las autoridades (o por qué no pudo) y qué daño teme si regresa. Adjunte pruebas: reportes de policía, cartas de organizaciones o terapeutas, mensajes, fotos, recibos de pago, y una copia de su pasaporte o acta de nacimiento.',
       'Si puede, pida el Suplemento B (Formulario I-914, Supplement B) a la agencia que investigó la trata (policía, FBI, HSI, Departamento de Trabajo u otra). No es obligatorio, pero es una prueba fuerte. Usted no lo llena; ellos lo firman.',
       'Si contestó Sí a alguna pregunta de la Parte 4 o entró sin permiso, pregunte a su abogado si debe presentar también el Formulario I-192 (perdón de inadmisibilidad). Si quiere incluir a su esposo/a, hijos o (si es menor de 21) padres y hermanos, llene un Suplemento A por cada uno; también puede hacerlo después.',
-      'Imprima el PDF y firme la Parte 6, Ítem 6, a mano con tinta negra. Si un intérprete o preparador le ayudó, ellos llenan y firman a mano las Partes 7 y 8. Si alguna explicación de la Parte 9 no cabe, siga en una hoja aparte con su nombre, A-Number, firma y fecha.',
+      'Imprima el PDF y firme la Parte 6, Ítem 6, a mano con tinta negra. Si un intérprete o preparador le ayudó, sus datos ya están en las Partes 7 y 8; ellos las revisan y las firman y fechan a mano. Si alguna explicación de la Parte 9 no cabe, siga en una hoja aparte con su nombre, A-Number, firma y fecha.',
       'Envíe todo a la dirección de USCIS indicada en uscis.gov/i-914. Si teme que alguien vea su correo, use la dirección segura que dio. Hable con un abogado o representante acreditado antes de enviar. Línea Nacional contra la Trata de Personas: 1-888-373-7888.',
     ],
     en: [
@@ -178,7 +181,7 @@ export const i914: FormDefinition = {
       'Write and sign your personal statement (required): how you were recruited or deceived, what you were forced to do, how you were controlled, how you cooperated with the authorities (or why you could not), and what harm you fear if you return. Attach evidence: police reports, letters from organizations or counselors, messages, photos, pay records, and a copy of your passport or birth certificate.',
       'If you can, request Supplement B (Form I-914, Supplement B) from the agency that investigated the trafficking (police, FBI, HSI, Department of Labor or other). It is not required, but it is strong evidence. You do not fill it out; they sign it.',
       'If you answered Yes to any Part 4 question or entered without permission, ask your attorney whether you must also file Form I-192 (waiver of inadmissibility). To include your spouse, children or (if you are under 21) parents and siblings, complete a Supplement A for each one; you can also do it later.',
-      'Print the PDF and sign Part 6, Item 6, by hand in black ink. If an interpreter or preparer helped you, they complete and sign Parts 7 and 8 by hand. If an explanation in Part 9 does not fit, continue on a separate sheet with your name, A-Number, signature and date.',
+      'Print the PDF and sign Part 6, Item 6, by hand in black ink. If an interpreter or preparer helped you, their details are already in Parts 7 and 8; they check them and sign and date by hand. If an explanation in Part 9 does not fit, continue on a separate sheet with your name, A-Number, signature and date.',
       'Mail everything to the USCIS address listed at uscis.gov/i-914. If you fear someone may see your mail, use the safe address you gave. Talk to an attorney or accredited representative before mailing. National Human Trafficking Hotline: 1-888-373-7888.',
     ],
   },
@@ -448,7 +451,7 @@ export const i914: FormDefinition = {
           notice: {
             tone: 'info',
             title: t('Suplemento A', 'Supplement A'),
-            body: t('Si contesta Sí, debe llenar un Suplemento A por cada familiar. Esta app no lo llena; también puede presentarlo después.', 'If you answer Yes, you must complete a Supplement A for each family member. This app does not complete it; you can also file it later.'),
+            body: t('Si contesta Sí, debe llenar un Suplemento A por cada familiar. Puede llenarlo en esta app (I-914 Suplemento A), uno por familiar; también puede presentarlo después.', 'If you answer Yes, you must complete a Supplement A for each family member. You can fill it out in this app (I-914 Supplement A), one per family member; you can also file it later.'),
           },
           options: yesNo,
         },
@@ -604,5 +607,6 @@ export const i914: FormDefinition = {
         },
       ],
     },
+    assistanceSection({ usedInterpreter, usedPreparer, interpreterPart: 'Part 7', preparerPart: 'Part 8' }),
   ],
 };

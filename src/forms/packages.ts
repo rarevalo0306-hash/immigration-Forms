@@ -77,6 +77,15 @@ export const packages: PackageDefinition[] = [
           { formId: 'i-130', who: citizen, why: t('La petición: muestra que están casados.', 'The petition: shows you are married.'), preset: { relationship: 'spouse' } },
           { formId: 'i-130a', who: immigrant, why: t('Los datos del esposo/a que inmigra: direcciones, trabajos y padres.', 'The immigrating spouse’s details: addresses, jobs and parents.') },
           { formId: 'i-485', who: immigrant, why: t('La solicitud de residencia (green card).', 'The green card application.'), preset: { category: 'ir-spouse' } },
+          {
+            formId: 'i-485supa',
+            who: immigrant,
+            optional: true,
+            why: t(
+              'Solo si necesita la sección 245(i): por ejemplo, si entró sin inspección y un familiar o empleador pidió por usted a más tardar el 30 de abril de 2001. Hable antes con un abogado.',
+              'Only if you need section 245(i): for example, if you entered without inspection and a relative or employer petitioned for you by April 30, 2001. Talk to an attorney first.',
+            ),
+          },
           { formId: 'i-864', who: citizen, why: t('El compromiso de mantener al inmigrante, con los ingresos del ciudadano.', 'The promise to support the immigrant, with the citizen’s income.'), preset: { basis: 'petitioner' } },
           {
             formId: 'i-864a',
@@ -297,6 +306,44 @@ export const packages: PackageDefinition[] = [
     tips: {
       es: [feesTip.es, 'Incluya una copia de su tarjeta de residente (frente y reverso).', 'Si tuvo arrestos o viajes largos, hable con un abogado antes de enviar.'],
       en: [feesTip.en, 'Include a copy of your green card (front and back).', 'If you had arrests or long trips, talk to an attorney before you file.'],
+    },
+  },
+  {
+    id: 'mudanza',
+    title: t('Me mudé', 'I moved'),
+    summary: t(
+      'Avise su nueva dirección a USCIS y, si tiene un caso en corte de inmigración, también a la corte.',
+      'Report your new address to USCIS and, if you have a case in immigration court, to the court too.',
+    ),
+    intro: t(
+      'Casi todas las personas que no son ciudadanas deben avisar a USCIS dentro de 10 días después de mudarse. Si además tiene un caso ante un juez de inmigración, la corte no se entera por USCIS: hay que avisarle aparte, dentro de 5 días hábiles.',
+      'Almost everyone who isn’t a citizen must tell USCIS within 10 days of moving. If you also have a case before an immigration judge, the court doesn’t learn it from USCIS: you have to tell it separately, within 5 working days.',
+    ),
+    stages: [
+      {
+        title: t('Cada uno por su lado', 'Each one separately'),
+        steps: [
+          { formId: 'ar-11', who: t('Usted', 'You'), why: t('El aviso de cambio de dirección para USCIS.', 'The change of address notice for USCIS.') },
+          {
+            formId: 'eoir-33',
+            who: t('Usted', 'You'),
+            optional: true,
+            why: t('Solo si tiene un caso en corte de inmigración: el aviso para la corte y para los abogados de ICE.', 'Only if you have a case in immigration court: the notice for the court and for ICE’s attorneys.'),
+          },
+        ],
+      },
+    ],
+    tips: {
+      es: [
+        'Los dos son gratis.',
+        'Cada miembro de la familia que no es ciudadano llena su propio AR-11, y su propio EOIR-33 si tiene caso en corte.',
+        'Si no avisa a la corte, puede perderse una audiencia y recibir una orden de deportación sin saberlo.',
+      ],
+      en: [
+        'Both are free.',
+        'Each family member who isn’t a citizen fills in their own AR-11, and their own EOIR-33 if they have a court case.',
+        'If you don’t tell the court, you may miss a hearing and get a removal order without knowing it.',
+      ],
     },
   },
 ];

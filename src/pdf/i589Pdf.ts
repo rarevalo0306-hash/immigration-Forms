@@ -1,6 +1,8 @@
 import { PDFCheckBox, PDFDocument, PDFTextField, StandardFonts } from 'pdf-lib';
 import type { Answers } from '../forms/types';
-import { NARRATIVES } from '../forms/i589';
+import { MAX_CHILDREN, NARRATIVES } from '../forms/i589';
+import { assistance, usedPreparer } from '../forms/assistance';
+import { parseUnit } from '../engine/validation';
 import { fieldIndex, optionBoxes, setFieldText, toFormText, wrap } from './common';
 
 // Fields of USCIS Form I-589, edition 07/28/26 (public/forms/i-589.pdf), named by the last segment
@@ -13,6 +15,12 @@ import { fieldIndex, optionBoxes, setFieldText, toFormText, wrap } from './commo
 //   "1"/"2" and its date of last entry is "PtAIILine15_ExpirationDate".
 // - Part A.III's tables are "TextField13[0]"-"[57]" plus a "DateTimeField" per date, listed in A3.
 // - Part D: "No, my family did not help" exports "1" and "Yes" exports "2".
+// - Part E: the preparer's area code is "TextField25[1]" and the number "TextField25[0]".
+// - Supplement A (page 11) holds children 5 and 6. Child 5's names are "TextField12[0-9]" (Items 1-4
+//   are [6]-[9]; 5-7 are [0], [2], [3]; 9-11 are [1], [4], [5]), its sex boxes "CheckBox12_Sex[2-3]"
+//   (sharing child 1's base, whose boxes export 1/2), Item 13 "CheckBox57" and Items 14-19 "Child*5".
+//   Child 6's are "TextField12[10-19]" in the same pattern, "SuppAL12_CheckBox", "SuppAL13_CheckBox"
+//   and "Child*6".
 // - Supplement B (page 12) takes the explanations that don't fit in their box.
 
 export interface I589Narrative {
@@ -69,8 +77,69 @@ export const A3 = {
   ).map(([id, n, b, box], i) => ({ id, name: tf13(n), birthPlace: tf13(b), deceased: `CheckBoxAIII5\\.${box}[0]`, location: `TextField35[${i}]` })),
 };
 
-/** Part A.II's child blocks; child 1 is named differently from children 2-4. */
-const child = (i: number) => {
+/** One child block's fields. Court and include are [Yes box, No box]. */
+interface ChildFields {
+  family: string;
+  given: string;
+  middle: string;
+  dob: string;
+  birthPlace: string;
+  nationality: string;
+  group: string;
+  aNumber: string;
+  passport: string;
+  marital: string;
+  ssn: string;
+  sex: string;
+  sexValues: { male: string; female: string };
+  inUS: string;
+  location: string;
+  entryPlace: string;
+  entryDate: string;
+  i94: string;
+  admittedStatus: string;
+  status: string;
+  statusExpires: string;
+  court: [string, string];
+  include: [string, string];
+}
+
+/** Supplement A's two child blocks (children 5 and 6), by position. */
+const SUPPLEMENT_A: ChildFields[] = [
+  { tf: 0, dob: 'DateTimeField14[0]', sex: 'CheckBox12_Sex', inUS: 'CheckBox57', location: 'SuppLALine13_Specify[0]', n: 5, court: 'SuppA_CheckBox20', include: 'SuppA_CheckBox21' },
+  { tf: 10, dob: 'DateTimeField14[1]', sex: 'SuppAL12_CheckBox', inUS: 'SuppAL13_CheckBox', location: 'SuppLALine13_Specify2[0]', n: 6, court: 'SuppALine20_CheckBox2', include: 'SuppALine21_CheckBox' },
+].map((c) => {
+  const tf = (k: number) => `TextField12[${c.tf + k}]`;
+  return {
+    family: tf(0),
+    given: tf(2),
+    middle: tf(3),
+    dob: c.dob,
+    birthPlace: tf(1),
+    nationality: tf(4),
+    group: tf(5),
+    aNumber: tf(6),
+    passport: tf(7),
+    marital: tf(8),
+    ssn: tf(9),
+    sex: c.sex,
+    sexValues: { male: 'M', female: 'F' },
+    inUS: c.inUS,
+    location: c.location,
+    entryPlace: `ChildEntry${c.n}[0]`,
+    entryDate: `ChildExp${c.n}[0]`,
+    i94: `ChildINum${c.n}[0]`,
+    admittedStatus: `ChildStatus${c.n}[0]`,
+    status: `ChildCurrent${c.n}[0]`,
+    statusExpires: `ChildExpAuth${c.n}[0]`,
+    court: [`${c.court}[0]`, `${c.court}[1]`],
+    include: [`${c.include}[0]`, `${c.include}[1]`],
+  };
+});
+
+/** Part A.II's child blocks (child 1 is named differently from children 2-4), then Supplement A's. */
+const child = (i: number): ChildFields => {
+  if (i > 4) return SUPPLEMENT_A[i - 5];
   const s = i === 1 ? '' : String(i);
   return {
     family: `ChildLast${i}[0]`,
@@ -94,10 +163,8 @@ const child = (i: number) => {
     admittedStatus: `PtAIILine17_StatusofLastAdmission${s}[0]`,
     status: i === 1 ? 'PtAIILine18_CurrentStatusofChild[0]' : `PtAIILine18_ChildCurrentStatus${s}[0]`,
     statusExpires: `PtAIILine19_ExpDateofAuthorizedStay${s}[0]`,
-    courtYes: `PtAIILine20_Yes${s}[0]`,
-    courtNo: `PtAIILine20_No${s}[0]`,
-    includeYes: `PtAIILine21_Yes${s}[0]`,
-    includeNo: `PtAIILine21_No${s}[0]`,
+    court: [`PtAIILine20_Yes${s}[0]`, `PtAIILine20_No${s}[0]`],
+    include: [`PtAIILine21_Yes${s}[0]`, `PtAIILine21_No${s}[0]`],
   };
 };
 
@@ -113,6 +180,17 @@ const chain = (a: Answers, id: string, max: number, first: boolean) => {
 const phone = (raw: string): [string, string] => {
   const d = digits(raw).slice(-10);
   return d.length === 10 ? [d.slice(0, 3), `${d.slice(3, 6)}-${d.slice(6)}`] : ['', d];
+};
+
+const US = /^(|us|usa|u\.s\.(a\.)?|united states( of america)?)$/i;
+
+/** Part E's six-character "Apt. Number" box: the number, with "Ste"/"Flr" when it isn't an apartment. */
+const unitBox = (raw: string) => {
+  const u = parseUnit(raw);
+  if (!u) return raw;
+  if (u.kind === 'APT') return u.number;
+  const word = u.kind === 'STE' ? 'Ste' : 'Flr';
+  return [`${word} ${u.number}`, `${word}${u.number}`, u.number].find((v) => v.length <= 6) ?? u.number;
 };
 
 /** The explanation boxes of Parts B and C. */
@@ -277,7 +355,13 @@ export function planI589(a: Answers): I589Plan {
     checkValue.push(['ChildrenCheckbox', 'N']);
     put('TotalChild[0]', digits(str(a, 'children.total')));
   }
-  for (let i = 1; i <= chain(a, 'child', 4, a.hasChildren === 'yes'); i++) {
+  const children = chain(a, 'child', MAX_CHILDREN, a.hasChildren === 'yes');
+  if (children > 4) {
+    // Supplement A's header. Its date and signature stay empty.
+    put('PtAILine1_ANumber[1]', aNum(str(a, 'aNumber')));
+    put('ApplicantName[0]', [str(a, 'name.given'), str(a, 'name.middle'), str(a, 'name.family')].filter(Boolean).join(' '));
+  }
+  for (let i = 1; i <= children; i++) {
     const f = child(i);
     const p = `child${i}`;
     put(f.family, str(a, `${p}.family`));
@@ -301,10 +385,10 @@ export function planI589(a: Answers): I589Plan {
       put(f.admittedStatus, str(a, `${p}.admittedStatus`));
       put(f.status, str(a, `${p}.status`));
       put(f.statusExpires, str(a, `${p}.statusExpires`));
-      if (a[`${p}.court`] === 'yes') check.push(f.courtYes);
-      if (a[`${p}.court`] === 'no') check.push(f.courtNo);
-      if (a[`${p}.include`] === 'yes') check.push(f.includeYes);
-      if (a[`${p}.include`] === 'no') check.push(f.includeNo);
+      if (a[`${p}.court`] === 'yes') check.push(f.court[0]);
+      if (a[`${p}.court`] === 'no') check.push(f.court[1]);
+      if (a[`${p}.include`] === 'yes') check.push(f.include[0]);
+      if (a[`${p}.include`] === 'no') check.push(f.include[1]);
     }
   }
 
@@ -349,6 +433,27 @@ export function planI589(a: Answers): I589Plan {
   }
   yn('ckboxynd2', a.preparer);
   yn('ckboxynd3', a.counselList);
+
+  // Part E. The signature and the attorney block stay empty; the form has no room for the
+  // preparer's business, mobile or email, or for a phone number longer than ten digits.
+  const prep = assistance(a, { interpreter: false, preparer: usedPreparer(a) }).preparer;
+  if (prep) {
+    put('PtE_PreparerName[0]', [prep.given, prep.family].filter(Boolean).join(' '));
+    const d = digits(prep.phone).replace(/^1(?=\d{10}$)/, '');
+    if (d.length === 10) {
+      put('TextField25[1]', d.slice(0, 3));
+      put('TextField25[0]', `${d.slice(3, 6)}-${d.slice(6)}`);
+    } else if (d.length < 10) put('TextField25[0]', d);
+    put('PtE_StreetNumAndName[0]', prep.street);
+    put('PtE_AptNumber[0]', unitBox(prep.unit));
+    // The address boxes are for a U.S. address; a foreign one keeps its province, postal code and
+    // country next to the city.
+    const abroad = !US.test(prep.country);
+    const postalFits = !prep.postal || prep.postal.length <= 5;
+    put('PtE_City[0]', [prep.city, abroad && !prep.state && prep.province, abroad && !postalFits && prep.postal, abroad && prep.country].filter(Boolean).join(', '));
+    put('PtE_State[0]', prep.state.toUpperCase() || (abroad ? prep.province : ''));
+    put('PtE_ZipCode[0]', prep.zip || (abroad && postalFits ? prep.postal : ''));
+  }
 
   return { text, check, checkValue, narratives };
 }

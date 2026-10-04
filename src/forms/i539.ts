@@ -1,13 +1,19 @@
 import type { Answers, Field, FormDefinition, Question, YesNoItem } from './types';
 import type { T } from '../i18n';
 import { date, is, nameFields, yesNo } from './helpers';
+import { assistanceSection, usedInterpreter, usedPreparer } from './assistance';
 import { I539_CURRENT_STATUSES, I539_NEW_STATUSES } from './i539Status';
 
 // Questions follow USCIS Form I-539, Application to Extend/Change Nonimmigrant Status, edition
 // 08/28/24, for the principal applicant. The PDF mapping lives in src/pdf/i539Pdf.ts.
-// Out of scope: Form I-539A (each co-applicant files their own; the intro and next steps say so),
-// the attorney box at the top of page 1, Parts 6 and 7 (interpreter and preparer, written by
-// hand), and the signatures and dates.
+// Each co-applicant's Form I-539A is its own form in Camino (src/forms/i539a.ts). Out of scope:
+// the attorney box at the top of page 1, and the signatures and dates (the interpreter's and
+// preparer's included; the rest of Parts 6 and 7 comes from the "Who helped you" section).
+//
+// Part 5 has no reading-English or preparer boxes, so the contact section asks whether an
+// interpreter read the form to the person (`readsEnglish`) and whether someone else prepared it
+// (`preparer`): those answers only decide whether Parts 6 and 7 are asked and filled. Parts 6 and 7
+// have no mailing address and no preparer's statement boxes, so those questions are left out.
 
 export const I539_EDITION = '08/28/24';
 
@@ -74,6 +80,10 @@ const explain = (id: string, fieldId: string, formRef: string, question: T, labe
     ...extra,
   }) as Question;
 
+/** Parts 6 and 7 of this edition have no mailing address and no preparer's statement boxes. */
+const assistance = assistanceSection({ usedInterpreter, usedPreparer, interpreterPart: 'Part 6', preparerPart: 'Part 7' });
+const assistanceWithoutAddresses = { ...assistance, questions: assistance.questions.filter((q) => !['interp.address', 'prep.address', 'prep.statement'].includes(q.id)) };
+
 export const i539: FormDefinition = {
   id: 'i-539',
   number: 'I-539',
@@ -84,8 +94,8 @@ export const i539: FormDefinition = {
     en: 'Ask to stay longer in the U.S. in your current status (visitor, student, dependent), change to another temporary status, or be reinstated to student status.',
   },
   intro: {
-    es: 'El I-539 es para quien está en EE.UU. legalmente con una visa temporal (por ejemplo B-2 turista, F-1 estudiante, H-4 o L-2 dependiente) y quiere extender su estadía, cambiar a otro estatus temporal o, si es estudiante F o M, pedir la reinstalación. Debe presentarlo ANTES de que venza la fecha de su I-94. Este formulario es solo para usted, el solicitante principal: su esposo/a e hijos que pidan lo mismo pueden ir en la misma solicitud, pero cada uno necesita su propio Formulario I-539A, que esta app no llena. Si ya se le venció la estadía, trabajó sin permiso o está en proceso de deportación, hable antes con un abogado.',
-    en: 'Form I-539 is for people lawfully in the U.S. on a temporary visa (for example B-2 visitor, F-1 student, H-4 or L-2 dependent) who want to extend their stay, change to another temporary status, or, as an F or M student, request reinstatement. You must file it BEFORE the date on your I-94 expires. This form is only for you, the principal applicant: your spouse and children asking for the same thing can be included in the same application, but each one needs their own Form I-539A, which this app does not fill. If your stay has already expired, you worked without permission, or you are in removal proceedings, talk to an attorney first.',
+    es: 'El I-539 es para quien está en EE.UU. legalmente con una visa temporal (por ejemplo B-2 turista, F-1 estudiante, H-4 o L-2 dependiente) y quiere extender su estadía, cambiar a otro estatus temporal o, si es estudiante F o M, pedir la reinstalación. Debe presentarlo ANTES de que venza la fecha de su I-94. Este formulario es solo para usted, el solicitante principal: su esposo/a e hijos que pidan lo mismo pueden ir en la misma solicitud, pero cada uno necesita su propio Formulario I-539A, que también puede llenar en esta app. Si ya se le venció la estadía, trabajó sin permiso o está en proceso de deportación, hable antes con un abogado.',
+    en: 'Form I-539 is for people lawfully in the U.S. on a temporary visa (for example B-2 visitor, F-1 student, H-4 or L-2 dependent) who want to extend their stay, change to another temporary status, or, as an F or M student, request reinstatement. You must file it BEFORE the date on your I-94 expires. This form is only for you, the principal applicant: your spouse and children asking for the same thing can be included in the same application, but each one needs their own Form I-539A, which you can also fill out in this app. If your stay has already expired, you worked without permission, or you are in removal proceedings, talk to an attorney first.',
   },
   minutes: 25,
   pdf: {
@@ -100,7 +110,7 @@ export const i539: FormDefinition = {
       'Preséntelo antes de que venza la fecha de su I-94 (búsquela en i94.cbp.dhs.gov). Si lo presenta tarde, USCIS puede negarlo y usted empezaría a acumular presencia ilegal.',
       'Si incluyó a familiares, cada uno necesita su propio Formulario I-539A, firmado por él o ella (o por el padre o la madre si es menor de 14 años). Envíelos junto con este I-539.',
       'Adjunte una copia de su I-94, de su pasaporte vigente y de su visa; pruebas de que puede mantenerse sin trabajar sin permiso (estados de cuenta, carta de apoyo); y una carta que explique por qué necesita más tiempo o el cambio. Para estudiantes, el Formulario I-20 o DS-2019 nuevo.',
-      'Imprima el PDF y firme la Parte 5, Ítem 4, a mano con tinta negra. Si un intérprete o preparador le ayudó, ellos llenan y firman a mano las Partes 6 y 7. Firme también la Parte 8 si la usamos.',
+      'Imprima el PDF y firme la Parte 5, Ítem 4, a mano con tinta negra. Si un intérprete o preparador le ayudó, sus datos ya están en las Partes 6 y 7; ellos las revisan y las firman y fechan a mano. Firme también la Parte 8 si la usamos.',
       'USCIS le enviará un recibo (I-797C) y puede citarle para tomarle huellas y foto (biometría). Guarde el recibo: muestra que pidió a tiempo mientras espera la decisión. No salga de EE.UU. mientras espera: su solicitud se consideraría abandonada.',
     ],
     en: [
@@ -108,7 +118,7 @@ export const i539: FormDefinition = {
       'File before the date on your I-94 expires (look it up at i94.cbp.dhs.gov). If you file late, USCIS may deny it and you would start accruing unlawful presence.',
       'If you included family members, each one needs their own Form I-539A, signed by them (or by a parent if under 14). Send them together with this I-539.',
       'Attach a copy of your I-94, your current passport and visa; proof that you can support yourself without unauthorized work (bank statements, support letter); and a letter explaining why you need more time or the change. Students include the new Form I-20 or DS-2019.',
-      'Print the PDF and sign Part 5, Item 4, by hand in black ink. If an interpreter or preparer helped you, they complete and sign Parts 6 and 7 by hand. Also sign Part 8 if we used it.',
+      'Print the PDF and sign Part 5, Item 4, by hand in black ink. If an interpreter or preparer helped you, their details are already in Parts 6 and 7; they check them and sign and date by hand. Also sign Part 8 if we used it.',
       'USCIS will send you a receipt (I-797C) and may schedule a biometrics appointment (fingerprints and photo). Keep the receipt: it shows you filed on time while you wait. Do not leave the U.S. while you wait: your application would be considered abandoned.',
     ],
   },
@@ -283,8 +293,8 @@ export const i539: FormDefinition = {
             tone: 'info',
             title: t('Cada familiar necesita un I-539A', 'Each family member needs a Form I-539A'),
             body: t(
-              'Esta app solo llena su I-539. Por cada familiar incluido debe llenar y enviar un Formulario I-539A (en uscis.gov/i-539), con su firma y sus documentos.',
-              'This app only fills your I-539. For each family member included you must complete and send a Form I-539A (at uscis.gov/i-539), with their signature and documents.',
+              'Por cada familiar incluido debe enviar un Formulario I-539A, con su firma y sus documentos. Puede llenarlo en esta app (I-539A en la lista de formularios), uno por familiar.',
+              'For each family member included you must send a Form I-539A, with their signature and documents. You can fill it out in this app (I-539A in the list of forms), one per family member.',
             ),
           },
           fields: [{ id: 'peopleCount', type: 'number', required: true, label: { es: 'Número total de personas', en: 'Total number of people' }, formRef: 'Part 2 · Item 4 · The total number of people (including me)', placeholder: '3', maxLength: 2 }],
@@ -505,8 +515,28 @@ export const i539: FormDefinition = {
             { id: 'email', type: 'email', label: { es: 'Correo electrónico', en: 'Email' }, formRef: 'Part 5 · Item 3 · Applicant’s Email Address' },
           ],
         },
+        {
+          id: 'readsEnglish',
+          kind: 'choice',
+          formRef: 'Part 5 · Applicant’s Certification',
+          question: t('¿Puede leer y entender el formulario en inglés?', 'Can you read and understand the form in English?'),
+          why: t('Si alguien le lee el formulario en su idioma, esa persona llena y firma la Parte 6.', 'If someone reads the form to you in your language, that person completes and signs Part 6.'),
+          options: [
+            { value: 'A', label: t('Sí, leo inglés', 'Yes, I read English') },
+            { value: 'B', label: t('No, un intérprete me lo leyó', 'No, an interpreter read it to me') },
+          ],
+        },
+        {
+          id: 'preparer',
+          kind: 'choice',
+          formRef: 'Part 7 · Preparer',
+          question: t('¿Alguien más le preparó este formulario?', 'Did someone else prepare this form for you?'),
+          why: t('Por ejemplo un abogado, una organización o un familiar que llenó las respuestas. Esa persona llena y firma la Parte 7.', 'For example an attorney, an organization or a relative who filled in the answers. That person completes and signs Part 7.'),
+          options: yesNo,
+        },
       ],
     },
+    assistanceWithoutAddresses,
   ],
 };
 

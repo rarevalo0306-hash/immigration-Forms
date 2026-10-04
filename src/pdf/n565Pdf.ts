@@ -1,6 +1,7 @@
 import { PDFCheckBox, PDFDocument, PDFDropdown, PDFTextField, StandardFonts } from 'pdf-lib';
 import type { Answers } from '../forms/types';
 import { parseUnit } from '../engine/validation';
+import { assistance, usedInterpreter, usedPreparer } from '../forms/assistance';
 import { fieldIndex, optionBoxes, selectOption, setFieldText, toFormText, wrap } from './common';
 
 // Fields of USCIS Form N-565, edition 02/27/25 (public/forms/n-565.pdf), named by the last segment
@@ -15,6 +16,10 @@ import { fieldIndex, optionBoxes, selectOption, setFieldText, toFormText, wrap }
 // - Part 4, Item 1's boxes carry marital-status exports: "Pt4_Item1_Name" exports Single,
 //   "Pt4_Item1_DOB" Married, "Pt4_Item1_Gender" (Sex) Widowed and "Pt4_Item1_Other" Divorced.
 // - Part 9, Items 1-3 are "Pt9Line3_*", "Pt9Line4_*" and "Pt9Line5_Email".
+// - Part 10 (interpreter): Item 4 (mobile) is "Pt10Line4_MobileTelephoneNumber", Item 5 (email)
+//   "Pt10Line6_Email" and the language "Pt10_Iamfluent". Part 11 (preparer): Item 3 (daytime) is
+//   "Pt11Line4_*", Item 4 (mobile) "Pt11Line5_*", Item 5 (email) "Pt11Line6_EmailAddress". Neither
+//   part has an address or (for the preparer) an attorney statement in this edition.
 
 export interface N565Plan {
   text: Record<string, string>;
@@ -192,6 +197,28 @@ export function planN565(a: Answers): N565Plan {
   put('Pt9Line3_DaytimeTelephoneNumber3[0]', digits(str(a, 'phone')));
   put('Pt9Line4_MobileTelephoneNumber3[0]', digits(str(a, 'mobile')));
   put('Pt9Line5_Email[0]', str(a, 'email'));
+
+  // Parts 10 and 11: the interpreter and the preparer. They sign and date by hand.
+  const help = assistance(a, { interpreter: usedInterpreter(a), preparer: usedPreparer(a) });
+  if (help.interpreter) {
+    const p = help.interpreter;
+    put('Pt10Line1_InterpreterFamilyName[0]', p.family);
+    put('Pt10Line1_InterpreterGivenName[0]', p.given);
+    put('Pt10Line2_NameofBusinessorOrgName[0]', p.business);
+    put('Pt10Line4_DaytimeTelephoneNumber[0]', digits(p.phone));
+    put('Pt10Line4_MobileTelephoneNumber[0]', digits(p.mobile));
+    put('Pt10Line6_Email[0]', p.email);
+    put('Pt10_Iamfluent[0]', p.language);
+  }
+  if (help.preparer) {
+    const p = help.preparer;
+    put('Pt11Line1_PreparerFamilyName[0]', p.family);
+    put('Pt11Line1_PreparerGivenName[0]', p.given);
+    put('Pt11Line2_BusinessName[0]', p.business);
+    put('Pt11Line4_DaytimeTelephoneNumber[0]', digits(p.phone));
+    put('Pt11Line5_MobileTelephoneNumber[0]', digits(p.mobile));
+    put('Pt11Line6_EmailAddress[0]', p.email);
+  }
 
   return { text, check, checkValue, select, long, notes: notes.filter((n) => n.text) };
 }

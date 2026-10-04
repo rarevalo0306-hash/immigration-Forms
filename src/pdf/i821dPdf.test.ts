@@ -60,6 +60,36 @@ export const renewal: Answers = {
   email: 'jessica@example.com',
 };
 
+/** An interpreter and a preparer, for Parts 6–7. */
+const helped: Answers = {
+  ...renewal,
+  readsEnglish: 'B',
+  fluentLanguage: 'Spanish',
+  preparer: 'yes',
+  'interp.family': 'Ríos',
+  'interp.given': 'Ana',
+  'interp.business': 'Ayuda Legal',
+  'interp.street': '10 Elm St',
+  'interp.unit': 'Ste 3',
+  'interp.city': 'Phoenix',
+  'interp.state': 'AZ',
+  'interp.zip': '85004',
+  'interp.country': 'United States',
+  'interp.phone': '602 555 0100',
+  'interp.email': 'ana@example.com',
+  'interp.language': 'Spanish',
+  'prep.family': 'Ortega',
+  'prep.given': 'Luis',
+  'prep.street': '22 Calle Sol',
+  'prep.unit': 'Flr 2',
+  'prep.city': 'Hermosillo',
+  'prep.province': 'Sonora',
+  'prep.postal': '83000',
+  'prep.country': 'Mexico',
+  'prep.phone': '662 555 0102',
+  'prep.email': 'luis@example.com',
+};
+
 describe('I-821D PDF', () => {
   it('plans only fields that exist, with the right kind', async () => {
     const index = fieldIndex((await PDFDocument.load(template)).getForm());
@@ -125,6 +155,8 @@ describe('I-821D PDF', () => {
       ...['BN', 'BL', 'HA', 'GN', 'BU', 'GR', 'MA', 'PN', 'UN'].map((eyes) => ({ ...renewal, eyes })),
       ...['BL', 'BR', 'BN', 'GR', 'WH', 'RD', 'SA', 'NH', 'OT'].map((hair) => ({ ...renewal, hair })),
       ...['Marine Corps', 'Navy', 'Air Force', 'National Guard', 'Coast Guard'].map((b) => ({ ...initial, 'mil.branch': b, 'mil.discharge': 'Not Applicable' })),
+      helped,
+      { ...helped, 'prep.same': 'yes', 'interp.unit': 'Apt 1', 'prep.state': 'TX' },
     ];
     for (const plan of variants.map(planI821D)) {
       for (const name of Object.keys(plan.text)) expect(index.get(name), name).toBeInstanceOf(PDFTextField);
@@ -159,6 +191,25 @@ describe('I-821D PDF', () => {
     expect(checked('P4_Line7_Checkbox[0]')).toBe(true); // No
     expect(checked('P5_Line1a_1b_Checkbox[1]')).toBe(true); // 1.a
     expect(text('P5_Line3_DayPhone[0]')).toBe('6025550142');
+  });
+
+  it('writes the interpreter and the preparer', async () => {
+    const f = fieldIndex((await PDFDocument.load(await fillI821D(template, helped))).getForm());
+    const text = (n: string) => (f.get(n) as PDFTextField).getText();
+    const checked = (n: string) => (f.get(n) as PDFCheckBox).isChecked();
+    expect(text('P6_Line1a_Name[0]')).toBe('Rios');
+    expect(checked('P6_Line3b_Unit[0]')).toBe(true); // Ste
+    expect(text('P6_Line4_DayPhone[0]')).toBe('6025550100');
+    expect(text('P6_Language[0]')).toBe('Spanish');
+    expect(text('P6_Line6a_Signature[0]')).toBeUndefined();
+    expect(text('P7_Line1b_Name[0]')).toBe('Luis');
+    expect(checked('P7_Line3b_Unit[1]')).toBe(true); // Flr
+    expect(text('P7_Line3f_Province[0]')).toBe('Sonora');
+    expect(text('P7_Line6_Email[0]')).toBe('luis@example.com');
+    expect(text('P7_Line5_MobilePhone[0]')).toBeUndefined(); // printed "Fax Number"
+    const same = fieldIndex((await PDFDocument.load(await fillI821D(template, { ...helped, 'prep.same': 'yes' }))).getForm());
+    expect((same.get('P7_Line1a_Name[0]') as PDFTextField).getText()).toBe('Rios');
+    expect((fieldIndex((await PDFDocument.load(await fillI821D(template, renewal))).getForm()).get('P6_Line1a_Name[0]') as PDFTextField).getText()).toBeUndefined();
   });
 
   it('fills Part 3 and the Part 8 explanations on an initial request', () => {

@@ -1,6 +1,7 @@
 import { PDFCheckBox, PDFDocument, PDFDropdown, PDFTextField, StandardFonts } from 'pdf-lib';
 import type { Answers } from '../forms/types';
 import { parseUnit } from '../engine/validation';
+import { assistance, usedInterpreter, usedPreparer } from '../forms/assistance';
 import { fieldIndex, optionBoxes, selectOption, setFieldText, toFormText, wrap } from './common';
 
 // Fields of USCIS Form I-407, edition 09/25/24 (public/forms/i-407.pdf), named by the last segment
@@ -12,6 +13,9 @@ import { fieldIndex, optionBoxes, selectOption, setFieldText, toFormText, wrap }
 //   Yes/No pair is [0] No, [1] Yes.
 // - Item 8 (date of last departure) comes before Item 5 in the field order; the A-Number repeats in
 //   each page header as "P1_Line1_AlienNumber[1..3]". The form has no Additional Information part.
+// - Parts 2 and 3 hold only name, business, phones (10 digits) and email; the interpreter's language
+//   ("I am fluent in English and ___") is "P3_InterpreterCertification" even though it sits in Part 2.
+//   Their signatures and dates are left for hand.
 
 export interface I407Plan {
   text: Record<string, string>;
@@ -79,6 +83,28 @@ export function planI407(a: Answers): I407Plan {
   // Item 19: the person's name, or the parent's or guardian's. Item 20 is signed by hand.
   const own = [str(a, 'name.given'), str(a, 'name.middle'), str(a, 'name.family')].filter(Boolean).join(' ');
   put('P1_Line19_YourName[0]', a.filer === 'guardian' ? str(a, 'guardian.name') : own);
+
+  // Parts 2 and 3: the interpreter and the preparer.
+  const help = assistance(a, { interpreter: usedInterpreter(a), preparer: usedPreparer(a) });
+  if (help.interpreter) {
+    const p = help.interpreter;
+    put('P2_Line1_InterpreterFamilyName[0]', p.family);
+    put('P2_Line1_InterpreterGivenName[0]', p.given);
+    put('P2_Line2_InterpreterBusiness[0]', p.business);
+    put('P2_Line3_InterDayTel[0]', digits(p.phone).slice(-10));
+    put('P2_Line4_InterMobileTel[0]', digits(p.mobile).slice(-10));
+    put('P2_Line5_InterEmailAddress[0]', p.email);
+    put('P3_InterpreterCertification[0]', p.language);
+  }
+  if (help.preparer) {
+    const p = help.preparer;
+    put('P3_Line1_PreparerFamilyName[0]', p.family);
+    put('P3_Line1_PreparerGivenName[0]', p.given);
+    put('P3_Line2_PreparerBusinessOrganization[0]', p.business);
+    put('P3_Line3_PreparerDayTel[0]', digits(p.phone).slice(-10));
+    put('P3_Line4_PreparerMobileTel[0]', digits(p.mobile).slice(-10));
+    put('P3_Line5_PreparerEmailAddress[0]', p.email);
+  }
 
   return { text, check, checkValue, select, long };
 }

@@ -1,6 +1,7 @@
 import { PDFCheckBox, PDFDocument, PDFDropdown, type PDFField, PDFTextField } from 'pdf-lib';
 import type { Answers } from '../forms/types';
-import { AP_BASES, REFUGEE_ITEMS } from '../forms/i131';
+import { AP_BASES, REFUGEE_ITEMS, forOther, isAnyParole, paroleBasis } from '../forms/i131';
+import { assistance, usedInterpreter, usedPreparer } from '../forms/assistance';
 import { parseUnit } from '../engine/validation';
 import { fieldsBySegment, selectOption, setFieldText } from './common';
 
@@ -11,6 +12,16 @@ export { fieldsBySegment };
 // same last segment repeats across pages: every application-type box is a "CB_AppType[n]" on its
 // own page (told apart by export value, 1-37), and the name and A-Number repeat at the top of
 // Part 13. The plan names each field once; the filler fills every field that shares the name.
+//
+// Quirks found by placing the fields on the rendered pages:
+// - The parole boxes (Part 1, Items 6-11) are CB_AppType too, with export values 18-37 in the
+//   printed order, but their [n] indexes run in no order; the (1)-(3) boxes under 6.B, 8.A, 10.E
+//   and 10.H are separate fields (P1_Line6B_1…) whose suffix is the printed number.
+// - Every Part 1 text field is named after its item ("P1_Line6C1" is the agency, "6C2" the email),
+//   except Item 12, the I-94 admit-until date, named "P1_Line12_DateOfAdmission".
+// - Their Items 16-27 mix "P2_" and "Part2_" prefixes (Part2_Line17_* are their other names).
+// - Parts 11 and 12 hold only name, business, phones (10 digits) and email, plus the interpreter's
+//   language ("P11_Language"): no address and no preparer's statement boxes.
 
 export interface I131Plan {
   text: Record<string, string>;
@@ -38,6 +49,37 @@ const address = (p: string) => ({
 
 /** The text field under each advance parole basis (Part 1, Item 5), by the basis's letter. */
 const AP_FIELDS: Record<string, string> = Object.fromEntries('ABCEFGHIJKLM'.split('').map((l) => [l, `P1_Line5${l}[0]`]));
+
+/** The text fields beside the parole boxes that ask for one more thing, by Part 1 item. */
+const PAROLE_FIELDS: Record<string, string> = {
+  '6.A': 'P1_Line6A[0]',
+  '6.D': 'P1_Line6D[0]',
+  '6.E': 'P1_Line6E[0]',
+  '8.B': 'P1_Line8B[0]',
+  '8.C': 'P1_Line8C[0]',
+  '10.I': 'P1_Line10I[0]',
+};
+/** The (1)-(3) role boxes under 6.B, 8.A, 10.E and 10.H. */
+const ROLE_BOXES: Record<string, string> = { '6.B': 'P1_Line6B', '8.A': 'P1_Line8A', '10.E': 'P1_Line10E', '10.H': 'P1_Line10H' };
+
+/** Part 8, Item 1 (six lines) shows about this many characters at 9 pt; longer explanations go to Part 13. */
+const EXPLAIN_ROOM = 500;
+/** Characters per Part 13 box (four lines at 9 pt). */
+const PART13_ROOM = 420;
+
+/** Splits text at spaces into pieces of at most `room` characters. */
+export function chunks(text: string, room: number): string[] {
+  const out: string[] = [];
+  let rest = text.trim();
+  while (rest.length > room) {
+    const cut = rest.lastIndexOf(' ', room);
+    const at = cut > room / 2 ? cut : room;
+    out.push(rest.slice(0, at).trim());
+    rest = rest.slice(at).trim();
+  }
+  if (rest) out.push(rest);
+  return out;
+}
 
 /** The I-485 biographic codes the questions use, translated to this form's export values. */
 const RACE: Record<string, string> = { WH: 'P3_Line2_Race_White[0]', AS: 'P3_Line2_Race_Asian[0]', BL: 'P3_Line2_Race_Black[0]', AI: 'P3_Line2_Race_American[0]', HW: 'P3_Line2_Race_Hawaiian[0]' };
@@ -74,6 +116,8 @@ export function planI131(a: Answers): I131Plan {
   };
   const appType = str(a, 'appType');
   const reentryOrRefugee = ['1', '2', '3'].includes(appType);
+  const parole = isAnyParole(a);
+  const other = forOther(a);
 
   // Part 1: application type. Advance parole checks the box of its basis (export values 5-17).
   if (['1', '2', '3', '4'].includes(appType)) checkValue.push(['CB_AppType', appType]);
@@ -87,6 +131,22 @@ export function planI131(a: Answers): I131Plan {
     if (basis.detail === 'coa') put(field, str(a, 'ap.coa'));
     if (basis.detail === 'explain') put(field, str(a, 'ap.explain'));
   }
+  // Items 6-11: parole from abroad, parole in place and re-parole (export values 18-37).
+  const pb = paroleBasis(a);
+  if (pb) {
+    checkValue.push(['CB_AppType', pb.value]);
+    if (pb.detail === 'i130') put(PAROLE_FIELDS[pb.item], str(a, 'parole.i130Receipt').replace(/[\s-]/g, '').toUpperCase());
+    if (pb.detail === 'frtf') put(PAROLE_FIELDS[pb.item], str(a, 'frtf.number'));
+    if (pb.detail === 'program') put(PAROLE_FIELDS[pb.item], str(a, 'parole.program'));
+    if (pb.detail === 'referral') {
+      put('P1_Line6C1[0]', str(a, 'referral.agency'));
+      put('P1_Line6C2[0]', str(a, 'referral.email'));
+    }
+    const role = str(a, pb.detail === 'immvi' ? 'immvi.role' : pb.detail === 'military' ? 'mpip.role' : '');
+    const roles = pb.detail === 'immvi' ? ['1', '2', '3'] : ['1', '2'];
+    if (ROLE_BOXES[pb.item] && roles.includes(role)) check.push(`${ROLE_BOXES[pb.item]}_${role}[0]`);
+  }
+  if (appType === 'reparole') put('P1_Line12_DateOfAdmission[0]', str(a, 'reparole.until'));
   yn('P1_Line13_YesNo', a.refugeeStatus);
 
   // Part 2: about you. The name and A-Number repeat at the top of Part 13.
@@ -112,10 +172,45 @@ export function planI131(a: Answers): I131Plan {
   put('Part2_Line9_DateOfBirth[0]', str(a, 'dob'));
   put('Part2_Line10_SSN[0]', digits(str(a, 'ssn')));
   put('Part2_Line11_USCISOnlineAcctNumber[0]', digits(str(a, 'uscisAccount')));
-  if (appType === '4' || appType === '5') {
+  // Items 12-15: the filer's own entry, when they are in the U.S. for themself.
+  if (appType === '4' || appType === '5' || (appType === 'pip' && !other)) {
     put('Part2_Line12_ClassofAdmission[0]', str(a, 'coa').toUpperCase());
-    put('Part2_Line13_I94RecordNo[0]', digits(str(a, 'i94')));
+    put('Part2_Line13_I94RecordNo[0]', str(a, 'i94').replace(/[\s-]/g, '').toUpperCase());
     put('Part2_Line14_I94ExpDate[0]', str(a, 'i94.until'));
+  }
+  if (appType === 'reparole' && !other) {
+    put('Part2_Line12_ClassofAdmission[0]', str(a, 'reparole.coa').toUpperCase());
+    put('Part2_Line13_I94RecordNo[0]', str(a, 'reparole.i94').replace(/[\s-]/g, '').toUpperCase());
+    put('Part2_Line14_I94ExpDate[0]', str(a, 'reparole.until'));
+    put('Par2_Line15_eMedicalParoleeID[0]', str(a, 'uspid'));
+  }
+
+  // Items 16-27: the person the requestor files for.
+  if (other) {
+    put('P2_Line16_FamilyName[0]', str(a, 'ben.family'));
+    put('P2_Line16_GivenName[0]', str(a, 'ben.given'));
+    put('P2_Line16_MiddleName[0]', str(a, 'ben.middle'));
+    if (a['benOther.more0'] === 'yes') {
+      for (let i = 1; i <= 3; i++) {
+        if (i > 1 && a[`benOther.more${i - 1}`] !== 'yes') break;
+        put(`Part2_Line17_FamilyName${i}[0]`, str(a, `benOther${i}.family`));
+        put(`Part2_Line17_GivenName${i}[0]`, str(a, `benOther${i}.given`));
+        put(`Part2_Line17_MiddleName${i}[0]`, str(a, `benOther${i}.middle`));
+      }
+    }
+    put('P2_Line18_DateOfBirth[0]', str(a, 'ben.dob'));
+    put('P2_Line19_CountryOfBirth[0]', str(a, 'ben.birthCountry'));
+    put('P2_Line20_CountryOfCitizenship[0]', str(a, 'ben.citizenship'));
+    put('P2_Line21_DaytimeTelephoneNumber[0]', str(a, 'ben.phone').replace(/[^\d+]/g, ''));
+    put('P2_Line22_Email[0]', str(a, 'ben.email'));
+    const benA = digits(str(a, 'ben.aNumber'));
+    if (benA) put('P2_Line23_AlienNumber[0]', benA.padStart(9, '0'));
+    fillAddress('benMailing', address('P2_Line24'));
+    if (a.benMailingSame === 'no') fillAddress('benHome', address('P2_Line25'));
+    if (appType === 'pip' || appType === 'reparole') {
+      put('P2_Line26_ClassofAdmission[0]', str(a, 'ben.coa').toUpperCase());
+      put('P2_Line27_I94RecordNo[0]', str(a, 'ben.i94').replace(/[\s-]/g, '').toUpperCase());
+    }
   }
 
   // Part 3: biographic information.
@@ -144,8 +239,8 @@ export function planI131(a: Answers): I131Plan {
     put('P4_Line3b_DateIssued[0]', str(a, 'prevAP.date'));
     put('P4_Line3c_Disposition[0]', str(a, 'prevAP.disposition'));
   }
-  yn('P4_Line4_YesNo', a.replacement);
-  if (a.replacement === 'yes') {
+  if (!parole) yn('P4_Line4_YesNo', a.replacement);
+  if (!parole && a.replacement === 'yes') {
     if (str(a, 'replacementReason')) checkValue.push(['P4_Line5', str(a, 'replacementReason')]);
     if (a.replacementReason === '3' || a.replacementReason === '4') {
       for (const c of Array.isArray(a.corrections) ? a.corrections : []) check.push(`P4_Line6a_${c}[0]`);
@@ -204,10 +299,50 @@ export function planI131(a: Answers): I131Plan {
     put('P7_Line5_ExpectedLengthTrip[0]', digits(str(a, 'trip.days')));
   }
 
+  // Part 8: parole, parole in place or re-parole. A long explanation continues in Part 13.
+  if (parole) {
+    const explain = str(a, 'parole.explain');
+    if (explain.length > EXPLAIN_ROOM) {
+      put('P8_Line1_Explain[0]', 'See Part 13, Additional Information.');
+      for (const piece of chunks(explain, PART13_ROOM)) additional.push({ page: '11', part: '8', item: '1', text: piece });
+    } else put('P8_Line1_Explain[0]', explain);
+    put('P8_Line2_ExpectedLengthTripinUS[0]', str(a, 'parole.stay'));
+    if (appType === 'parole') {
+      put('P8_Line3a_DateOfIntendedArrival[0]', str(a, 'parole.arrival'));
+      put('P8_Line3b_CityOrTown[0]', str(a, 'parole.postCity'));
+      put('P8_Line3b_Country[0]', str(a, 'parole.postCountry'));
+    }
+  }
+
+  // Part 9: employment authorization with re-parole.
+  if (appType === 'reparole' && a['reparole.ead'] === 'yes') check.push('P9_Line1_EAD[0]');
+
   // Part 10: contact. The signature (Item 4) stays empty: it must be signed by hand.
   put('Part10_Line1_DayPhone[0]', digits(str(a, 'phone')));
   put('Part10_Line2_MobilePhone[0]', digits(str(a, 'mobile')));
   put('Part10_Line3_Email[0]', str(a, 'email'));
+
+  // Parts 11 and 12: the interpreter and the preparer. Signatures and dates stay empty.
+  const help = assistance(a, { interpreter: usedInterpreter(a), preparer: usedPreparer(a) });
+  if (help.interpreter) {
+    const p = help.interpreter;
+    put('Part11_Line1_InterpreterFamilyName[0]', p.family);
+    put('Part11_Line1_InterpreterGivenName[0]', p.given);
+    put('Part11_Line2_NameofBusinessorOrgName[0]', p.business);
+    put('Part11_Line3_DayPhone[0]', digits(p.phone).replace(/^1(?=\d{10}$)/, ''));
+    put('Part11_Line4_MobilePhone[0]', digits(p.mobile).replace(/^1(?=\d{10}$)/, ''));
+    put('Part11_Line5_Email[0]', p.email);
+    put('P11_Language[0]', p.language);
+  }
+  if (help.preparer) {
+    const p = help.preparer;
+    put('Part12_Line1_FamilyName[0]', p.family);
+    put('Part12_Line1_GivenName[0]', p.given);
+    put('Part12_Line2_NameofBusinessorOrgName[0]', p.business);
+    put('Part12_Line3_DayPhone[0]', digits(p.phone).replace(/^1(?=\d{10}$)/, ''));
+    put('Part12_Line4_MobilePhone[0]', digits(p.mobile).replace(/^1(?=\d{10}$)/, ''));
+    put('Part12_Line5_Email[0]', p.email);
+  }
 
   // Part 13: additional information.
   additional.filter((x) => x.text).slice(0, 5).forEach((x, i) => {

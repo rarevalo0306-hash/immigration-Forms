@@ -1,12 +1,15 @@
 import type { Field, FormDefinition, Question } from './types';
 import type { T } from '../i18n';
 import { all, date, is, nameFields, yesNo } from './helpers';
+import { assistanceSection, usedInterpreter, usedPreparer } from './assistance';
 
 // Questions follow USCIS Form N-336, Request for a Hearing on a Decision in Naturalization
 // Proceedings Under Section 336, edition 04/01/24. The PDF mapping lives in src/pdf/n336Pdf.ts.
 // Answer ids match the N-400's (src/forms/n400.ts) where they mean the same thing.
-// Out of scope, left for hand: the attorney box at the top of page 1 (G-28, bar number), the
-// interpreter's and preparer's Parts 6 and 7, the signature and date in Part 5, Item 6, and the
+// The interpreter's Part 6 and the preparer's Part 7 are filled from the shared questions in
+// src/forms/assistance.ts when Part 5 says an interpreter or preparer helped.
+// Out of scope, left for hand: the attorney box at the top of page 1 (G-28, bar number), all
+// signatures and their dates (Part 5, Item 6; Part 6, Item 7; Part 7, Item 8), and the
 // "For USCIS Use Only" box.
 
 export const N336_EDITION = '04/01/24';
@@ -64,7 +67,7 @@ export const n336: FormDefinition = {
       'Preséntelo a tiempo: 30 días desde que recibió la carta de negación (33 si le llegó por correo). Cuenta la fecha en que USCIS lo recibe, no la fecha en que lo envía.',
       'Revise la tarifa actual en uscis.gov/g-1055. Si presentó el N-400 por servicio militar, no paga tarifa. Si no puede pagar, puede adjuntar el I-912.',
       'Adjunte una copia de la carta de negación y las pruebas o el escrito (brief) que tenga. Si no los tiene listos, puede llevarlos a la audiencia.',
-      'Imprima el PDF y firme la Parte 5, Ítem 6, a mano con tinta negra. Si un intérprete o preparador le ayudó, ellos llenan y firman a mano las Partes 6 y 7. Si tiene abogado, adjunte su Formulario G-28.',
+      'Imprima el PDF y firme la Parte 5, Ítem 6, a mano con tinta negra. Si un intérprete o preparador le ayudó, revise sus datos en las Partes 6 y 7: ellos firman y ponen la fecha a mano. Si tiene abogado, adjunte su Formulario G-28.',
       'Guarde una copia completa de todo lo que envía.',
     ],
     en: [
@@ -72,7 +75,7 @@ export const n336: FormDefinition = {
       'File on time: 30 days from when you received the denial letter (33 if it was mailed to you). What counts is the date USCIS receives it, not the date you send it.',
       'Check the current fee at uscis.gov/g-1055. If you filed your N-400 based on military service, there is no fee. If you cannot pay, you can attach Form I-912.',
       'Attach a copy of the denial letter and any evidence or brief you have. If they are not ready, you can bring them to the hearing.',
-      'Print the PDF and sign Part 5, Item 6, by hand in black ink. If an interpreter or preparer helped you, they complete and sign Parts 6 and 7 by hand. If you have an attorney, attach their Form G-28.',
+      'Print the PDF and sign Part 5, Item 6, by hand in black ink. If an interpreter or preparer helped you, check their details in Parts 6 and 7: they sign and date by hand. If you have an attorney, attach their Form G-28.',
       'Keep a full copy of everything you send.',
     ],
   },
@@ -361,7 +364,7 @@ export const n336: FormDefinition = {
           formRef: 'Part 5 · Item 1.B',
           showIf: is('readsEnglish', 'B'),
           question: t('¿En qué idioma se lo leerán?', 'What language will it be read in?'),
-          why: t('El intérprete llena y firma a mano la Parte 6.', 'The interpreter completes and signs Part 6 by hand.'),
+          why: t('Los datos del intérprete van en la Parte 6; él o ella la firma a mano.', 'The interpreter’s details go in Part 6; they sign it by hand.'),
           fields: [{ id: 'fluentLanguage', type: 'text', required: true, label: t('Idioma', 'Language'), formRef: 'Part 5 · Item 1.B', placeholder: 'Spanish', maxLength: 30 }],
         },
         {
@@ -369,7 +372,7 @@ export const n336: FormDefinition = {
           kind: 'choice',
           formRef: 'Part 5 · Item 2 · Statement Regarding the Preparer',
           question: t('¿Alguien más (no usted) preparó esta solicitud?', 'Did someone else prepare this request for you?'),
-          why: t('Si es así, esa persona también debe llenar y firmar la Parte 7 a mano.', 'If so, that person must also complete and sign Part 7 by hand.'),
+          why: t('Si es así, sus datos van en la Parte 7 y esa persona la firma a mano.', 'If so, their details go in Part 7 and that person signs it by hand.'),
           options: yesNo,
         },
         {
@@ -393,5 +396,6 @@ export const n336: FormDefinition = {
         },
       ],
     },
+    assistanceSection({ usedInterpreter, usedPreparer, interpreterPart: 'Part 6', preparerPart: 'Part 7' }),
   ],
 };

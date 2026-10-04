@@ -134,6 +134,46 @@ export const spouseOfCitizen: Answers = {
   email: 'carla@example.com',
 };
 
+/** Someone interpreted and someone else prepared the form. */
+const helped: Answers = {
+  ...spouseOfCitizen,
+  readsEnglish: 'B',
+  preparer: 'yes',
+  'preparer.name': 'Luis Ortega',
+  'interp.family': 'Ríos',
+  'interp.given': 'Ana',
+  'interp.business': 'Ayuda Legal',
+  'interp.street': '10 Elm St',
+  'interp.unit': 'Apt 3',
+  'interp.city': 'Dallas',
+  'interp.state': 'TX',
+  'interp.zip': '75201',
+  'interp.country': 'United States',
+  'interp.phone': '214 555 0100',
+  'interp.mobile': '214 555 0101',
+  'interp.email': 'ana@example.com',
+  'interp.language': 'Spanish',
+  'prep.family': 'Ortega',
+  'prep.given': 'Luis',
+  'prep.business': 'Ortega Law',
+  'prep.street': '22 Calle Sol',
+  'prep.unit': 'Flr 2',
+  'prep.city': 'Tijuana',
+  'prep.province': 'Baja California',
+  'prep.postal': '22000',
+  'prep.country': 'Mexico',
+  'prep.phone': '664 555 0102',
+  'prep.mobile': '664 555 0103',
+  'prep.email': 'luis@example.com',
+  'prep.statement': 'attorneyNotExtends',
+};
+
+/** Every preparer's statement, with the same person or someone else preparing. */
+const helpVariants: Answers[] = ['notAttorney', 'attorneyExtends', 'attorneyNotExtends'].flatMap((statement) => [
+  { ...helped, 'prep.statement': statement, 'interp.unit': 'Ste 1', 'prep.unit': 'Apt 2', 'prep.state': 'CA', 'prep.zip': '92101' },
+  { ...helped, 'prep.statement': statement, 'prep.same': 'yes' },
+]);
+
 describe('I-485 PDF', () => {
   it('plans only fields that exist, with the right kind', async () => {
     const index = fieldIndex((await PDFDocument.load(template)).getForm());
@@ -143,6 +183,7 @@ describe('I-485 PDF', () => {
       { ...spouseOfCitizen, category: 'dv', 'category.dvRank': '2025AF123', arrivalHow: 'paroled', marital: 'single', 'pc.benefits': 'yes', 'pc.benefit1.name': 'SSI', 'pc.education': 'C', 'pc.grade': '8', ...Object.fromEntries(P9_ITEMS.map((it) => [`p9.${it.item}`, 'yes'])) },
       ...['refugee', 'cuban', 'other', 'f2a-spouse', 'vawa-parent'].map((c) => ({ ...spouseOfCitizen, category: c, 'category.other': 'EB-2' })),
       ...['0', '1', '2', '3'].map((x) => ({ ...spouseOfCitizen, affidavitExemption: x, 'prior.family': 'P', 'prior.how': String(Number(x) + 1), marital: ['widowed', 'annulled', 'separated', 'married'][Number(x)] })),
+      ...helpVariants,
     ];
     for (const plan of variants.map(planI485)) {
       for (const name of Object.keys(plan.text)) expect(index.get(name), name).toBeInstanceOf(PDFTextField);
@@ -196,5 +237,21 @@ describe('I-485 PDF', () => {
     expect(text('Pt9Line3c_ItemNumber[0]')).toBe('13');
     expect(text('P14_Line2_AdditionalInfo[0]')).toMatch(/B-2 visa/);
     expect(text('Pt3Line7a_Signature[0]')).toBeUndefined();
+  });
+
+  it('writes the interpreter and the preparer', async () => {
+    const f = fieldIndex((await PDFDocument.load(await fillI485(template, helped))).getForm());
+    const text = (n: string) => (f.get(n) as PDFTextField).getText();
+    expect(text('Pt11Line1a_FamilyName[0]')).toBe('Rios');
+    expect(text('Pt11Line2_OrgName[0]')).toBe('Ayuda Legal');
+    expect(text('P3_Line5_MobileTelePhoneNumber[0]')).toBe('2145550101');
+    expect(text('Part11_NameofLanguage[0]')).toBe('Spanish');
+    expect(text('P12_SignatureApplicant[0]')).toBeUndefined(); // the interpreter's signature
+    expect(text('Pt12Line1a_PreparerGivenName[0]')).toBe('Luis');
+    expect(text('Pt12Line4_PreparerMobileNumber[0]')).toBe('6645550103');
+    expect(text('Pt12Line5_PreparerEmail[0]')).toBe('luis@example.com');
+    expect(text('P12Line6_SignaturePreparer[0]')).toBeUndefined();
+    expect(planI485({ ...helped, 'prep.same': 'yes' }).text['Pt12Line1_PreparerFamilyName[0]']).toBe('Ríos');
+    expect(planI485(spouseOfCitizen).text['Pt11Line1a_FamilyName[0]']).toBeUndefined();
   });
 });

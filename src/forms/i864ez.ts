@@ -1,10 +1,13 @@
 import type { Answers, Field, FormDefinition, YesNoItem } from './types';
 import type { T } from '../i18n';
 import { anyAddress, date, is, nameFields, yesNo } from './helpers';
+import { assistanceSection, usedInterpreter, usedPreparer } from './assistance';
 
 // Questions follow USCIS Form I-864EZ, Affidavit of Support Under Section 213A of the INA,
 // edition 08/24/26. The PDF mapping lives in src/pdf/i864ezPdf.ts. Answer ids match the I-864's
-// where the question is the same.
+// where the question is the same. The interpreter (Part 7) and preparer (Part 8) are filled in from
+// the last section; they sign and date by hand. This edition prints no mailing address or
+// preparer's statement for them.
 
 export const I864EZ_EDITION = '08/24/26';
 
@@ -57,13 +60,13 @@ export const i864ez: FormDefinition = {
       'Confirme en uscis.gov/i-864ez que la edición {edition} sigue vigente; si cambió, use la nueva y copie sus respuestas de esta hoja.',
       'Compare su ingreso con la tabla vigente de uscis.gov/i-864p para el tamaño de su hogar (por lo general el 125% de la línea de pobreza). Si no alcanza, necesita el I-864 con bienes o un copatrocinador.',
       'Adjunte una copia o transcripción de su declaración federal de impuestos más reciente con sus W-2, y prueba de su ciudadanía o residencia.',
-      'Imprima el PDF y firme la Parte 6, Ítem 6, a mano con tinta negra. Si un intérprete o preparador le ayudó, ellos llenan y firman a mano las Partes 7 y 8.',
+      'Imprima el PDF y firme la Parte 6, Ítem 6, a mano con tinta negra. Si un intérprete o preparador le ayudó, ellos firman y fechan a mano las Partes 7 y 8.',
     ],
     en: [
       'Check at uscis.gov/i-864ez that edition {edition} is still current; if it changed, use the new one and copy your answers from this sheet.',
       'Compare your income with the current table at uscis.gov/i-864p for your household size (usually 125% of the poverty line). If it falls short, you need Form I-864 with assets or a joint sponsor.',
       'Attach a copy or transcript of your most recent federal tax return with your W-2s, and proof of your citizenship or residence.',
-      'Print the PDF and sign Part 6, Item 6, by hand in black ink. If an interpreter or preparer helped you, they complete and sign Parts 7 and 8 by hand.',
+      'Print the PDF and sign Part 6, Item 6, by hand in black ink. If an interpreter or preparer helped you, they sign and date Parts 7 and 8 by hand.',
     ],
   },
   sections: [
@@ -360,5 +363,6 @@ export const i864ez: FormDefinition = {
         },
       ],
     },
+    assistanceSection({ usedInterpreter, usedPreparer, interpreterPart: 'Part 7', preparerPart: 'Part 8', address: false, statement: false, omitFields: ['interp.business'] }),
   ],
 };

@@ -81,6 +81,41 @@ export const jorge: Answers = {
   email: 'jorge.ramirez@example.com',
 };
 
+/** An interpreter in the U.S. and a different preparer abroad. */
+export const helpers: Answers = {
+  readsEnglish: 'B',
+  fluentLanguage: 'Spanish',
+  preparer: 'yes',
+  'preparer.name': 'Ana Lee',
+  'interp.family': 'Gómez',
+  'interp.given': 'Rosa',
+  'interp.business': 'Ayuda Hispana',
+  'interp.street': '100 Main St',
+  'interp.unit': 'Ste 210',
+  'interp.city': 'Houston',
+  'interp.state': 'TX',
+  'interp.zip': '77002',
+  'interp.country': 'United States',
+  'interp.phone': '713 555 0100',
+  'interp.mobile': '713 555 0101',
+  'interp.email': 'rosa@example.com',
+  'interp.language': 'Spanish',
+  'prep.same': 'no',
+  'prep.family': 'Lee',
+  'prep.given': 'Ana',
+  'prep.business': 'Lee Immigration Law',
+  'prep.street': 'Calle Real 5',
+  'prep.unit': 'Flr 3',
+  'prep.city': 'Tegucigalpa',
+  'prep.province': 'Francisco Morazan',
+  'prep.postal': '11101',
+  'prep.country': 'Honduras',
+  'prep.phone': '504 2555 0100',
+  'prep.mobile': '504 9555 0101',
+  'prep.email': 'ana@example.com',
+  'prep.statement': 'attorneyExtends',
+};
+
 describe('I-212 PDF', () => {
   it('plans only fields that exist, with the right kind', async () => {
     const index = fieldIndex((await PDFDocument.load(template)).getForm());
@@ -128,6 +163,9 @@ describe('I-212 PDF', () => {
       },
       ...['V', 'S'].map((seeking) => ({ ...jorge, seeking, 'otherName.more1': 'yes', 'otherName2.family': 'Soto', ethnicity: 'notHispanic', race: ['WH', 'AS', 'BL', 'AI', 'HW'] })),
       ...['BN', 'BL', 'HA', 'GN', 'BU', 'GR', 'MA', 'PN', 'UN'].map((eyes, i) => ({ ...jorge, eyes, hair: ['BL', 'BR', 'BN', 'GR', 'WH', 'RD', 'SA', 'NH', 'OT'][i] })),
+      { ...jorge, ...helpers },
+      { ...jorge, ...helpers, 'prep.same': 'yes', 'prep.statement': 'notAttorney' },
+      { ...jorge, ...helpers, 'prep.statement': 'attorneyNotExtends' },
     ];
     for (const plan of variants.map(planI212)) {
       for (const name of Object.keys(plan.text)) expect(index.get(name), name).toBeInstanceOf(PDFTextField);
@@ -181,6 +219,27 @@ describe('I-212 PDF', () => {
     expect(checked('p4Line5Eyecolor[2]')).toBe(true);
     expect(text('p7Line3DayPhone[0]')).toBe('9155550142');
     expect(text('p7Line6Signature[0]')).toBe('');
+  });
+
+  it('fills the interpreter and preparer parts (named one part late)', async () => {
+    const read = async (a: Answers) => {
+      const f = fieldIndex((await PDFDocument.load(await fillI212(template, a))).getForm());
+      return (n: string) => (f.get(n) as PDFTextField).getText() ?? '';
+    };
+    let text = await read({ ...jorge, ...helpers });
+    expect(text('p8Line1FamilyName[0]')).toBe('Gomez');
+    expect(text('p8Line4DayPhone[0]')).toBe('7135550100');
+    expect(text('p8InterpreterLanguage[0]')).toBe('Spanish');
+    expect(text('p9Line1FamilyName[0]')).toBe('Lee');
+    expect(text('p9Line2BusinessorOrg[0]')).toBe('Lee Immigration Law');
+    expect(text('p9Line8aSignature[0]')).toBe('');
+    expect(text('p9Line4DayPhone[0]')).toBe('');
+    expect(planI212({ ...jorge, ...helpers }).notes).toContainEqual({ page: '8', part: '8', item: '3-4', text: "Preparer's telephone: daytime 504 2555 0100; mobile 504 9555 0101" });
+    text = await read({ ...jorge, ...helpers, 'prep.same': 'yes' });
+    expect(text('p9Line1GivenName[0]')).toBe('Rosa');
+    expect(text('p9Line5MobilePhone[0]')).toBe('7135550101');
+    text = await read(jorge);
+    expect(text('p8Line1FamilyName[0]')).toBe('');
   });
 
   it('keeps a short statement in Item 2 and continues long ones on added pages', async () => {

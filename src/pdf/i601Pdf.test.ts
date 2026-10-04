@@ -90,6 +90,41 @@ const everything = (base: Answers): Answers => ({
   'ground.other.explain': 'Other explanation',
 });
 
+/** An interpreter in the U.S. and a different preparer abroad. */
+export const helpers: Answers = {
+  readsEnglish: 'B',
+  fluentLanguage: 'Spanish',
+  preparer: 'yes',
+  'preparer.name': 'Ana Lee',
+  'interp.family': 'Gómez',
+  'interp.given': 'Rosa',
+  'interp.business': 'Ayuda Hispana',
+  'interp.street': '100 Main St',
+  'interp.unit': 'Ste 210',
+  'interp.city': 'Houston',
+  'interp.state': 'TX',
+  'interp.zip': '77002',
+  'interp.country': 'United States',
+  'interp.phone': '713 555 0100',
+  'interp.mobile': '713 555 0101',
+  'interp.email': 'rosa@example.com',
+  'interp.language': 'Spanish',
+  'prep.same': 'no',
+  'prep.family': 'Lee',
+  'prep.given': 'Ana',
+  'prep.business': 'Lee Immigration Law',
+  'prep.street': 'Calle Real 5',
+  'prep.unit': 'Flr 3',
+  'prep.city': 'Tegucigalpa',
+  'prep.province': 'Francisco Morazan',
+  'prep.postal': '11101',
+  'prep.country': 'Honduras',
+  'prep.phone': '504 2555 0100',
+  'prep.mobile': '504 9555 0101',
+  'prep.email': 'ana@example.com',
+  'prep.statement': 'attorneyExtends',
+};
+
 describe('I-601 PDF', () => {
   it('labels each explanation with its items', () => {
     expect(inadmissibilityStatement(carmen)).toContain('Item 12 (Fraud');
@@ -157,6 +192,9 @@ describe('I-601 PDF', () => {
         'otherRelative1.unit': ['Apt 1', 'Ste 1', 'Flr 1'][i % 3],
         'qualifying1.unit': ['Apt 1', 'Ste 1', 'Flr 1'][(i + 1) % 3],
       })),
+      { ...carmen, ...helpers },
+      { ...carmen, ...helpers, 'prep.same': 'yes', 'prep.statement': 'notAttorney' },
+      { ...carmen, ...helpers, 'prep.statement': 'attorneyNotExtends' },
     ];
     for (const plan of variants.map(planI601)) {
       for (const name of Object.keys(plan.text)) expect(index.get(name), name).toBeInstanceOf(PDFTextField);
@@ -208,6 +246,28 @@ describe('I-601 PDF', () => {
     expect(text('p7Line1DayPhone[0]')).toBe('2135550177');
     expect(text('Pt7Line6a_SignatureofApplicant[0]')).toBe('');
     expect(text('p10Line3dAdditionalInfo[0]')).toBe('');
+  });
+
+  it('fills the interpreter and preparer parts', async () => {
+    const read = async (a: Answers) => {
+      const f = fieldIndex((await PDFDocument.load(await fillI601(template, a))).getForm());
+      return (n: string) => (f.get(n) as PDFTextField).getText() ?? '';
+    };
+    let text = await read({ ...carmen, ...helpers });
+    expect(text('p8Line1aFamilyName[0]')).toBe('Gomez');
+    expect(text('p8Line3DayPhone[0]')).toBe('7135550100');
+    expect(text('P8Language[0]')).toBe('Spanish');
+    expect(text('p9Line1aFamilyName[0]')).toBe('Lee');
+    expect(text('p9Line2BusinessName[0]')).toBe('Lee Immigration Law');
+    expect(text('p9Line6aSignature[0]')).toBe('');
+    // The preparer's 11-digit foreign numbers don't fit the 10-digit boxes: they go to Part 10.
+    expect(text('p9Line3DayPhone[0]')).toBe('');
+    expect(planI601({ ...carmen, ...helpers }).notes).toContainEqual({ page: '8', part: '9', item: '3-4', text: "Preparer's telephone: daytime 504 2555 0100; mobile 504 9555 0101" });
+    text = await read({ ...carmen, ...helpers, 'prep.same': 'yes' });
+    expect(text('p9Line1bGivenName[0]')).toBe('Rosa');
+    expect(text('p9Line4MobilePhone[0]')).toBe('7135550101');
+    text = await read(carmen);
+    expect(text('p8Line1aFamilyName[0]')).toBe('');
   });
 
   it('moves long statements to Part 10 and adds sheets when it is full', async () => {

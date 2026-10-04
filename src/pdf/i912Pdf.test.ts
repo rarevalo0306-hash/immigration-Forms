@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
-import { PDFCheckBox, PDFDocument, PDFTextField } from 'pdf-lib';
+import { PDFCheckBox, PDFDocument, PDFDropdown, PDFTextField } from 'pdf-lib';
 import type { Answers } from '../forms/types';
 import { fieldIndex, optionBoxes } from './common';
 import { countForms, fillI912, planI912 } from './i912Pdf';
@@ -51,6 +51,41 @@ export const rosa: Answers = {
   email: 'rosa@example.com',
 };
 
+/** An interpreter in Los Angeles and a preparer in Tijuana. */
+const helpers: Answers = {
+  readsEnglish: 'B',
+  fluentLanguage: 'Spanish',
+  preparer: 'yes',
+  'preparer.name': 'Luis Pérez',
+  'interp.family': 'Gómez',
+  'interp.given': 'Rosa',
+  'interp.business': 'Ayuda Hispana LLC',
+  'interp.street': '500 Oak St',
+  'interp.unit': 'Ste 210',
+  'interp.city': 'Los Angeles',
+  'interp.state': 'CA',
+  'interp.zip': '90012',
+  'interp.country': 'United States',
+  'interp.phone': '(213) 555-0111',
+  'interp.mobile': '213 555 0112',
+  'interp.email': 'rosa@example.com',
+  'interp.language': 'Spanish',
+  'prep.same': 'no',
+  'prep.family': 'Pérez',
+  'prep.given': 'Luis',
+  'prep.business': 'Pérez Law Office',
+  'prep.street': '77 Av Revolución',
+  'prep.unit': 'Flr 3',
+  'prep.city': 'Tijuana',
+  'prep.province': 'Baja California',
+  'prep.postal': '22000',
+  'prep.country': 'Mexico',
+  'prep.phone': '664 555 0100',
+  'prep.mobile': '664 555 0101',
+  'prep.email': 'luis@example.com',
+  'prep.statement': 'attorneyExtends',
+};
+
 describe('I-912 PDF', () => {
   it('counts the forms in a cell', () => {
     expect(countForms('I-485, I-765 and I-131')).toBe(3);
@@ -75,15 +110,44 @@ describe('I-912 PDF', () => {
       { ...rosa, basis: ['B'], employment: 'Other', 'employment.other': 'Student', unemploymentBenefits: 'no' },
       { ...rosa, basis: ['C'], situation: 'Medical debt', 'asset.more0': 'yes', 'asset1.type': 'Checking', 'asset1.value': '300', 'asset.more1': 'yes', 'asset2.type': 'Savings', 'asset2.value': '50', 'asset.more2': 'yes', 'asset3.type': 'Stock', 'asset3.value': '10', 'expenses.total': '2100', expenseTypes: ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'O'], 'expenses.other': 'Phone' },
       ...['Single', 'Married', 'Widowed', 'Annulled', 'Legally Seperated'].map((marital) => ({ ...rosa, marital })),
+      { ...rosa, ...helpers },
+      { ...rosa, ...helpers, 'prep.same': 'yes', 'prep.statement': 'notAttorney' },
+      { ...rosa, ...helpers, readsEnglish: 'A', 'prep.statement': 'attorneyNotExtends', 'prep.unit': 'Apt 9', 'prep.state': 'TX' },
     ];
     for (const plan of variants.map(planI912)) {
       for (const name of Object.keys(plan.text)) expect(index.get(name), name).toBeInstanceOf(PDFTextField);
       for (const name of plan.check) expect(index.get(name), name).toBeInstanceOf(PDFCheckBox);
       for (const [base, value] of plan.checkValue) expect(optionBoxes(index, base).map((o) => o.value), `${base}=${value}`).toContain(value);
+      for (const [name, value] of Object.entries(plan.select)) {
+        expect(index.get(name), name).toBeInstanceOf(PDFDropdown);
+        expect((index.get(name) as PDFDropdown).getOptions().map((o) => o.trim())).toContain(value);
+      }
     }
     expect(planI912(variants[1]).text['Part4_Line1_FullName4[1]']).toBe('Person 8');
     expect(planI912(variants[2]).text['P3_Line1_AlienNumber4[0]']).toBe('111222333');
     expect(planI912(variants[5]).text['TotalAssets[0]']).toBe('360');
+  });
+
+  it('fills the interpreter and preparer parts', async () => {
+    const f = fieldIndex((await PDFDocument.load(await fillI912(template, { ...rosa, ...helpers }))).getForm());
+    const text = (n: string) => (f.get(n) as PDFTextField).getText() ?? '';
+    const checked = (n: string) => (f.get(n) as PDFCheckBox).isChecked();
+    expect(text('P9_L1A_FamilyName[0]')).toBe('Gomez');
+    expect(checked('P9_LB_Unit[1]')).toBe(true); // Ste.
+    expect(text('P9_L3B_AptSteFlrNumber[0]')).toBe('210');
+    expect((f.get('P9_L3d_State[0]') as PDFDropdown).getSelected().map((s) => s.trim())).toEqual(['CA']);
+    expect(text('P9_L4_DaytimeTelePhoneNumber1[1]')).toBe('2135550112');
+    expect(text('P9_Language[0]')).toBe('Spanish');
+    expect(text('P10_L1b_GivenName[0]')).toBe('Luis');
+    expect(checked('P10_L3b_Unit[0]')).toBe(true); // Flr.
+    expect(text('P10_L3g_Province[0]')).toBe('Baja California');
+    expect(text('P10_L3f_PostalCode[0]')).toBe('22000');
+    expect(text('P10_L5_FaxNumber1[0]')).toBe('6645550101');
+    expect(checked('P10_L7_chbx[1]')).toBe(true);
+    expect(checked('P10_L7B_chbx[1]')).toBe(true); // extends
+    expect(planI912({ ...rosa, ...helpers, 'prep.statement': 'notAttorney' }).checkValue).toContainEqual(['P10_L7_chbx', 'A']);
+    expect(planI912({ ...rosa, ...helpers, 'prep.same': 'yes' }).text['P10_L1A_FamilyName[0]']).toBe('Gómez');
+    expect(Object.keys(planI912(rosa).text).filter((k) => /^P(9|10)_/.test(k))).toEqual([]);
   });
 
   it('writes the answers into the official form', async () => {

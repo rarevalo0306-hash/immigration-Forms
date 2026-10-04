@@ -65,6 +65,93 @@ export const reRegistrant: Answers = {
   email: 'andres@example.com',
 };
 
+const person = (prefix: string, family: string) => ({
+  [`${prefix}.family`]: family,
+  [`${prefix}.given`]: 'Ana',
+  [`${prefix}.business`]: 'Ayuda Legal',
+  [`${prefix}.street`]: '1 Flagler St',
+  [`${prefix}.unit`]: 'Ste 300',
+  [`${prefix}.city`]: 'Miami',
+  [`${prefix}.state`]: 'FL',
+  [`${prefix}.zip`]: '33130',
+  [`${prefix}.country`]: 'United States',
+  [`${prefix}.phone`]: '305 555 0100',
+  [`${prefix}.mobile`]: '305 555 0101',
+  [`${prefix}.email`]: `${prefix}@example.com`,
+});
+
+/** María, a late initial filer: married, one former spouse, two children, helped by an interpreter and a preparer. */
+export const lateFiler: Answers = {
+  ...reRegistrant,
+  appType: '1a',
+  lateInitial: 'yes',
+  marital: 'M',
+  'marriage.date': '06/20/2015',
+  'spouse.family': 'Rojas',
+  'spouse.given': 'Luis',
+  'spouse.aNumber': 'A201234567',
+  'spouse.uscisAccount': '111122223333',
+  'spouse.dob': '01/05/1985',
+  'spouse.street': '200 NW 7th St',
+  'spouse.unit': 'Flr 3',
+  'spouse.city': 'Miami',
+  'spouse.state': 'FL',
+  'spouse.zip': '33136',
+  'spouse.country': 'United States',
+  'spouse.marriageCity': 'Caracas',
+  'spouse.marriageProvince': 'Distrito Capital',
+  'spouse.marriageCountry': 'Venezuela',
+  'spouse.tps': 'yes',
+  'spouse.tpsFrom': '03/09/2021',
+  'spouse.tpsValid': 'yes',
+  'formerSpouse.more0': 'yes',
+  'former1.family': 'Mora',
+  'former1.given': 'Pedro',
+  'former1.nationality': 'Venezuelan',
+  'former1.aNumber': '12345678',
+  'former1.dob': '04/04/1984',
+  'former1.from': '01/01/2008',
+  'former1.to': '01/01/2012',
+  'former1.ended': 'divorce',
+  'former1.tps': 'unknown',
+  'former1.applying': 'unknown',
+  'formerSpouse.more1': 'no',
+  'child.more0': 'yes',
+  'child1.family': 'Rojas',
+  'child1.given': 'Sofia',
+  'child1.dob': '02/02/2016',
+  'child1.street': '200 NW 7th St',
+  'child1.unit': 'Apt 12',
+  'child1.city': 'Miami',
+  'child1.state': 'FL',
+  'child1.zip': '33136',
+  'child1.country': 'United States',
+  'child1.applying': 'yes',
+  'child.more1': 'yes',
+  'child2.family': 'Rojas',
+  'child2.given': 'Mateo',
+  'child2.uscisAccount': '444455556666',
+  'child2.aNumber': '209876543',
+  'child2.dob': '03/03/2018',
+  'child2.street': 'Calle 5',
+  'child2.city': 'Valencia',
+  'child2.province': 'Carabobo',
+  'child2.postal': '2001',
+  'child2.country': 'Venezuela',
+  'child2.tpsFrom': '03/09/2021',
+  'child2.tpsTo': '09/10/2025',
+  'child2.applying': 'no',
+  readsEnglish: '1b',
+  fluentLanguage: 'Spanish',
+  preparer: 'yes',
+  'preparer.name': 'Ana Diaz',
+  ...person('interp', 'Lopez'),
+  'interp.language': 'Spanish',
+  ...person('prep', 'Diaz'),
+  'prep.unit': 'Apt 7',
+  'prep.statement': 'notAttorney',
+};
+
 describe('I-821 PDF', () => {
   it('maps every Part 7 Yes/No pair once', async () => {
     const index = fieldIndex((await PDFDocument.load(template)).getForm());
@@ -136,6 +223,38 @@ describe('I-821 PDF', () => {
       full,
       { ...full, 'proc.to': '01/01/2021', grantedBy: 'I', appType: '1b' },
       ...['S', 'D', 'W', 'E', 'A'].map((marital) => ({ ...reRegistrant, marital })),
+      lateFiler,
+      {
+        ...lateFiler,
+        marital: 'E',
+        'spouse.tpsTo': '01/01/2024',
+        'spouse.tpsValid': 'no',
+        'spouse.marriageState': 'FL',
+        'spouse.marriagePlace': 'Miami-Dade Courthouse',
+        'formerSpouse.more1': 'yes',
+        'former1.tps': 'yes',
+        'former1.applying': 'yes',
+        'former1.dod': '01/01/2020',
+        'former2.family': 'Q',
+        'former2.aNumber': '1',
+        'former2.tps': 'yes',
+        'former2.tpsFrom': '01/01/2019',
+        'former2.tpsTo': '01/01/2020',
+        'former2.applying': 'unknown',
+        'child2.state': 'FL',
+        'child2.unit': 'Flr 2',
+        'child1.aNumber': '1',
+        'child1.uscisAccount': '1',
+        'child1.tpsFrom': '01/01/2020',
+        'child1.province': 'X',
+        'child1.postal': 'Y',
+      },
+      { ...lateFiler, 'spouse.tps': 'no', 'former1.tps': 'no', 'former1.applying': 'no', 'formerSpouse.more1': 'yes', 'former2.tps': 'unknown', 'former2.applying': 'no' },
+      { ...lateFiler, 'spouse.tps': 'yes', 'spouse.tpsFrom': '', 'spouse.tpsValid': 'unknown', 'former1.tps': 'yes', 'former1.applying': 'yes' },
+      ...['attorneyExtends', 'attorneyNotExtends'].map((st) => ({ ...lateFiler, 'prep.statement': st })),
+      { ...lateFiler, 'prep.same': 'yes', 'interp.unit': 'Flr 1' },
+      { ...lateFiler, readsEnglish: '1a', 'prep.statement': 'attorneyExtends' },
+      { ...lateFiler, preparer: 'no' },
       ...['BN', 'BL', 'HA', 'GN', 'BU', 'GR', 'MA', 'PN', 'UN'].map((eyes) => ({ ...reRegistrant, eyes })),
       ...['BL', 'BR', 'BN', 'GR', 'WH', 'RD', 'SA', 'NH', 'OT'].map((hair) => ({ ...reRegistrant, hair })),
     ];
@@ -181,5 +300,68 @@ describe('I-821 PDF', () => {
     expect(checkValue).toContainEqual(['Part7_Item13a_YN', 'Y']);
     expect(text['AI_3c_ItemNumber[0]']).toBe('15.a');
     expect(text['AI_3d_AdditionalInfo[0]']).toBe('Arrested 2021 in Miami for driving without a license; dismissed.');
+  });
+
+  it('writes Parts 4-6 for a late initial filer only', async () => {
+    // The interpreter's language sits in a field named like Child 2's province.
+    const family = (a: Answers) => Object.keys(planI821(a).text).filter((k) => /^Part[456]_/.test(k) && k !== 'Part6_Item12_Province[0]#1');
+    expect(family({ ...lateFiler, appType: '1b' })).toEqual([]);
+    expect(family({ ...lateFiler, lateInitial: 'no' })).toEqual([]);
+    const form = (await PDFDocument.load(await fillI821(template, lateFiler))).getForm();
+    const all = fieldsBySegment(form.getFields());
+    const text = (n: string) => (resolve(all, n)[0] as PDFTextField).getText();
+    const checked = (n: string) => (resolve(all, n)[0] as PDFCheckBox).isChecked();
+    expect(text('Part4_Item1_USCISNumber[0]#0')).toBe('111122223333'); // spouse
+    expect(text('Part4_Item2_AlienNumber[0]')).toBe('201234567');
+    expect(text('Part4_Item3_FamilyName[0]')).toBe('Rojas');
+    expect(checked('Part4_Item4_Unit[2]')).toBe(true); // Flr.
+    expect(text('Part4_Item6_DateOfMarriage[0]')).toBe('06/20/2015');
+    expect(text('Part4_Item7_PlaceofMarriage[0]')).toBe('Caracas, Venezuela');
+    expect(checked('Part4_Item9_TPSY[0]')).toBe(true);
+    expect(text('Part4_Item10b_DateFrom[0]')).toBe('03/09/2021'); // 10.a
+    expect(checked('Part4_Item10d_Present[0]')).toBe(true); // 10.c
+    expect(checked('_YesNoDontKnow[0]')).toBe(true); // 11: Yes
+    expect(text('Part5_Item1_FamilyName[0]')).toBe('Mora');
+    expect(text('Part5_Item3_AlienNumber[0]')).toBe('012345678');
+    expect(checked('Part5_Item8_YDI[2]')).toBe(true); // 8: I do not know
+    expect(checked('Part5_Item10_YNI[2]')).toBe(true); // 10: I do not know
+    expect(text('Part5_Item11_FamilyName[0]')).toBeUndefined();
+    expect(text('Part6_Item1_GivenName[0]')).toBe('Sofia');
+    expect(checked('Part6_Item5_Unit[0]')).toBe(true); // Apt.
+    expect(checked('Part5_Item7_ChildAppTPS[0]')).toBe(true); // child 1, Item 7: Yes
+    expect(text('Part6_Item8_GivenName[0]')).toBe('Mateo');
+    expect(text('Part4_Item1_USCISNumber[0]#1')).toBe('444455556666'); // child 2, Item 9
+    expect(text('Part6_Item12_Province[0]#0')).toBe('Carabobo');
+    expect(text('Part6_Item13_ChildTPSFrom[0]')).toBe('03/09/2021'); // 13.a
+    expect(text('Part6_Item12_ChildTPSTo[0]')).toBe('09/10/2025'); // 13.b
+    expect(checked('Part6_Item14_ChildAppTPS[1]')).toBe(true); // 14: No
+  });
+
+  it('writes the interpreter and the preparer', async () => {
+    const form = (await PDFDocument.load(await fillI821(template, lateFiler))).getForm();
+    const all = fieldsBySegment(form.getFields());
+    const text = (n: string) => (resolve(all, n)[0] as PDFTextField).getText();
+    const checked = (n: string) => (resolve(all, n)[0] as PDFCheckBox).isChecked();
+    expect(checked('Part8_Item2_Preparer[0]')).toBe(true);
+    expect(text('Part8_Item2_PrepName[0]')).toBe('Ana Diaz');
+    expect(text('Part9_Item1_FamilyName[0]')).toBe('Lopez');
+    expect(text('Part9_Item1_GivenName[1]')).toBe('Ana');
+    expect(checked('Part9_Item3_Unit[1]')).toBe(true); // Ste.
+    expect(text('Part10_Item5_MobilePhone[0]#0')).toBe('3055550101'); // interpreter's mobile
+    expect(text('Part6_Item12_Province[0]#1')).toBe('Spanish'); // "I am fluent in English and ___"
+    expect(text('Part9_Item6_Signature[0]')).toBeUndefined();
+    expect(text('Part10_Item1_FamilyName[0]')).toBe('Diaz');
+    expect(checked('Part10_Item3_Unit[0]')).toBe(true); // Apt.
+    expect(text('Part10_Item6_Email[0]')).toBe('prep@example.com');
+    expect(checked('Part10_Item7_PreparerStmt[0]')).toBe(true); // 7.a
+    expect(text('Part10_Item8a_Signature[0]')).toBeUndefined();
+
+    const same = planI821({ ...lateFiler, 'prep.same': 'yes', 'prep.statement': 'attorneyNotExtends' });
+    expect(same.text['Part10_Item1_FamilyName[0]']).toBe('Lopez');
+    expect(same.checkValue).toContainEqual(['Part10_Item7_PreparerStmt', 'B']);
+    expect(same.check).toContain('Part10_Item7b_NotExtend[0]');
+    expect(planI821({ ...lateFiler, 'prep.statement': 'attorneyExtends' }).check).toContain('Part10_Item7b_Extend[0]');
+    const none = planI821({ ...lateFiler, readsEnglish: '1a', preparer: 'no' });
+    expect(Object.keys(none.text).some((k) => /^Part(9|10)_/.test(k) || k.startsWith('Part6_Item12_Province[0]#1'))).toBe(false);
   });
 });

@@ -1,12 +1,15 @@
 import { PDFCheckBox, PDFDocument, PDFDropdown, PDFTextField } from 'pdf-lib';
 import type { Answers } from '../forms/types';
 import { parseUnit } from '../engine/validation';
+import { assistance, usedInterpreter, usedPreparer } from '../forms/assistance';
 import { fieldIndex, optionBoxes, selectOption, setFieldText } from './common';
 
 // Fields of USCIS Form I-864, edition 08/24/26 (public/forms/i-864.pdf), named by the last segment
 // of their full name and placed by where they sit on the printed page. The sponsor's fields carry
 // "P4" and the immigrant's "P2" although they print as Parts 2 and 3, and the Part 8 statement boxes
 // share their name with the "Employed" box of Part 6; the mapping follows the page, not the names.
+// Parts 9 and 10 (interpreter, preparer) have no address; their "Mobile" boxes are named
+// "P9_Line4_InterpretersDaytimePhoneNumber[1]" and "P10_Line5_PreparersFaxNumber".
 
 export interface I864Plan {
   text: Record<string, string>;
@@ -258,6 +261,32 @@ export function planI864(a: Answers): I864Plan {
   put('P8_Line3_DaytimeTelephoneNumber[0]', digits(str(a, 'phone')));
   put('P8_Line4_MobileTelephoneNumber[0]', digits(str(a, 'mobile')));
   put('P7Line7_EmailAddress[0]', str(a, 'email'));
+  if (a.preparer === 'yes') {
+    check.push('P8_Line2_Checkbox[0]');
+    put('P8_Line2_Attorney[0]', str(a, 'preparer.name'));
+  }
+
+  // Parts 9 and 10: who helped. Their signatures and dates stay empty.
+  const help = assistance(a, { interpreter: usedInterpreter(a), preparer: usedPreparer(a) });
+  if (help.interpreter) {
+    const p = help.interpreter;
+    put('P9_Line1a_InterpretersFamilyName[0]', p.family);
+    put('P9_Line1b_InterpretersGivenName[0]', p.given);
+    put('P8Line2_InterpretersBusinessName[0]', p.business);
+    put('P9_Line4_InterpretersDaytimePhoneNumber[0]', digits(p.phone));
+    put('P9_Line4_InterpretersDaytimePhoneNumber[1]', digits(p.mobile));
+    put('P9_Line5_InterpretersEmailAddress[0]', p.email);
+    put('P9_Language[0]', p.language);
+  }
+  if (help.preparer) {
+    const p = help.preparer;
+    put('P10_Line1a_PreparersFamilyName[0]', p.family);
+    put('P10_Line1b_PreparersGivenName[0]', p.given);
+    put('P10_Line2_PreparersBusinessName[0]', p.business);
+    put('P10_Line4_PreparersDaytimePhoneNumber[0]', digits(p.phone));
+    put('P10_Line5_PreparersFaxNumber[0]', digits(p.mobile));
+    put('P10_Line6_PreparersEmailAddress[0]', p.email);
+  }
 
   return { text, check, checkValue, select };
 }

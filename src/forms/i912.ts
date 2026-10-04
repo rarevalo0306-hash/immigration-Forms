@@ -1,9 +1,11 @@
 import type { Answers, Field, FormDefinition } from './types';
 import type { T } from '../i18n';
 import { all, date, is, nameFields, rows, yesNo } from './helpers';
+import { assistanceSection, usedInterpreter, usedPreparer } from './assistance';
 
 // Questions follow USCIS Form I-912, Request for Fee Waiver, edition 07/22/25.
-// The PDF mapping lives in src/pdf/i912Pdf.ts.
+// The PDF mapping lives in src/pdf/i912Pdf.ts. The interpreter (Part 8) and preparer (Part 9) are
+// filled in from the last section; they sign and date by hand.
 
 export const I912_EDITION = '07/22/25';
 
@@ -70,13 +72,13 @@ export const i912: FormDefinition = {
     es: [
       'Confirme en uscis.gov/i-912 que la edición {edition} sigue vigente y que el formulario que presenta permite exención de tarifa.',
       'Adjunte las pruebas de cada razón que marcó: la carta del beneficio público (con su nombre, la agencia y que está vigente), su declaración de impuestos o W-2 más reciente, o comprobantes de sus gastos y deudas.',
-      'Imprima el PDF y firme la Parte 7, Ítem 6, a mano con tinta negra. Si un intérprete o preparador le ayudó, ellos llenan y firman a mano las Partes 8 y 9.',
+      'Imprima el PDF y firme la Parte 7, Ítem 6, a mano con tinta negra. Si un intérprete o preparador le ayudó, ellos firman y fechan a mano las Partes 8 y 9.',
       'Ponga el I-912 encima del formulario por el que pide la exención y envíelos juntos, sin cheque. Si USCIS la niega, le devolverá todo y podrá volver a presentar con el pago.',
     ],
     en: [
       'Check at uscis.gov/i-912 that edition {edition} is still current and that the form you are filing allows a fee waiver.',
       'Attach evidence for each basis you selected: the benefit letter (with your name, the agency and that it is current), your latest tax return or W-2, or proof of your expenses and debts.',
-      'Print the PDF and sign Part 7, Item 6, by hand in black ink. If an interpreter or preparer helped you, they complete and sign Parts 8 and 9 by hand.',
+      'Print the PDF and sign Part 7, Item 6, by hand in black ink. If an interpreter or preparer helped you, they sign and date Parts 8 and 9 by hand.',
       'Place Form I-912 on top of the form whose fee you want waived and send them together, without a check. If USCIS denies it, everything is returned and you can file again with the fee.',
     ],
   },
@@ -429,7 +431,7 @@ export const i912: FormDefinition = {
           kind: 'choice',
           formRef: 'Part 7 · Item 2 · Statement Regarding the Preparer',
           question: t('¿Alguien más (no usted) preparó esta solicitud?', 'Did someone else prepare this request for you?'),
-          why: t('Si es así, esa persona también debe llenar y firmar la Parte 9 a mano.', 'If so, that person must also complete and sign Part 9 by hand.'),
+          why: t('Si es así, esa persona también firma y fecha la Parte 9 a mano.', 'If so, that person also signs and dates Part 9 by hand.'),
           options: yesNo,
         },
         {
@@ -453,5 +455,6 @@ export const i912: FormDefinition = {
         },
       ],
     },
+    assistanceSection({ usedInterpreter, usedPreparer, interpreterPart: 'Part 8', preparerPart: 'Part 9' }),
   ],
 };

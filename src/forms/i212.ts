@@ -1,6 +1,7 @@
 import type { Answers, Field, FormDefinition, Option } from './types';
 import type { T } from '../i18n';
 import { all, biographic, date, is, nameFields, rows, sexField, yesNo } from './helpers';
+import { assistanceSection, usedInterpreter, usedPreparer } from './assistance';
 
 // Questions follow USCIS Form I-212, Application for Permission to Reapply for Admission into the
 // United States After Deportation or Removal, edition 01/20/25. The PDF mapping lives in
@@ -9,8 +10,10 @@ import { all, biographic, date, is, nameFields, rows, sexField, yesNo } from './
 // Out of scope (left for hand or for the attorney):
 // - Part 5 (Additional Information if Filing with CBP: ten years of addresses, five years of
 //   employment, parents and marriages). Only people filing at a port of entry with CBP fill it.
-// - Parts 7 and 8 (interpreter and preparer), every signature and date, and the attorney box on
-//   page 1.
+// - Every signature and date, and the attorney box on page 1.
+// Part 6 has no statement boxes, so the app asks whether an interpreter or preparer helped (the
+// standard readsEnglish / preparer questions) to decide whether to fill Parts 7 and 8 from the
+// shared assistance section.
 
 export const I212_EDITION = '01/20/25';
 
@@ -97,14 +100,14 @@ export const i212: FormDefinition = {
       'Adjunte copia de la orden de deportación o del documento de su salida, y pruebas de lo favorable de su caso: actas de nacimiento o matrimonio de su familia ciudadana o residente, cartas de apoyo, comprobantes de trabajo e impuestos, constancias médicas y, si tuvo problemas con la ley, los documentos de la corte y pruebas de rehabilitación.',
       'Si va a presentar el I-601A porque vive en EE.UU. con una orden de deportación, normalmente necesita que le aprueben primero este I-212. Pregúntele a su abogado el orden correcto.',
       'Revise la Parte 9: si su declaración o su historial no cupieron, el PDF los pasó ahí (y, si hacía falta, a una hoja adicional al final). Firme y ponga la fecha en cada hoja adicional.',
-      'Imprima el PDF y firme la Parte 6, Ítem 4, a mano con tinta negra. Si un intérprete o preparador le ayudó, ellos llenan y firman las Partes 7 y 8. Si lo presenta ante CBP en un puerto de entrada, llene también la Parte 5 a mano.',
+      'Imprima el PDF y firme la Parte 6, Ítem 4, a mano con tinta negra. Si un intérprete o preparador le ayudó, sus datos ya están en las Partes 7 y 8; ellos las revisan y las firman y fechan a mano. Si lo presenta ante CBP en un puerto de entrada, llene también la Parte 5 a mano.',
     ],
     en: [
       'Check at uscis.gov/i-212 that edition {edition} is still current, and check the fee and where to file: it depends on whether it goes with a consular visa, an adjustment of status, a Form I-601 or a Form I-601A.',
       'Attach a copy of the removal order or the record of your departure, and evidence of the favorable factors: birth or marriage certificates of your citizen or resident family, support letters, work and tax records, medical records and, if you had problems with the law, the court records and evidence of rehabilitation.',
       'If you will file Form I-601A because you live in the U.S. with a removal order, you usually need this I-212 approved first. Ask your attorney about the right order.',
       'Check Part 9: if your statement or history did not fit, the PDF moved it there (and onto an extra sheet at the end when needed). Sign and date each extra sheet.',
-      'Print the PDF and sign Part 6, Item 4, by hand in black ink. If an interpreter or preparer helped you, they complete and sign Parts 7 and 8. If you file with CBP at a port of entry, also complete Part 5 by hand.',
+      'Print the PDF and sign Part 6, Item 4, by hand in black ink. If an interpreter or preparer helped you, their details are already in Parts 7 and 8; they review them and sign and date by hand. If you file with CBP at a port of entry, also complete Part 5 by hand.',
     ],
   },
   sections: [
@@ -467,13 +470,48 @@ export const i212: FormDefinition = {
       title: t('Declaración y contacto', 'Statement and contact'),
       questions: [
         {
+          id: 'readsEnglish',
+          kind: 'choice',
+          formRef: "Part 6 · Applicant's Certification",
+          question: t('¿Puede leer y entender el formulario en inglés?', 'Can you read and understand the form in English?'),
+          why: t('Si un intérprete se lo lee, sus datos van en la Parte 7.', 'If an interpreter reads it to you, their details go in Part 7.'),
+          options: [
+            { value: 'A', label: t('Sí, leo inglés', 'Yes, I read English') },
+            { value: 'B', label: t('No, un intérprete me lo leerá', 'No, an interpreter will read it to me') },
+          ],
+        },
+        {
+          id: 'interpreterLanguage',
+          kind: 'fields',
+          formRef: "Part 6 · Applicant's Certification",
+          showIf: is('readsEnglish', 'B'),
+          question: t('¿En qué idioma se lo leerán?', 'What language will it be read in?'),
+          fields: [text('fluentLanguage', 'Idioma', 'Language', "Part 6 · Applicant's Certification", { placeholder: 'Spanish' })],
+        },
+        {
+          id: 'preparer',
+          kind: 'choice',
+          formRef: 'Part 8 · Preparer',
+          question: t('¿Alguien más (no usted) preparó esta solicitud?', 'Did someone else prepare this application for you?'),
+          why: t('Si es así, al final le pediremos sus datos para la Parte 8; esa persona la firma a mano.', 'If so, we ask for their details for Part 8 at the end; that person signs it by hand.'),
+          options: yesNo,
+        },
+        {
+          id: 'preparerName',
+          kind: 'fields',
+          formRef: 'Part 8 · Preparer',
+          showIf: is('preparer', 'yes'),
+          question: t('¿Quién la preparó?', 'Who prepared it?'),
+          fields: [text('preparer.name', 'Nombre del preparador', 'Preparer’s name', 'Part 8 · Preparer')],
+        },
+        {
           id: 'contactInfo',
           kind: 'fields',
           formRef: 'Part 6 · Items 1–3',
           question: t('¿Cómo puede contactarle USCIS?', 'How can USCIS contact you?'),
           why: t(
-            'Al firmar la Parte 6 declara bajo pena de perjurio que todo es verdad. Si alguien le interpretó o preparó el formulario, ellos llenan las Partes 7 y 8.',
-            'By signing Part 6 you declare under penalty of perjury that everything is true. If someone interpreted or prepared the form for you, they complete Parts 7 and 8.',
+            'Al firmar la Parte 6 declara bajo pena de perjurio que todo es verdad. Si alguien le interpretó o preparó el formulario, ellos firman a mano las Partes 7 y 8.',
+            'By signing Part 6 you declare under penalty of perjury that everything is true. If someone interpreted or prepared the form for you, they sign Parts 7 and 8 by hand.',
           ),
           fields: [
             { id: 'phone', type: 'phone', required: true, label: { es: 'Teléfono de día', en: 'Daytime phone' }, formRef: 'Part 6 · Item 1', placeholder: '213 555 0123' },
@@ -483,5 +521,6 @@ export const i212: FormDefinition = {
         },
       ],
     },
+    assistanceSection({ usedInterpreter, usedPreparer, interpreterPart: 'Part 7', preparerPart: 'Part 8', address: false, statement: false }),
   ],
 };

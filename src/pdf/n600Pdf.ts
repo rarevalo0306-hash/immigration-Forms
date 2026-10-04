@@ -1,6 +1,7 @@
 import { PDFCheckBox, PDFDocument, PDFDropdown, PDFTextField } from 'pdf-lib';
 import type { Answers } from '../forms/types';
 import { parseUnit } from '../engine/validation';
+import { assistance, usedInterpreter, usedPreparer, type HelperPerson } from '../forms/assistance';
 import { fieldIndex, optionBoxes, selectOption, setFieldText } from './common';
 
 // Fields of USCIS Form N-600, edition 01/20/25 (public/forms/n-600.pdf), named by the last segment
@@ -16,6 +17,9 @@ import { fieldIndex, optionBoxes, selectOption, setFieldText } from './common';
 // - Part 6's mother box exports "F" and the father box "M"; its dates and Part 7's are
 //   "P5_Line9F_DateofBirth[1]"-"[20]".
 // - Marital status boxes export S, M, D, W, E (separated), A (annulled) and O.
+// - Part 9 (interpreter): the business is "P9_Line2", the phones and email borrow Part 8's names
+//   ("P8_Line4_Telephone", "P8_Line5_Telephone", "P8_Line6_EmailAddress"). Part 10 (preparer): the
+//   statement boxes are "Pt10Line7_chkbx" (A, B) and "Pt10Line7b_Extend"/"Pt10Line7b_DoesNotExtend".
 
 export interface N600Plan {
   text: Record<string, string>;
@@ -426,6 +430,48 @@ export function planN600(a: Answers): N600Plan {
   put('P8_Line3[0]', digits(str(a, 'phone')));
   put('P8_Line4[0]', digits(str(a, 'mobile')));
   put('P8_Line5[0]', str(a, 'email'));
+
+  // Parts 9 and 10: the interpreter and the preparer. They sign and date by hand.
+  const helper = (p: HelperPerson, f: { family: string; given: string; business: string; address: AddressFields; phone: string; mobile: string; email: string }) => {
+    put(f.family, p.family);
+    put(f.given, p.given);
+    put(f.business, p.business);
+    put(f.address.street, p.street);
+    const unit = parseUnit(p.unit);
+    if (unit) {
+      checkValue.push([f.address.unit, unit.kind]);
+      put(f.address.number, unit.number);
+    }
+    put(f.address.city, p.city);
+    state(f.address.state, p.state);
+    put(f.address.zip, p.zip);
+    put(f.address.province, p.province);
+    put(f.address.postal, p.postal);
+    put(f.address.country, p.country);
+    put(f.phone, digits(p.phone));
+    put(f.mobile, digits(p.mobile));
+    put(f.email, p.email);
+  };
+  const help = assistance(a, { interpreter: usedInterpreter(a), preparer: usedPreparer(a) });
+  if (help.interpreter) {
+    helper(help.interpreter, {
+      family: 'P9_Line1_FamilyName[0]', given: 'P9_Line1_GivenName[0]', business: 'P9_Line2[0]', address: address('P9_Line3_InterpretersStreetName[0]', 'P9_Line3'),
+      phone: 'P8_Line4_Telephone[0]', mobile: 'P8_Line5_Telephone[0]', email: 'P8_Line6_EmailAddress[0]',
+    });
+    put('P9_Language[0]', help.interpreter.language || str(a, 'fluentLanguage'));
+  }
+  if (help.preparer) {
+    helper(help.preparer, {
+      family: 'P10_Line1_PreparerFamilyName[0]', given: 'P10_Line1_PreparerGivenName[0]', business: 'P10_Line2_NameofBusinessorOrgName[0]', address: address('P10_Line3_PreparerStreetrName[0]', 'P10_Line3'),
+      phone: 'P10_Line4_Telephone[0]', mobile: 'P10_Line5_Mobile[0]', email: 'P10_Line6_Email[0]',
+    });
+    const st = help.preparer.statement;
+    if (st === 'notAttorney') checkValue.push(['Pt10Line7_chkbx', 'A']);
+    if (st === 'attorneyExtends' || st === 'attorneyNotExtends') {
+      checkValue.push(['Pt10Line7_chkbx', 'B']);
+      check.push(st === 'attorneyExtends' ? 'Pt10Line7b_Extend[0]' : 'Pt10Line7b_DoesNotExtend[0]');
+    }
+  }
 
   // Part 11: the parents' loss-of-citizenship explanations.
   const notes = [

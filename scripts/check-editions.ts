@@ -6,6 +6,7 @@
 import { appendFileSync, writeFileSync } from 'node:fs';
 import { forms } from '../src/forms';
 import { checkEdition, editionReport, formPageUrl } from '../src/forms/editions';
+import { onUscis } from '../src/forms/filing';
 
 async function fetchPage(url: string): Promise<string | null> {
   for (let attempt = 0; attempt < 3; attempt++) {
@@ -22,7 +23,9 @@ async function fetchPage(url: string): Promise<string | null> {
 
 const pages = new Map<string, Promise<string | null>>();
 const checks = [];
-for (const f of forms) {
+// Forms from other agencies (EOIR) show no edition date on their page; they aren't checked here.
+const uscisForms = forms.filter((f) => onUscis(f.id));
+for (const f of uscisForms) {
   const url = formPageUrl(f.id);
   if (!pages.has(url)) pages.set(url, fetchPage(url));
   checks.push(checkEdition(f, await pages.get(url)!));
@@ -32,7 +35,7 @@ writeFileSync('edition-report.md', markdown + '\n');
 const out = `changed=${changed.length}\nunreadable=${unreadable.length}\n`;
 process.stdout.write(markdown + '\n\n' + out);
 if (process.env.GITHUB_OUTPUT) appendFileSync(process.env.GITHUB_OUTPUT, out);
-if (unreadable.length > forms.length / 2) {
+if (unreadable.length > uscisForms.length / 2) {
   console.error('Most uscis.gov pages could not be read; the check did not run.');
   process.exit(1);
 }

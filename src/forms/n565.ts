@@ -1,13 +1,16 @@
 import type { Answers, Field, FormDefinition, Option } from './types';
 import type { T } from '../i18n';
 import { all, anyAddress, date, is, nameFields, rows, sexOptions, yesNo } from './helpers';
+import { assistanceSection, usedInterpreter, usedPreparer } from './assistance';
 
 // Questions follow USCIS Form N-565, Application for Replacement Naturalization/Citizenship
 // Document, edition 02/27/25. The PDF mapping lives in src/pdf/n565Pdf.ts.
 // Left for hand: the attorney box at the top of page 1, Part 8 Item 4 (filled by USCIS or a consul
-// after approval), the applicant's signature and date (Part 9, Item 4), and Parts 10-11
-// (interpreter and preparer). This edition has no "I read English / an interpreter read it to me"
-// or preparer checkboxes in Part 9, so those are not asked.
+// after approval), and every signature and its date (Part 9, Item 4; Part 10, Item 6; Part 11,
+// Item 6). This edition has no "I read English / an interpreter read it to me" or preparer
+// checkboxes in Part 9, so `readsEnglish` and `preparer` only decide whether the interpreter's
+// Part 10 and the preparer's Part 11 are filled. Those parts have no mailing address and no
+// attorney statement, so those questions are not asked.
 
 export const N565_EDITION = '02/27/25';
 
@@ -73,14 +76,14 @@ export const n565: FormDefinition = {
       'Confirme en uscis.gov/n-565 que la edición {edition} sigue vigente y revise la tarifa. Si el error fue de USCIS, no se paga tarifa. Si no puede pagar, puede pedir exención con el I-912 en esta app. También se puede presentar en línea.',
       'Adjunte una copia de su identificación con foto. Si vive fuera de EE.UU., agregue dos fotos tipo pasaporte iguales y recientes (escriba su nombre y A-Number a lápiz por detrás).',
       'Si se le perdió o se lo robaron, adjunte una copia del certificado si la tiene y el reporte de policía o una declaración jurada. Si está dañado, tiene un error, o cambió su nombre, fecha de nacimiento o sexo, envíe el certificado ORIGINAL junto con la prueba (acta de matrimonio, divorcio, orden de la corte o acta de nacimiento).',
-      'Imprima el PDF y firme la Parte 9, Ítem 4, a mano con tinta negra. Si un intérprete o preparador le ayudó, ellos llenan y firman a mano las Partes 10 y 11.',
+      'Imprima el PDF y firme la Parte 9, Ítem 4, a mano con tinta negra. Si un intérprete o preparador le ayudó, revise sus datos en las Partes 10 y 11: ellos firman y ponen la fecha a mano.',
       'Guarde una copia de todo lo que envía. USCIS puede citarle para tomarle huellas o hacerle una entrevista.',
     ],
     en: [
       'Check at uscis.gov/n-565 that edition {edition} is still current and check the fee. There is no fee when the error was made by USCIS. If you cannot pay, you can request a waiver with Form I-912 in this app. It can also be filed online.',
       'Attach a copy of your photo ID. If you live outside the U.S., add two identical recent passport-style photos (write your name and A-Number in pencil on the back).',
       'If it was lost or stolen, attach a copy of the certificate if you have one and a police report or sworn statement. If it is damaged, has an error, or your name, date of birth or sex changed, send the ORIGINAL certificate with the evidence (marriage, divorce or court order, or birth certificate).',
-      'Print the PDF and sign Part 9, Item 4, by hand in black ink. If an interpreter or preparer helped you, they complete and sign Parts 10 and 11 by hand.',
+      'Print the PDF and sign Part 9, Item 4, by hand in black ink. If an interpreter or preparer helped you, check their details in Parts 10 and 11: they sign and date by hand.',
       'Keep a copy of everything you send. USCIS may schedule you for fingerprints or an interview.',
     ],
   },
@@ -378,7 +381,34 @@ export const n565: FormDefinition = {
             { id: 'email', type: 'email', label: { es: 'Correo electrónico', en: 'Email' }, formRef: 'Part 9 · Item 3' },
           ],
         },
+        {
+          id: 'readsEnglish',
+          kind: 'choice',
+          formRef: 'Part 9 · Applicant’s Certification',
+          question: t('¿Puede leer y entender el formulario en inglés?', 'Can you read and understand the form in English?'),
+          why: t('Si un intérprete le leyó las preguntas en su idioma, sus datos van en la Parte 10.', 'If an interpreter read you the questions in your language, their details go in Part 10.'),
+          options: options([
+            ['A', 'Sí, leo inglés', 'Yes, I read English'],
+            ['B', 'No, un intérprete me lo leyó', 'No, an interpreter read it to me'],
+          ]),
+        },
+        {
+          id: 'preparer',
+          kind: 'choice',
+          formRef: 'Part 11 · Person Preparing this Application, if Other Than the Applicant',
+          question: t('¿Alguien más (no usted) preparó esta solicitud?', 'Did someone else prepare this application for you?'),
+          why: t('Si es así, sus datos van en la Parte 11.', 'If so, their details go in Part 11.'),
+          options: yesNo,
+        },
       ],
     },
+    assistanceParts(),
   ],
 };
+
+/** Parts 10 and 11. This edition has no address or attorney statement for the interpreter or preparer. */
+function assistanceParts() {
+  const section = assistanceSection({ usedInterpreter, usedPreparer, interpreterPart: 'Part 10', preparerPart: 'Part 11' });
+  const missing = ['interp.address', 'prep.address', 'prep.statement'];
+  return { ...section, questions: section.questions.filter((q) => !missing.includes(q.id)) };
+}
