@@ -9,6 +9,8 @@ export interface Saved {
   updated?: number;
   /** Whether the person got to the review page, so lists can show "ready" without loading the form. */
   done?: boolean;
+  /** How many questions the form had for these answers when saved, for the home screen's progress bar. */
+  total?: number;
 }
 
 /**

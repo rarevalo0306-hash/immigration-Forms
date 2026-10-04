@@ -29,6 +29,8 @@ export const ui = {
   notAnswered: { es: 'Sin respuesta', en: 'Not answered' },
   step: { es: 'Paso {c} de {t}', en: 'Step {c} of {t}' },
   progress: { es: 'Progreso', en: 'Progress' },
+  questionOf: { es: 'Pregunta {c} de {t}', en: 'Question {c} of {t}' },
+  filledSoFar: { es: 'Ya llenó', en: 'Filled in so far' },
   packageWord: { es: 'Paquete', en: 'Package' },
   packageProgress: { es: '{done} de {total} listos', en: '{done} of {total} ready' },
   packageTips: { es: 'Antes de enviar', en: 'Before you file' },

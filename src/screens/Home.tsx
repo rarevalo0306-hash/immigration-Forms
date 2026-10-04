@@ -1,77 +1,114 @@
-import { useState } from 'react';
-import { FormBadge, Notice } from '../design/components';
-import { MyData } from './MyData';
-import { Cases } from './Cases';
+import { Notice } from '../design/components';
+import { ArrowRightIcon, BookIcon, GridIcon } from '../design/icons';
 import { fmt, ui, type Lang } from '../i18n';
 import type { FormMeta } from '../forms/catalog';
-import { load } from '../storage';
+import { activeCase, listCases, load } from '../storage';
 import { packages } from '../forms/packages';
-import { progressOf } from '../engine/packages';
-import { packageHref, statusOf } from './Package';
+import { caseName } from './Cases';
+import { Composer, SUGGESTIONS, searchHref } from './Assistant';
+
+/** The form worked on most recently in this case, to pick it back up from the home screen. */
+function lastForm(forms: FormMeta[]) {
+  let best: { meta: FormMeta; updated: number; done: boolean; share: number | null } | null = null;
+  for (const meta of forms) {
+    const s = load(meta.id);
+    if (!s || !Object.keys(s.answers).length) continue;
+    const updated = s.updated ?? 0;
+    if (best && best.updated >= updated) continue;
+    const share = s.done ? 1 : s.total ? Math.min(1, s.position / s.total) : null;
+    best = { meta, updated, done: !!s.done, share };
+  }
+  return best;
+}
 
 export function Home({ forms, lang }: { forms: FormMeta[]; lang: Lang }) {
-  // Re-rendering after a backup is loaded or the data is erased re-reads what is saved.
-  const [, setVersion] = useState(0);
+  const last = lastForm(forms);
+  const go = (q: string) => (window.location.hash = searchHref(q).slice(1));
   return (
-    <div className="app-home">
-      <section className="app-home-intro">
-        <h1 className="app-title">{lang === 'es' ? '¿Qué formulario necesita llenar?' : 'Which form do you need to fill in?'}</h1>
-        <p className="cm-card-why">
-          {lang === 'es'
-            ? 'Le hacemos una pregunta a la vez, en español o inglés, y al final descarga el formulario oficial de USCIS ya lleno.'
-            : 'We ask one question at a time, in Spanish or English, and at the end you download the official USCIS form already filled in.'}
-        </p>
+    <div className="app-home2">
+      <section className="app-hero" aria-labelledby="hero-h">
+        {listCases().length > 1 && (
+          <p className="app-case-banner">
+            {fmt(ui.caseActive[lang], { name: caseName(activeCase(), lang) })} · <a href="#datos">{ui.caseChange[lang]}</a>
+          </p>
+        )}
+        <h1 id="hero-h" className="app-hero-title">
+          {lang === 'es' ? 'Hola, ¿en qué le ayudo hoy?' : 'Hi, how can I help you today?'}
+        </h1>
+        <Composer big lang={lang} onSend={go} />
+        <ul className="app-chips" aria-label={lang === 'es' ? 'Ejemplos' : 'Examples'}>
+          {SUGGESTIONS.slice(0, 5).map((s) => (
+            <li key={s.es}>
+              <a className="app-chip cm-glass" href={searchHref(s[lang])}>
+                {s[lang]}
+              </a>
+            </li>
+          ))}
+        </ul>
       </section>
-      <Cases lang={lang} onChange={() => setVersion((v) => v + 1)} />
-      <h2 className="app-home-h">{lang === 'es' ? 'Paquetes: todo lo de un trámite' : 'Packages: everything for one case'}</h2>
-      <p className="cm-card-why">
-        {lang === 'es'
-          ? 'Los formularios que su caso necesita, en orden. Lo que escriba en uno ya aparece en los siguientes.'
-          : 'The forms your case needs, in order. What you write in one already shows up in the next ones.'}
-      </p>
-      <ul className="app-form-list">
-        {packages.map((p) => {
-          const { done, total } = progressOf(p, statusOf);
-          return (
-            <li key={p.id}>
-              <a className="cm-card app-form-card" href={packageHref(p)}>
-                <FormBadge form={ui.packageWord[lang]} title={done ? fmt(ui.packageProgress[lang], { done, total }) : undefined} tone={done ? 'soft' : 'ink'} />
-                <span className="app-form-title">{p.title[lang]}</span>
-                <span className="cm-card-why">{p.summary[lang]}</span>
-              </a>
-            </li>
-          );
-        })}
-      </ul>
-      <a className="cm-card app-form-card app-study-home" href="#estudiar">
-        <FormBadge form={lang === 'es' ? 'Estudiar' : 'Study'} />
-        <span className="app-form-title">{lang === 'es' ? 'Estudie para el examen de ciudadanía' : 'Study for the citizenship test'}</span>
-        <span className="cm-card-why">
-          {lang === 'es'
-            ? 'Las preguntas oficiales de educación cívica con sus respuestas, tarjetas de estudio, un simulacro de la entrevista y práctica del examen de inglés.'
-            : 'The official civics questions with their answers, flash cards, a practice interview and English test practice.'}
-        </span>
-      </a>
-      <h2 className="app-home-h">{lang === 'es' ? 'Formularios uno por uno' : 'Forms one by one'}</h2>
-      <ul className="app-form-list">
-        {forms.map((f) => {
-          const started = Object.keys(load(f.id)?.answers ?? {}).length > 0;
-          return (
-            <li key={f.id}>
-              <a className="cm-card app-form-card" href={`#${f.id}`}>
-                <FormBadge form={f.number} title={started ? (lang === 'es' ? 'En progreso' : 'In progress') : undefined} tone={started ? 'soft' : 'ink'} />
-                <span className="app-form-title">{f.title[lang]}</span>
-                <span className="cm-card-why">{f.summary[lang]}</span>
-                <span className="app-form-meta">
-                  {lang === 'es' ? `Unos ${f.minutes} minutos · Edición ${f.edition}` : `About ${f.minutes} minutes · Edition ${f.edition}`}
-                </span>
-              </a>
-            </li>
-          );
-        })}
-      </ul>
-      <MyData formIds={forms.map((f) => f.id)} lang={lang} onChange={() => setVersion((v) => v + 1)} />
-      <Notice tone="legal" title={ui.legalTitle[lang]}>{ui.legalBody[lang]}</Notice>
+
+      <section className="app-bento" aria-label={lang === 'es' ? 'Atajos' : 'Shortcuts'}>
+        {last ? (
+          <a className="app-tile app-tile--wide cm-glass" href={`#${last.meta.id}`}>
+            <span className="app-tile-eyebrow">{last.done ? (lang === 'es' ? 'Listo para descargar' : 'Ready to download') : lang === 'es' ? 'Continuar' : 'Continue'}</span>
+            <span className="app-tile-title">
+              {last.meta.number} · {last.meta.title[lang]}
+            </span>
+            {last.share !== null && (
+              <span className="app-bar" role="img" aria-label={`${Math.round(last.share * 100)}%`}>
+                <i style={{ width: `${Math.max(4, last.share * 100)}%` }} />
+              </span>
+            )}
+            <span className="app-tile-sub">
+              {last.done
+                ? lang === 'es'
+                  ? 'Revise sus respuestas y descargue el PDF'
+                  : 'Check your answers and download the PDF'
+                : lang === 'es'
+                  ? 'Siga donde lo dejó'
+                  : 'Pick up where you left off'}
+            </span>
+          </a>
+        ) : (
+          <div className="app-tile app-tile--wide cm-glass">
+            <span className="app-tile-eyebrow">{lang === 'es' ? 'Así funciona' : 'How it works'}</span>
+            <ol className="app-howto">
+              <li>{lang === 'es' ? 'Cuénteme su caso y le digo qué formularios necesita.' : 'Tell me your case and I’ll tell you which forms you need.'}</li>
+              <li>{lang === 'es' ? 'Conteste una pregunta a la vez, en español.' : 'Answer one question at a time, in Spanish or English.'}</li>
+              <li>{lang === 'es' ? 'Descargue el formulario oficial ya lleno.' : 'Download the official form, already filled in.'}</li>
+            </ol>
+          </div>
+        )}
+        <a className="app-tile cm-glass" href="#estudiar">
+          <span className="app-tile-icon" aria-hidden="true">
+            <BookIcon />
+          </span>
+          <span className="app-tile-title">{lang === 'es' ? 'Estudiar ciudadanía' : 'Citizenship study'}</span>
+          <span className="app-tile-sub">{lang === 'es' ? 'Tarjetas y simulacro de entrevista' : 'Flash cards and practice interview'}</span>
+        </a>
+        <a className="app-tile cm-glass" href="#tramites">
+          <span className="app-tile-icon app-tile-icon--gold" aria-hidden="true">
+            <GridIcon />
+          </span>
+          <span className="app-tile-title">{lang === 'es' ? 'Todos los trámites' : 'Every case'}</span>
+          <span className="app-tile-sub">
+            {lang === 'es' ? `${packages.length} paquetes · ${forms.length} formularios` : `${packages.length} packages · ${forms.length} forms`}
+          </span>
+        </a>
+        <a className="app-tile app-tile--wide app-tile--row cm-glass" href="#datos">
+          <span className="app-tile-text">
+            <span className="app-tile-title">{lang === 'es' ? 'Sus datos son privados' : 'Your data is private'}</span>
+            <span className="app-tile-sub">
+              {lang === 'es' ? 'Se quedan en este dispositivo. Guarde una copia o borre todo en «Mis datos».' : 'It stays on this device. Save a copy or erase it all in "My data".'}
+            </span>
+          </span>
+          <ArrowRightIcon />
+        </a>
+      </section>
+
+      <div className="app-home-legal">
+        <Notice tone="legal" title={ui.legalTitle[lang]}>{ui.legalBody[lang]}</Notice>
+      </div>
     </div>
   );
 }

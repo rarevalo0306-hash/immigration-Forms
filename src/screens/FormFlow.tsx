@@ -1,5 +1,4 @@
 import { useEffect, useMemo, useState } from 'react';
-import { ProgressSteps } from '../design/components';
 import { fmt, ui, type Lang } from '../i18n';
 import type { Answers, FormDefinition } from '../forms/types';
 import { normalizeQuestion, pruneHidden, validateQuestion, visibleScreens, type Errors } from '../engine/flow';
@@ -15,6 +14,7 @@ import { Button } from '../design/components';
 import { Welcome } from './Welcome';
 import { QuestionScreen } from './QuestionScreen';
 import { Review } from './Review';
+import { LiveCard } from './LiveCard';
 
 const WELCOME = -1;
 
@@ -55,8 +55,6 @@ export function FormFlow({ form, pkg, lang }: { form: FormDefinition; pkg?: Pack
   const reviewPos = screens.length;
   const pos = Math.min(position, reviewPos);
   const screen = pos >= 0 && pos < reviewPos ? screens[pos] : null;
-  // Count only the sections that have questions to ask: the I-131 skips whole parts by document type.
-  const shownSections = useMemo(() => [...new Set(screens.map((s) => s.sectionIndex))], [screens]);
 
   // Remember the last question reached, so "Pick up where I left off" lands there.
   const [resumeAt, setResumeAt] = useState(saved?.position ?? 0);
@@ -65,7 +63,7 @@ export function FormFlow({ form, pkg, lang }: { form: FormDefinition; pkg?: Pack
   }, [pos]);
   useEffect(() => {
     const p = pos >= 0 ? pos : resumeAt;
-    save(form.id, { answers, position: p, done: p >= reviewPos });
+    save(form.id, { answers, position: p, done: p >= reviewPos, total: reviewPos });
   }, [form.id, answers, pos, resumeAt, reviewPos]);
 
   const go = (p: number) => {
@@ -113,13 +111,7 @@ export function FormFlow({ form, pkg, lang }: { form: FormDefinition; pkg?: Pack
       )}
       {screen && (
         <div className="no-print">
-          <ProgressSteps
-            total={shownSections.length}
-            current={shownSections.indexOf(screen.sectionIndex) + 1}
-            label={screen.section.title[lang]}
-            stepWord={(c, t) => fmt(ui.step[lang], { c, t })}
-            ariaLabel={ui.progress[lang]}
-          />
+          <LiveCard screens={screens} pos={pos} answers={answers} lang={lang} />
         </div>
       )}
       {pos === WELCOME && (
