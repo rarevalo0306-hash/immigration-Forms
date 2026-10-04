@@ -1,0 +1,49 @@
+import type { FormDefinition } from './types';
+import { i765 } from './i765';
+import { i765ws } from './i765ws';
+import { i751 } from './i751';
+import { i90 } from './i90';
+import { ar11 } from './ar11';
+import { n400 } from './n400';
+import { i130 } from './i130';
+import { i129f } from './i129f';
+import { i130a } from './i130a';
+import { i131 } from './i131';
+import { i131a } from './i131a';
+import { i485 } from './i485';
+import { i864 } from './i864';
+import { i864a } from './i864a';
+import { i865 } from './i865';
+import { i864ez } from './i864ez';
+import { i821d } from './i821d';
+import { i821 } from './i821';
+import { i912 } from './i912';
+import { i134 } from './i134';
+import { i360 } from './i360';
+import { i589 } from './i589';
+import { i730 } from './i730';
+import { g1145 } from './g1145';
+import { i290b } from './i290b';
+import { i539 } from './i539';
+import { i102 } from './i102';
+import { i407 } from './i407';
+import { i824 } from './i824';
+import { n600 } from './n600';
+import { n336 } from './n336';
+import { n565 } from './n565';
+import { i601a } from './i601a';
+import { i212 } from './i212';
+import { i918 } from './i918';
+import { i914 } from './i914';
+import { i601 } from './i601';
+import { i485supa } from './i485supa';
+import { i539a } from './i539a';
+import { eoir33 } from './eoir33';
+import { i918supa } from './i918supa';
+import { i914supa } from './i914supa';
+
+export const forms: FormDefinition[] = [i765, i765ws, i821d, i821, i130, i130a, i129f, i485, i485supa, i131, i131a, i864, i864ez, i864a, i865, i751, i90, ar11, eoir33, i912, i134, i589, i730, i601a, i601, i212, i918, i918supa, i914, i914supa, i360, i290b, i539, i539a, i102, i824, i407, g1145, n400, n336, n600, n565];
+
+export function formById(id: string): FormDefinition | null {
+  return forms.find((f) => f.id === id) ?? null;
+}

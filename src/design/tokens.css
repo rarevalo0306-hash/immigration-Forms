@@ -1,0 +1,23 @@
+/* Camino design tokens — mirror of the Camino design system's tokens.json. */
+:root {
+  --surface: #f8f6f1;
+  --surface-raised: #ffffff;
+  --line: #8f8778;
+  --ink: #1c2733;
+  --ink-muted: #525c69;
+  --pine: #1f5f5b;
+  --pine-soft: #dcebe8;
+  --marigold: #e0a526;
+  --danger: #b42318;
+
+  --space-2: 8px;
+  --space-4: 16px;
+  --space-6: 24px;
+  --space-8: 32px;
+
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-pill: 999px;
+
+  --font-sans: "Atkinson Hyperlegible", system-ui, -apple-system, "Segoe UI", sans-serif;
+}
