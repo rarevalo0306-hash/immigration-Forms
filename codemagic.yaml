@@ -1,0 +1,36 @@
+# Builds the iPhone app in the cloud and sends it to TestFlight, for anyone without a Mac.
+# Setup (once, in codemagic.io): connect this repository, and under Teams → Integrations add an
+# App Store Connect API key named "Camino ASC" (App Store Connect → Users and Access → Integrations).
+# Then start the "iOS: TestFlight" workflow. See store/apple/pasos.md.
+workflows:
+  ios-testflight:
+    name: 'iOS: TestFlight'
+    max_build_duration: 60
+    instance_type: mac_mini_m2
+    integrations:
+      app_store_connect: Camino ASC
+    environment:
+      ios_signing:
+        distribution_type: app_store
+        bundle_identifier: com.caminoformularios.app
+      node: 22
+      xcode: latest
+    scripts:
+      - name: Install dependencies
+        script: npm ci
+      - name: Test
+        script: npm test
+      - name: Build the site and copy it into the iOS project
+        script: npm run ios
+      - name: Use the App Store signing profiles
+        script: xcode-project use-profiles
+      - name: Number this build
+        script: sed -i '' "s/CURRENT_PROJECT_VERSION = [0-9]*;/CURRENT_PROJECT_VERSION = $BUILD_NUMBER;/" ios/App/App.xcodeproj/project.pbxproj
+      - name: Build the app
+        script: xcode-project build-ipa --project ios/App/App.xcodeproj --scheme App
+    artifacts:
+      - build/ios/ipa/*.ipa
+    publishing:
+      app_store_connect:
+        auth: integration
+        submit_to_testflight: true

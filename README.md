@@ -97,6 +97,10 @@ Cada push y cada pull request corren en GitHub Actions el chequeo de tipos, las 
 
 Cada lunes, el flujo "Ediciones USCIS" (`.github/workflows/editions.yml`) compara la edición de cada formulario con la que muestra su página en uscis.gov (`npm run check-editions`) y, si alguna cambió, abre un issue con la etiqueta `ediciones-uscis` que dice cuáles y cómo actualizarlas. También se puede correr a mano desde la pestaña Actions.
 
+## App para iPhone
+
+`ios/` es la app de iPhone: el mismo sitio dentro de [Capacitor](https://capacitorjs.com) (`capacitor.config.ts`). `npm run ios` construye el sitio y lo copia al proyecto, y `npm run ios:open` lo abre en Xcode. En la app, el PDF y la copia de respaldo se entregan con el menú para compartir del iPhone (`src/native.ts`), y no se usa el service worker. `codemagic.yaml` compila la app en la nube y la sube a TestFlight, para quien no tiene Mac. Los pasos para publicarla, la ficha de la tienda y las capturas están en `store/apple/`. La política de privacidad está en `public/privacidad.html`.
+
 ## Publicación
 
 El sitio está en Vercel (proyecto `camino-formularios`, conectado a este repositorio). Cada push a `main` publica la versión nueva en https://camino-formularios.vercel.app; los pushes a otras ramas crean una vista previa privada. Es un sitio estático: no hay servidor ni base de datos, y las respuestas nunca salen del navegador de la persona.

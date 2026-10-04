@@ -111,3 +111,7 @@ h1, h2, h3, .app-form-title, .cm-card-q { overflow-wrap: break-word; hyphens: au
 .app-study-vocab { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: var(--space-2); }
 .app-study-word { min-height: 40px; padding: 0 var(--space-3, 12px); border-radius: var(--radius-sm); border: 1px solid var(--pine); background: var(--surface-raised); color: var(--ink); font: 400 1rem/1.5rem var(--font-sans); cursor: pointer; }
 .app-study-word:focus-visible { outline: 3px solid var(--marigold); outline-offset: 2px; }
+/* iPhone notch and home bar: in the installed app (and Safari with viewport-fit=cover) the page runs
+   under the status bar, so the header and the page bottom leave room for them. */
+.app-header { padding-top: max(var(--space-2), env(safe-area-inset-top)); padding-left: max(var(--space-4), env(safe-area-inset-left)); padding-right: max(var(--space-4), env(safe-area-inset-right)); }
+.app-main { padding-bottom: max(var(--space-8), env(safe-area-inset-bottom)); }
