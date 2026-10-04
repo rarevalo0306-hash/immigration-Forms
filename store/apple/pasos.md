@@ -81,4 +81,4 @@ Cada cambio del sitio (una edición nueva de un formulario, un funcionario nuevo
 - La app funciona sin internet, con todos los formularios adentro (pesa unos 50 MB).
 - Se ajusta a la muesca y a la barra de abajo del iPhone.
 - El archivo de privacidad de Apple (`PrivacyInfo.xcprivacy`) declara que no recoge datos ni rastrea.
-- La página de privacidad: https://camino-formularios.vercel.app/privacidad.html
+- La página de privacidad: https://caminoformularios.com/privacidad.html

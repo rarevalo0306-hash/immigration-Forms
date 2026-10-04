@@ -15,9 +15,9 @@ Los límites de caracteres de Apple ya están respetados.
 | Categoría secundaria | Educación |
 | Precio | Gratis |
 | Clasificación por edad | 4+ (en el cuestionario conteste "Ninguno" en todo) |
-| URL de privacidad | https://camino-formularios.vercel.app/privacidad.html |
+| URL de privacidad | https://caminoformularios.com/privacidad.html |
 | URL de soporte | https://github.com/rarevalo0306-hash/immigration-Forms/issues (mejor: una página o correo suyo de soporte) |
-| URL de marketing (opcional) | https://camino-formularios.vercel.app |
+| URL de marketing (opcional) | https://caminoformularios.com |
 | Copyright | 2026 (su nombre o el de su organización) |
 | Dispositivos | Solo iPhone (el proyecto ya está configurado así; no hacen falta capturas de iPad) |
 
