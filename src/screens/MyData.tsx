@@ -5,6 +5,7 @@ import { backupFileName, makeBackup, parseBackup } from '../engine/backup';
 import { activeCase, clearAll, exportAll, exportChecked, importAll, loadStudy, saveChecked, saveStudy } from '../storage';
 import { parseStudy } from '../study/state';
 import { packages } from '../forms/packages';
+import { saveFile } from '../native';
 
 /** Backup, restore and erase every form's answers on this device. */
 const formsWord = (n: number, lang: Lang) => (n === 1 ? ui.formsOne[lang] : fmt(ui.formsCount[lang], { n }));
@@ -17,17 +18,12 @@ export function MyData({ formIds, lang, onChange }: { formIds: string[]; lang: L
   const listIds = [...formIds, ...packages.map((p) => `pkg-${p.id}`)];
   const count = Object.keys(saved).length;
 
-  const download = () => {
-    const blob = new Blob([JSON.stringify(makeBackup(saved, new Date(), exportChecked(listIds), parseStudy(loadStudy())), null, 2)], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = backupFileName(new Date(), activeCase().name);
-    document.body.appendChild(link);
-    link.click();
-    link.remove();
-    setTimeout(() => URL.revokeObjectURL(url), 60_000);
-  };
+  const download = () =>
+    saveFile(
+      backupFileName(new Date(), activeCase().name),
+      new Blob([JSON.stringify(makeBackup(saved, new Date(), exportChecked(listIds), parseStudy(loadStudy())), null, 2)], { type: 'application/json' }),
+      ui.myDataTitle[lang],
+    ).catch(() => setMessage({ tone: 'error', text: ui.importFailed[lang] }));
 
   const load = async (file: File) => {
     const parsed = parseBackup(await file.text(), formIds, listIds);
@@ -55,6 +51,9 @@ export function MyData({ formIds, lang, onChange }: { formIds: string[]; lang: L
       <h2 id="mydata-h" className="app-review-h">{ui.myDataTitle[lang]}</h2>
       <p className="cm-card-why">{ui.myDataBody[lang]}</p>
       <p className="cm-card-why">{ui.offlineNote[lang]}</p>
+      <a className="app-filing-link" href={`${import.meta.env.BASE_URL}privacidad.html`} target="_blank" rel="noreferrer">
+        {lang === 'es' ? 'Política de privacidad' : 'Privacy policy'}
+      </a>
       <p className="app-form-meta">{count ? fmt(ui.myDataCount[lang], { forms: formsWord(count, lang) }) : ui.myDataNone[lang]}</p>
       <Notice tone="legal" title={ui.myDataCautionTitle[lang]}>{ui.myDataCaution[lang]}</Notice>
       {message && (

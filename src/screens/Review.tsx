@@ -8,6 +8,7 @@ import { loadDocuments, type DocItem } from '../forms/documents';
 import { DocChecklist } from './DocChecklist';
 import { filingLinks } from '../forms/filing';
 import { StudyLink } from './study/StudyLink';
+import { saveFile } from '../native';
 
 interface Props {
   form: FormDefinition;
@@ -33,14 +34,7 @@ async function downloadFilledPdf(form: FormDefinition, answers: Answers) {
     }),
   ]);
   const bytes = await fill(template, answers);
-  const url = URL.createObjectURL(new Blob([bytes as BlobPart], { type: 'application/pdf' }));
-  const link = document.createElement('a');
-  link.href = url;
-  link.download = form.pdf.fileName;
-  document.body.appendChild(link);
-  link.click();
-  link.remove();
-  setTimeout(() => URL.revokeObjectURL(url), 60_000);
+  await saveFile(form.pdf.fileName, new Blob([bytes as BlobPart], { type: 'application/pdf' }), form.number);
 }
 
 /** Where and how to file, as links to the official pages (addresses and fees change often). */
