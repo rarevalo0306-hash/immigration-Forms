@@ -46,6 +46,7 @@ export function App() {
     <div className="app">
       <header className="app-header no-print">
         <a className="app-brand" href="#">
+          <img className="app-brand-mark" src="icons/icon.svg" alt="" width={32} height={32} />
           {ui.appName[lang]}
         </a>
         <LanguageToggle<Lang>

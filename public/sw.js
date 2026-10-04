@@ -69,6 +69,11 @@ self.addEventListener('fetch', (event) => {
     event.respondWith(cacheFirst(APP, request));
     return;
   }
+  if (url.origin === self.location.origin && url.pathname.includes('/icons/')) {
+    // The newest logo when online; the one saved at install offline.
+    event.respondWith(fetch(request).catch(async () => (await caches.match(request)) || Response.error()));
+    return;
+  }
   if (url.hostname === 'fonts.googleapis.com' || url.hostname === 'fonts.gstatic.com') {
     event.respondWith(cacheFirst(FONTS, request).catch(() => Response.error()));
   }
