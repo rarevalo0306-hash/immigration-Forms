@@ -122,6 +122,10 @@ export const ui = {
   loading: { es: 'Cargando el formulario…', en: 'Loading the form…' },
   loadFailed: { es: 'No pudimos cargar el formulario. Revise su conexión e intente de nuevo.', en: 'We couldn’t load the form. Check your connection and try again.' },
   retry: { es: 'Intentar de nuevo', en: 'Try again' },
+  offlineNote: {
+    es: 'Camino funciona sin internet una vez abierto, y se puede instalar en el teléfono desde el menú del navegador ("Agregar a la pantalla de inicio"). Para descargar el PDF de un formulario sin internet, ábralo una vez con conexión.',
+    en: 'Camino works offline once opened, and can be installed on your phone from the browser menu ("Add to Home Screen"). To download a form’s PDF offline, open that form once while online.',
+  },
   reuseTitle: { es: 'Ya tenemos algunos datos', en: 'We already have some details' },
   reuseBody: {
     es: 'Usted ya nos dio nombres, fechas, direcciones y otros datos en: {forms}. Podemos ponerlos aquí para que no los escriba otra vez. Igual verá cada pregunta y podrá cambiar lo que quiera.',

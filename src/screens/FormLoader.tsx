@@ -16,7 +16,11 @@ export function FormLoader({ meta, pkg, lang }: { meta: FormMeta; pkg: PackageDe
     let live = true;
     setFailed(false);
     loadForm(meta.id)
-      .then((f) => live && setForm(f))
+      .then((f) => {
+        if (live) setForm(f);
+        // Fetch the official PDF now, quietly, so the service worker keeps it for offline use.
+        fetch(`${import.meta.env.BASE_URL}${f.pdf.path}`).catch(() => {});
+      })
       .catch(() => live && setFailed(true));
     return () => {
       live = false;

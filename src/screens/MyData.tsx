@@ -52,6 +52,7 @@ export function MyData({ formIds, lang, onChange }: { formIds: string[]; lang: L
     <section className="cm-card app-mydata" aria-labelledby="mydata-h">
       <h2 id="mydata-h" className="app-review-h">{ui.myDataTitle[lang]}</h2>
       <p className="cm-card-why">{ui.myDataBody[lang]}</p>
+      <p className="cm-card-why">{ui.offlineNote[lang]}</p>
       <p className="app-form-meta">{count ? fmt(ui.myDataCount[lang], { forms: formsWord(count, lang) }) : ui.myDataNone[lang]}</p>
       <Notice tone="legal" title={ui.myDataCautionTitle[lang]}>{ui.myDataCaution[lang]}</Notice>
       {message && (
