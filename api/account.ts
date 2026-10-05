@@ -1,5 +1,5 @@
 import Stripe from 'stripe';
-import { SITE, allowedOrigin, cors, db, json, accountsConfigured, userFrom } from './_lib';
+import { SITE, allowedOrigin, cors, db, json, accountsConfigured, userFrom } from './_lib.js';
 
 /**
  * The signed-in person's account (/api/account):

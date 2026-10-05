@@ -1,5 +1,5 @@
 import Stripe from 'stripe';
-import { db, json, paymentsConfigured } from './_lib';
+import { db, json, paymentsConfigured } from './_lib.js';
 
 /**
  * Stripe tells us here when a payment or a subscription changes (/api/stripe-webhook).

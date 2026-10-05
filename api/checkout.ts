@@ -1,5 +1,5 @@
 import Stripe from 'stripe';
-import { SITE, allowedOrigin, cors, db, json, paymentsConfigured, productById, userFrom } from './_lib';
+import { SITE, allowedOrigin, cors, db, json, paymentsConfigured, productById, userFrom } from './_lib.js';
 
 /**
  * Starts a Stripe Checkout payment for the signed-in person (/api/checkout):

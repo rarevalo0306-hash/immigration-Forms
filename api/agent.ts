@@ -1,5 +1,5 @@
 import Anthropic from '@anthropic-ai/sdk';
-import { cors, json } from './_lib';
+import { cors, json } from './_lib.js';
 
 /**
  * The AI assistant that fills a form by conversation (Vercel Function: /api/agent).

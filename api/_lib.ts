@@ -1,6 +1,6 @@
 import { createClient, type SupabaseClient, type User } from '@supabase/supabase-js';
-import { metaById } from '../src/forms/catalog';
-import { FORM_PRICE_CENTS, STUDY_PRICE_CENTS, isFreeForm } from '../src/account/pricing';
+import { metaById } from '../src/forms/catalog.js';
+import { FORM_PRICE_CENTS, STUDY_PRICE_CENTS, isFreeForm } from '../src/account/pricing.js';
 
 /**
  * Shared by the server functions in api/ (Vercel doesn't serve files that start with "_").

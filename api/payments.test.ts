@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from 'vitest';
-import { productById } from './_lib';
+import { productById } from './_lib.js';
 import { POST as checkout } from './checkout';
 import { POST as webhook } from './stripe-webhook';
 import { POST as account } from './account';
