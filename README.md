@@ -134,7 +134,7 @@ Cómo está hecho:
 Para encenderlo:
 
 1. **Supabase:**
-   - Cree el proyecto `camino` y aplique `supabase/migrations/*.sql`.
+   - Proyecto: `immigration-Forms` (mdxxqwierjdpkdgprfzp). Las tablas de `supabase/migrations/` ya están aplicadas.
    - En Authentication → Email templates → Magic Link, ponga el código: `Su código de Camino es {{ .Token }}`.
    - Configure un SMTP propio, por ejemplo Resend, porque el de Supabase manda pocos correos por hora.
    - Para Google: en Authentication → Providers → Google, ponga el Client ID y el Secret de Google Cloud, y agregue `https://caminoformularios.com` en las URL de redirección.
