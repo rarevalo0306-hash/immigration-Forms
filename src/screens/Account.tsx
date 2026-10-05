@@ -6,7 +6,7 @@ import { deleteAccount, googleAvailable, openBillingPortal, paymentsOn, sendCode
 
 const t = (lang: Lang, es: string, en: string) => (lang === 'es' ? es : en);
 
-/** Sign up or sign in: an emailed 6-digit code (no password), or Google on the website. */
+/** Sign up or sign in: a code emailed to them (6 to 8 digits, per the Supabase setting) (no password), or Google on the website. */
 export function SignIn({ lang, returnTo, intro }: { lang: Lang; returnTo: string; intro?: string }) {
   const [email, setEmail] = useState('');
   const [code, setCode] = useState('');
@@ -55,7 +55,7 @@ export function SignIn({ lang, returnTo, intro }: { lang: Lang; returnTo: string
             inputMode="email"
             autoComplete="email"
             label={t(lang, 'Su correo electrónico', 'Your email')}
-            hint={t(lang, 'Le enviamos un código de 6 números. No necesita contraseña.', 'We’ll send you a 6-digit code. No password needed.')}
+            hint={t(lang, 'Le enviamos un código por correo. No necesita contraseña.', 'We’ll email you a code. No password needed.')}
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             error={error ?? undefined}

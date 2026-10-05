@@ -124,7 +124,7 @@ Llenar y revisar un formulario es gratis. Lo que se paga:
 
 Cómo está hecho:
 
-- **Cuentas:** Supabase Auth, con un código de 6 números por correo o con Google (solo en la web). Las tablas están en `supabase/migrations/` y tienen seguridad por fila: cada persona solo lee lo suyo y solo el servidor escribe compras. Las respuestas de los formularios nunca van a la cuenta.
+- **Cuentas:** Supabase Auth, con un código por correo (6 a 8 números, según Authentication → Providers → Email → Email OTP Length) o con Google (solo en la web). Las tablas están en `supabase/migrations/` y tienen seguridad por fila: cada persona solo lee lo suyo y solo el servidor escribe compras. Las respuestas de los formularios nunca van a la cuenta.
 - **Pagos en la web:** Stripe Checkout.
   - `api/checkout.ts` crea el pago.
   - `api/stripe-webhook.ts` registra la compra cuando Stripe la confirma.
