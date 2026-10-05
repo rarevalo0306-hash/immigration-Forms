@@ -115,6 +115,38 @@ En cada formulario, la persona puede elegir "Llenar conversando con el asistente
   - En la consola de Anthropic, ponga un límite de gasto mensual.
   - En Vercel → Firewall, agregue una regla de límite de solicitudes para `/api/agent` (por ejemplo, 30 por minuto por IP).
 
+## Cuentas y cobros
+
+Llenar y revisar un formulario es gratis. Lo que se paga:
+
+- **El PDF oficial lleno:** $19.99, un solo pago por formulario. El AR-11, el EOIR-33, el G-1145 y el I-912 (exención de tarifas) siguen gratis (`src/account/pricing.ts`).
+- **El plan de estudio:** $9.99 al mes. Incluye el simulacro de entrevista con calificación y la práctica del examen de inglés. La práctica con opciones y las tarjetas son gratis.
+
+Cómo está hecho:
+
+- **Cuentas:** Supabase Auth, con un código de 6 números por correo o con Google (solo en la web). Las tablas están en `supabase/migrations/` y tienen seguridad por fila: cada persona solo lee lo suyo y solo el servidor escribe compras. Las respuestas de los formularios nunca van a la cuenta.
+- **Pagos en la web:** Stripe Checkout.
+  - `api/checkout.ts` crea el pago.
+  - `api/stripe-webhook.ts` registra la compra cuando Stripe la confirma.
+  - `api/account.ts` abre el portal de pagos y borra la cuenta.
+- **En el iPhone:** todavía no se cobra, porque Apple exige sus compras dentro de la app. La app desbloquea lo comprado en la web.
+
+Para encenderlo:
+
+1. **Supabase:**
+   - Cree el proyecto `camino` y aplique `supabase/migrations/*.sql`.
+   - En Authentication → Email templates → Magic Link, ponga el código: `Su código de Camino es {{ .Token }}`.
+   - Configure un SMTP propio, por ejemplo Resend, porque el de Supabase manda pocos correos por hora.
+   - Para Google: en Authentication → Providers → Google, ponga el Client ID y el Secret de Google Cloud, y agregue `https://caminoformularios.com` en las URL de redirección.
+2. **Stripe:**
+   - Cree la cuenta (Orbusiness AI LLC).
+   - En Developers → Webhooks, agregue `https://caminoformularios.com/api/stripe-webhook` con los eventos `checkout.session.completed`, `checkout.session.async_payment_succeeded` y `customer.subscription.*`.
+   - Active el portal de clientes en Settings → Billing → Customer portal.
+3. **Vercel, variables de entorno:**
+   - Del servidor: `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`.
+   - De la app, que se usan al compilar: `VITE_SUPABASE_URL`, `VITE_SUPABASE_PUBLISHABLE_KEY` y `VITE_PAYMENTS=on`.
+   - Sin ellas, todo sigue gratis como antes.
+
 ## Publicación
 
 El sitio está en Vercel (proyecto `camino-formularios`, conectado a este repositorio). Cada push a `main` publica la versión nueva en https://caminoformularios.com (el dominio está en la misma cuenta de Vercel; www.caminoformularios.com y camino-formularios.vercel.app llevan al mismo sitio); los pushes a otras ramas crean una vista previa privada. Es un sitio estático con una sola función de servidor, la del asistente opcional (`api/agent.ts`). No hay base de datos, y las respuestas de los formularios nunca salen del navegador de la persona.

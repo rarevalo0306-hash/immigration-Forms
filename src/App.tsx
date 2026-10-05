@@ -10,13 +10,14 @@ import { Package } from './screens/Package';
 import { Assistant } from './screens/Assistant';
 import { Tramites } from './screens/Tramites';
 import { MisDatos } from './screens/MisDatos';
+import { PaymentReturn } from './screens/Paywall';
 import { packageById } from './forms/packages';
 import { studyView, type StudyView } from './screens/study/route';
 
 // The study section loads only when opened, like each form.
 const Study = lazy(() => import('./screens/study/Study'));
 
-type Page = 'home' | 'buscar' | 'tramites' | 'datos';
+type Page = 'home' | 'buscar' | 'tramites' | 'datos' | 'pago';
 
 interface Route {
   form: ReturnType<typeof metaById>;
@@ -24,6 +25,7 @@ interface Route {
   study: StudyView | null;
   page: Page | null;
   q: string;
+  query: URLSearchParams;
 }
 
 /**
@@ -35,10 +37,10 @@ interface Route {
 function routeFromHash(): Route {
   const [path, query = ''] = window.location.hash.replace(/^#\/?/, '').split('?');
   const params = new URLSearchParams(query);
-  const none = { form: null, pkg: null, study: null, page: null, q: '' };
+  const none = { form: null, pkg: null, study: null, page: null, q: '', query: params };
   if (path === 'estudiar' || path.startsWith('estudiar/')) return { ...none, study: studyView(path) };
   if (path === 'buscar') return { ...none, page: 'buscar', q: params.get('q') ?? '' };
-  if (path === 'tramites' || path === 'datos') return { ...none, page: path };
+  if (path === 'tramites' || path === 'datos' || path === 'pago') return { ...none, page: path };
   const pkg = path.startsWith('paquete/') ? packageById(path.slice(8)) : packageById(params.get('paquete') ?? '');
   const form = metaById(path);
   return { ...none, form, pkg: pkg ?? null, page: !form && !pkg ? 'home' : null };
@@ -54,7 +56,7 @@ const TABS: { id: 'home' | 'buscar' | 'estudiar' | 'datos'; href: string; label:
 export function App() {
   const [lang, setLang] = useState<Lang>(() => loadLang() ?? 'es');
   const [route, setRoute] = useState(routeFromHash);
-  const { form, pkg, study, page, q } = route;
+  const { form, pkg, study, page, q, query } = route;
 
   useEffect(() => {
     document.documentElement.lang = lang;
@@ -116,6 +118,8 @@ export function App() {
           <Assistant key={q} lang={lang} initial={q} />
         ) : page === 'tramites' ? (
           <Tramites lang={lang} />
+        ) : page === 'pago' ? (
+          <PaymentReturn lang={lang} query={query} />
         ) : page === 'datos' ? (
           <MisDatos lang={lang} />
         ) : (

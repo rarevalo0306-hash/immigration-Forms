@@ -1,8 +1,7 @@
 import type { BetaContentBlock, BetaMessageParam } from '@anthropic-ai/sdk/resources/beta/messages/messages';
-import { isNativeApp } from '../native';
+import { apiUrl } from '../api';
 
-/** Where the assistant lives: the website's own /api, or the live site from inside the phone app. */
-const endpoint = () => (isNativeApp() ? 'https://caminoformularios.com/api/agent' : `${import.meta.env.BASE_URL}api/agent`);
+const endpoint = () => apiUrl('agent');
 
 let available: Promise<boolean> | null = null;
 

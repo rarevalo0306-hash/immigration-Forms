@@ -4,6 +4,8 @@ import { ui, type Lang } from '../i18n';
 import { catalog } from '../forms/catalog';
 import { Cases } from './Cases';
 import { MyData } from './MyData';
+import { AccountCard } from './Account';
+import { accountsOn } from '../account/account';
 
 /** Who the forms are for, and the backup, restore and erase of everything saved on the device. */
 export function MisDatos({ lang }: { lang: Lang }) {
@@ -13,6 +15,7 @@ export function MisDatos({ lang }: { lang: Lang }) {
   return (
     <div className="app-home">
       <h1 className="app-title">{lang === 'es' ? 'Mis datos' : 'My data'}</h1>
+      {accountsOn() && <AccountCard lang={lang} />}
       <Cases lang={lang} onChange={bump} />
       <MyData formIds={catalog.map((f) => f.id)} lang={lang} onChange={bump} />
       <Notice tone="legal" title={ui.legalTitle[lang]}>{ui.legalBody[lang]}</Notice>

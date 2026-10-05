@@ -1,4 +1,5 @@
 import Anthropic from '@anthropic-ai/sdk';
+import { cors, json } from './_lib';
 
 /**
  * The AI assistant that fills a form by conversation (Vercel Function: /api/agent).
@@ -68,23 +69,6 @@ const TOOLS: Anthropic.Beta.BetaTool[] = [
     input_schema: { type: 'object', properties: {} },
   },
 ];
-
-const ALLOWED_ORIGINS = [
-  /^https:\/\/(www\.)?caminoformularios\.com$/,
-  /^https:\/\/camino-formularios[a-z0-9-]*\.vercel\.app$/,
-  /^capacitor:\/\/localhost$/,
-  /^https?:\/\/localhost(:\d+)?$/,
-];
-
-function cors(origin: string | null): Record<string, string> {
-  const ok = origin && ALLOWED_ORIGINS.some((re) => re.test(origin));
-  return ok
-    ? { 'Access-Control-Allow-Origin': origin, 'Access-Control-Allow-Methods': 'GET, POST, OPTIONS', 'Access-Control-Allow-Headers': 'Content-Type', Vary: 'Origin' }
-    : { Vary: 'Origin' };
-}
-
-const json = (body: unknown, status: number, headers: Record<string, string>) =>
-  new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store', ...headers } });
 
 const enabled = () => !!process.env.ANTHROPIC_API_KEY && process.env.AGENT_ENABLED !== 'false';
 

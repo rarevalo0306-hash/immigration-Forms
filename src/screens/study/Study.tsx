@@ -11,6 +11,9 @@ import { Flashcards } from './Flashcards';
 import { Interview } from './Interview';
 import { QuestionList } from './QuestionList';
 import { EnglishTest } from './EnglishTest';
+import { MultipleChoice } from './MultipleChoice';
+import { StudyPaywall, useStudyLocked } from '../Paywall';
+import { BackToStudy } from './common';
 import { TEST_UPDATES_URL } from '../../study/current';
 import type { StudyView } from './route';
 
@@ -26,6 +29,7 @@ const loaders: Record<TestVersion, () => Promise<CivicsTest>> = {
 
 
 export default function Study({ view, lang }: { view: StudyView; lang: Lang }) {
+  const locked = useStudyLocked();
   const [state, setState] = useState<StudyState>(() => parseStudy(loadStudy()));
   const [test, setTest] = useState<CivicsTest | null>(null);
   const [failed, setFailed] = useState(false);
@@ -76,18 +80,30 @@ export default function Study({ view, lang }: { view: StudyView; lang: Lang }) {
   switch (view) {
     case 'tarjetas':
       return <Flashcards lang={lang} test={test} state={state} onChange={update} />;
+    case 'opciones':
+      return <MultipleChoice lang={lang} test={test} state={state} onChange={update} />;
     case 'entrevista':
-      return <Interview lang={lang} test={test} state={state} onChange={update} />;
+      return locked ? <Locked lang={lang} view={view} /> : <Interview lang={lang} test={test} state={state} onChange={update} />;
     case 'preguntas':
       return <QuestionList lang={lang} test={test} state={state} />;
     case 'ingles':
-      return <EnglishTest lang={lang} />;
+      return locked ? <Locked lang={lang} view={view} /> : <EnglishTest lang={lang} />;
     default:
-      return <Overview lang={lang} test={test} state={state} />;
+      return <Overview lang={lang} test={test} state={state} locked={locked} />;
   }
 }
 
-function Overview({ lang, test, state }: { lang: Lang; test: CivicsTest; state: StudyState }) {
+/** The paid modes, before the study plan is active. */
+function Locked({ lang, view }: { lang: Lang; view: StudyView }) {
+  return (
+    <div className="app-home">
+      <BackToStudy lang={lang} />
+      <StudyPaywall lang={lang} returnTo={`#estudiar/${view}`} />
+    </div>
+  );
+}
+
+function Overview({ lang, test, state, locked }: { lang: Lang; test: CivicsTest; state: StudyState; locked: boolean }) {
   const t = pick(lang);
   const s = state.settings;
   const qs = pool(test, s);
@@ -113,7 +129,13 @@ function Overview({ lang, test, state }: { lang: Lang; test: CivicsTest; state: 
             'At the interview your English is tested too: reading aloud 1 of 3 sentences, writing 1 of 3 dictated sentences, and speaking and understanding in the conversation with the officer.',
           );
 
+  const paid = locked ? t(' · Plan de estudio', ' · Study plan') : '';
   const modes = [
+    {
+      href: '#estudiar/opciones',
+      title: t('Práctica con opciones', 'Multiple choice practice'),
+      body: t('Lea la pregunta y elija la respuesta correcta entre cuatro. Gratis.', 'Read the question and pick the right answer out of four. Free.'),
+    },
     {
       href: '#estudiar/tarjetas',
       title: t('Tarjetas de estudio', 'Flash cards'),
@@ -121,7 +143,7 @@ function Overview({ lang, test, state }: { lang: Lang; test: CivicsTest; state: 
     },
     {
       href: '#estudiar/entrevista',
-      title: t('Simulacro de entrevista', 'Practice interview'),
+      title: t('Simulacro de entrevista', 'Practice interview') + paid,
       body: t(
         `Preguntas al azar, como en la entrevista: hasta ${r.asked}, y aprueba con ${r.pass} correctas.`,
         `Random questions, like at the interview: up to ${r.asked}, and you pass with ${r.pass} right.`,
@@ -136,7 +158,7 @@ function Overview({ lang, test, state }: { lang: Lang; test: CivicsTest; state: 
       ? [
           {
             href: '#estudiar/ingles',
-            title: t('Examen de inglés', 'English test'),
+            title: t('Examen de inglés', 'English test') + paid,
             body: t('Practique leer en voz alta y escribir oraciones dictadas, con las palabras oficiales.', 'Practice reading aloud and writing dictated sentences, with the official words.'),
           },
         ]

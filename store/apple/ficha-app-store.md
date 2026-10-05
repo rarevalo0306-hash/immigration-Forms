@@ -106,6 +106,11 @@ immigration,USCIS,forms,citizenship,green card,N-400,I-765,asylum,DACA,TPS,civic
   - **no vinculado** a la identidad;
   - **sin rastreo**.
   - Agregue también `NSPrivacyCollectedDataTypeOtherUserContent` en `ios/App/App/PrivacyInfo.xcprivacy`.
+- Con cuentas y compras encendidas, declare además, **vinculados** a la identidad y con uso **Funcionalidad de la app**:
+  - **Información de contacto → Correo electrónico**;
+  - **Compras → Historial de compras**.
+- La cuenta se puede borrar desde la app, en Mis datos → «Borrar mi cuenta» (regla 5.1.1(v)).
+- Las compras en el iPhone deben hacerse con las compras dentro de la app de Apple. Mientras no estén, la app solo desbloquea lo que se compró en la web, sin enlaces para pagar.
 - Rastreo: **No**.
 - La app pide permiso antes de enviar datos a la IA, como exige la regla 5.1.2(i) de Apple.
 

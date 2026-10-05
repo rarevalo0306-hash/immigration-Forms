@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import type { CivicsQuestion, CivicsTest } from './types';
-import { DEFAULT_SETTINGS, INTERVALS, answersFor, compareDictation, nextCard, outcome, pick, pool, progress, review, rulesFor, versionForFiling, type StudySettings } from './engine';
+import { DEFAULT_SETTINGS, INTERVALS, answersFor, choicesFor, choosable, compareDictation, nextCard, outcome, pick, pool, progress, review, rulesFor, versionForFiling, type StudySettings } from './engine';
 import { PLACES } from './states';
+import { civics2025 } from './civics2025';
 import { READING_SENTENCES, READING_VOCAB, WRITING_SENTENCES, WRITING_VOCAB, tokens, vocabWords } from './english';
 
 const q = (n: number, extra: Partial<CivicsQuestion> = {}): CivicsQuestion => ({
@@ -115,5 +116,20 @@ describe('English test', () => {
     const writing = vocabWords(WRITING_VOCAB);
     for (const x of READING_SENTENCES) for (const w of tokens(x.en)) expect(reading.has(w), `${x.en}: ${w}`).toBe(true);
     for (const x of WRITING_SENTENCES) for (const w of tokens(x.en)) expect(writing.has(w), `${x.en}: ${w}`).toBe(true);
+  });
+});
+
+
+describe('multiple choice', () => {
+  const s = { version: '2025' as const, exemption: 'none' as const, state: 'FL', names: {} };
+  it('gives four different options with exactly one right', () => {
+    for (const q of civics2025.questions.filter((x) => choosable(x, s))) {
+      const c = choicesFor(q, civics2025.questions, s);
+      expect(c.filter((x) => x.right)).toHaveLength(1);
+      expect(c.length).toBeGreaterThanOrEqual(3);
+      expect(new Set(c.map((x) => x.en.toLowerCase())).size).toBe(c.length);
+      // A wrong option is never one of the question's own answers.
+      for (const w of c.filter((x) => !x.right)) expect(q.answers.en.map((a) => a.toLowerCase())).not.toContain(w.en.toLowerCase());
+    }
   });
 });
