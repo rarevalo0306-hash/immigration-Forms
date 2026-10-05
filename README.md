@@ -101,9 +101,55 @@ Cada lunes, el flujo "Ediciones USCIS" (`.github/workflows/editions.yml`) compar
 
 `ios/` es la app de iPhone: el mismo sitio dentro de [Capacitor](https://capacitorjs.com) (`capacitor.config.ts`). `npm run ios` construye el sitio y lo copia al proyecto, y `npm run ios:open` lo abre en Xcode. En la app, el PDF y la copia de respaldo se entregan con el menú para compartir del iPhone (`src/native.ts`), y no se usa el service worker. `codemagic.yaml` compila la app en la nube y la sube a TestFlight, para quien no tiene Mac. Los pasos para publicarla, la ficha de la tienda y las capturas están en `store/apple/`. La política de privacidad está en `public/privacidad.html`.
 
+## Asistente con IA (opcional)
+
+En cada formulario, la persona puede elegir "Llenar conversando con el asistente". El asistente (Claude Sonnet 5.5, de Anthropic) hace las preguntas en palabras sencillas y propone las respuestas con la herramienta `answer_question`. La app las valida con las mismas reglas de siempre y las guarda en el dispositivo (`src/agent/spec.ts`, `src/screens/AgentChat.tsx`).
+
+- **Servidor:** `api/agent.ts`, una función de Vercel sin estado. No guarda ni registra las conversaciones. El mensaje de sistema y las herramientas están fijos ahí.
+- **Privacidad:** se pide permiso antes de usarlo. El Seguro Social, el A-Number y la cuenta de USCIS nunca se envían, y la app oculta los números parecidos que se escriban en el chat.
+- **Para activarlo:**
+  1. En Vercel → camino-formularios → Settings → Environment Variables, agregue `ANTHROPIC_API_KEY` (de console.anthropic.com) y vuelva a publicar.
+  2. Sin la clave, el botón no aparece.
+  3. `AGENT_ENABLED=false` lo apaga sin tocar el código.
+- **Para cuidar el gasto:**
+  - En la consola de Anthropic, ponga un límite de gasto mensual.
+  - En Vercel → Firewall, agregue una regla de límite de solicitudes para `/api/agent` (por ejemplo, 30 por minuto por IP).
+
+## Cuentas y cobros
+
+Llenar y revisar un formulario es gratis. Lo que se paga:
+
+- **El PDF oficial lleno:** $19.99, un solo pago por formulario. El AR-11, el EOIR-33, el G-1145 y el I-912 (exención de tarifas) siguen gratis (`src/account/pricing.ts`).
+- **El plan de estudio:** $9.99 al mes. Incluye el simulacro de entrevista con calificación y la práctica del examen de inglés. La práctica con opciones y las tarjetas son gratis.
+
+Cómo está hecho:
+
+- **Cuentas:** Supabase Auth, con un código por correo (6 a 8 números, según Authentication → Providers → Email → Email OTP Length) o con Google (solo en la web). Las tablas están en `supabase/migrations/` y tienen seguridad por fila: cada persona solo lee lo suyo y solo el servidor escribe compras. Las respuestas de los formularios nunca van a la cuenta.
+- **Pagos en la web:** Stripe Checkout.
+  - `api/checkout.ts` crea el pago.
+  - `api/stripe-webhook.ts` registra la compra cuando Stripe la confirma.
+  - `api/account.ts` abre el portal de pagos y borra la cuenta.
+- **En el iPhone:** todavía no se cobra, porque Apple exige sus compras dentro de la app. La app desbloquea lo comprado en la web.
+
+Para encenderlo:
+
+1. **Supabase:**
+   - Proyecto: `immigration-Forms` (mdxxqwierjdpkdgprfzp). Las tablas de `supabase/migrations/` ya están aplicadas.
+   - En Authentication → Email templates → Magic Link, ponga el código: `Su código de Camino es {{ .Token }}`.
+   - Configure un SMTP propio, por ejemplo Resend, porque el de Supabase manda pocos correos por hora.
+   - Para Google: en Authentication → Providers → Google, ponga el Client ID y el Secret de Google Cloud, y agregue `https://caminoformularios.com` en las URL de redirección.
+2. **Stripe:**
+   - Cree la cuenta (Orbusiness AI LLC).
+   - En Developers → Webhooks, agregue `https://caminoformularios.com/api/stripe-webhook` con los eventos `checkout.session.completed`, `checkout.session.async_payment_succeeded` y `customer.subscription.*`.
+   - Active el portal de clientes en Settings → Billing → Customer portal.
+3. **Vercel, variables de entorno:**
+   - Del servidor: `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`.
+   - De la app, que se usan al compilar: `VITE_SUPABASE_URL`, `VITE_SUPABASE_PUBLISHABLE_KEY` y `VITE_PAYMENTS=on`.
+   - Sin ellas, todo sigue gratis como antes.
+
 ## Publicación
 
-El sitio está en Vercel (proyecto `camino-formularios`, conectado a este repositorio). Cada push a `main` publica la versión nueva en https://caminoformularios.com (el dominio está en la misma cuenta de Vercel; www.caminoformularios.com y camino-formularios.vercel.app llevan al mismo sitio); los pushes a otras ramas crean una vista previa privada. Es un sitio estático: no hay servidor ni base de datos, y las respuestas nunca salen del navegador de la persona.
+El sitio está en Vercel (proyecto `camino-formularios`, conectado a este repositorio). Cada push a `main` publica la versión nueva en https://caminoformularios.com (el dominio está en la misma cuenta de Vercel; www.caminoformularios.com y camino-formularios.vercel.app llevan al mismo sitio); los pushes a otras ramas crean una vista previa privada. Es un sitio estático con una sola función de servidor, la del asistente opcional (`api/agent.ts`). No hay base de datos, y las respuestas de los formularios nunca salen del navegador de la persona.
 
 ## Estructura
 

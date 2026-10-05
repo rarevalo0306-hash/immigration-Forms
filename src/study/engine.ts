@@ -191,3 +191,42 @@ export function compareDictation(expected: string, written: string): { ok: boole
   }
   return { ok: missing.length === 0 && left.length === 0, missing, extra: left };
 }
+
+// ---------------------------------------------------------------------------------------------
+// Multiple choice: the right answer among three answers to other questions of the same part.
+
+export interface Choice {
+  en: string;
+  es: string;
+  right: boolean;
+}
+
+const join = (xs: string[], word: string) => (xs.length <= 1 ? (xs[0] ?? '') : `${xs.slice(0, -1).join(', ')} ${word} ${xs[xs.length - 1]}`);
+const same = (a: string, b: string) => a.trim().toLowerCase() === b.trim().toLowerCase();
+
+/** Whether a question can be asked as multiple choice (its answer is known, not "look it up"). */
+export const choosable = (q: CivicsQuestion, s: StudySettings) => !answersFor(q, s).lookup;
+
+/**
+ * Four options for a question, in random order: one right (as many answers as it asks for) and
+ * three taken from other questions of the same part that are not among this question's answers.
+ */
+export function choicesFor(q: CivicsQuestion, all: CivicsQuestion[], s: StudySettings, random: () => number = Math.random): Choice[] {
+  const k = Math.max(1, q.count ?? 1);
+  const mine = answersFor(q, s);
+  const right: Choice = { en: join(mine.en.slice(0, k), 'and'), es: join(mine.es.slice(0, k), 'y'), right: true };
+  const others = pick(
+    all.filter((o) => o.n !== q.n && o.part.en === q.part.en && choosable(o, s)),
+    all.length,
+    random,
+  );
+  const wrong: Choice[] = [];
+  for (const o of others) {
+    if (wrong.length === 3) break;
+    const a = answersFor(o, s);
+    const en = join(a.en.slice(0, k), 'and');
+    if (!en || mine.en.some((m) => same(m, en)) || same(en, right.en) || wrong.some((w) => same(w.en, en))) continue;
+    wrong.push({ en, es: join(a.es.slice(0, k), 'y'), right: false });
+  }
+  return pick([right, ...wrong], 4, random);
+}

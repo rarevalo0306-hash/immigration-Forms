@@ -19,7 +19,23 @@ export const SUGGESTIONS: T[] = [
 export const searchHref = (q: string) => `#buscar?q=${encodeURIComponent(q)}`;
 
 /** The text box to describe a situation or type a form number. Enter sends; Shift+Enter adds a line. */
-export function Composer({ lang, onSend, big, initial = '', autoFocus }: { lang: Lang; onSend: (q: string) => void; big?: boolean; initial?: string; autoFocus?: boolean }) {
+export function Composer({
+  lang,
+  onSend,
+  big,
+  initial = '',
+  autoFocus,
+  label: labelText,
+  placeholder,
+}: {
+  lang: Lang;
+  onSend: (q: string) => void;
+  big?: boolean;
+  initial?: string;
+  autoFocus?: boolean;
+  label?: string;
+  placeholder?: string;
+}) {
   const [text, setText] = useState(initial);
   const send = () => {
     const q = text.trim();
@@ -27,7 +43,7 @@ export function Composer({ lang, onSend, big, initial = '', autoFocus }: { lang:
     onSend(q);
     if (!big) setText('');
   };
-  const label = lang === 'es' ? 'Cuénteme su situación o escriba el número del formulario' : 'Describe your situation or type the form number';
+  const label = labelText ?? (lang === 'es' ? 'Cuénteme su situación o escriba el número del formulario' : 'Describe your situation or type the form number');
   return (
     <form
       className={`app-composer cm-glass${big ? ' app-composer--big' : ''}`}
@@ -39,7 +55,7 @@ export function Composer({ lang, onSend, big, initial = '', autoFocus }: { lang:
       <textarea
         className="app-composer-input"
         aria-label={label}
-        placeholder={big ? (lang === 'es' ? 'Ej.: «me casé con un ciudadano y quiero la residencia»' : 'E.g. "I married a citizen and want a green card"') : label}
+        placeholder={placeholder ?? (big ? (lang === 'es' ? 'Ej.: «me casé con un ciudadano y quiero la residencia»' : 'E.g. "I married a citizen and want a green card"') : label)}
         rows={big ? 2 : 1}
         value={text}
         enterKeyHint="send"

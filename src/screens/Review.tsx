@@ -9,6 +9,7 @@ import { DocChecklist } from './DocChecklist';
 import { filingLinks } from '../forms/filing';
 import { StudyLink } from './study/StudyLink';
 import { saveFile } from '../native';
+import { FormPaywall, useNeedsPurchase } from './Paywall';
 
 interface Props {
   form: FormDefinition;
@@ -71,6 +72,7 @@ export function Review({ form, screens, answers, lang, onEdit, onBack }: Props) 
     };
   }, [form.id]);
   const [pdfState, setPdfState] = useState<'idle' | 'working' | 'error'>('idle');
+  const mustBuy = useNeedsPurchase(form.id);
   const onDownload = async () => {
     setPdfState('working');
     try {
@@ -104,9 +106,13 @@ export function Review({ form, screens, answers, lang, onEdit, onBack }: Props) 
         <Notice tone="info" title={ui.pdfTitle[lang]}>
           {fmt(ui.pdfBody[lang], vars)}
         </Notice>
-        <Button block onClick={onDownload} disabled={pdfState === 'working'}>
-          {pdfState === 'working' ? ui.preparingPdf[lang] : ui.downloadPdf[lang]}
-        </Button>
+        {mustBuy ? (
+          <FormPaywall formId={form.id} number={form.number} lang={lang} />
+        ) : (
+          <Button block onClick={onDownload} disabled={pdfState === 'working'}>
+            {pdfState === 'working' ? ui.preparingPdf[lang] : ui.downloadPdf[lang]}
+          </Button>
+        )}
         {pdfState === 'error' && <Notice tone="error">{ui.pdfError[lang]}</Notice>}
       </div>
 

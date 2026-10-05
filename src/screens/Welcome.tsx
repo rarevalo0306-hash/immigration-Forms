@@ -2,6 +2,7 @@ import { Button, FormBadge, Notice } from '../design/components';
 import { fmt, ui, type Lang } from '../i18n';
 import type { FormDefinition } from '../forms/types';
 import { isOwnWords } from '../engine/language';
+import { SparkIcon } from '../design/icons';
 
 interface Props {
   form: FormDefinition;
@@ -12,6 +13,8 @@ interface Props {
   /** Forms whose answers can start this one, when there is no progress yet. */
   reuseFrom?: string[];
   onStartWithData?: () => void;
+  /** Fill in by chatting with the AI assistant, when it is available. */
+  onStartWithAgent?: () => void;
 }
 
 const steps = (form: FormDefinition) => ({
@@ -30,7 +33,7 @@ const steps = (form: FormDefinition) => ({
 const asksOwnWords = (form: FormDefinition) =>
   form.sections.some((s) => s.questions.some((q) => q.kind === 'fields' && q.fields.some(isOwnWords)));
 
-export function Welcome({ form, lang, hasProgress, onStart, onStartOver, reuseFrom, onStartWithData }: Props) {
+export function Welcome({ form, lang, hasProgress, onStart, onStartOver, reuseFrom, onStartWithData, onStartWithAgent }: Props) {
   const reuse = !hasProgress && !!reuseFrom?.length && !!onStartWithData;
   return (
     <section className="cm-card">
@@ -52,6 +55,21 @@ export function Welcome({ form, lang, hasProgress, onStart, onStartOver, reuseFr
       {asksOwnWords(form) && <Notice tone="info" title={ui.englishTitle[lang]}>{ui.englishBody[lang]}</Notice>}
       <Notice tone="info" title={ui.savedTitle[lang]}>{ui.savedBody[lang]}</Notice>
       <Notice tone="legal" title={ui.legalTitle[lang]}>{ui.legalBody[lang]}</Notice>
+      {onStartWithAgent && (
+        <button type="button" className="app-ai-start cm-glass" onClick={onStartWithAgent}>
+          <span className="app-reco-icon" aria-hidden="true">
+            <SparkIcon />
+          </span>
+          <span className="app-link-text">
+            <strong>{lang === 'es' ? 'Llenar conversando con el asistente' : 'Fill in by chatting with the assistant'}</strong>
+            <span>
+              {lang === 'es'
+                ? 'Le pregunta con palabras sencillas y llena el formulario por usted. Usa IA.'
+                : 'It asks in plain words and fills in the form for you. Uses AI.'}
+            </span>
+          </span>
+        </button>
+      )}
       <div className="cm-card-actions">
         {hasProgress ? (
           <>

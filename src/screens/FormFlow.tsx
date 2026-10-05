@@ -15,6 +15,9 @@ import { Welcome } from './Welcome';
 import { QuestionScreen } from './QuestionScreen';
 import { Review } from './Review';
 import { LiveCard } from './LiveCard';
+import { AgentChat } from './AgentChat';
+import { agentAvailable } from '../agent/client';
+import { SparkIcon } from '../design/icons';
 
 const WELCOME = -1;
 
@@ -48,6 +51,16 @@ export function FormFlow({ form, pkg, lang }: { form: FormDefinition; pkg?: Pack
   const [answers, setAnswers] = useState<Answers>(saved?.answers ?? {});
   const [position, setPosition] = useState(WELCOME);
   const [errors, setErrors] = useState<Errors>({});
+  // Filling in by chatting with the AI assistant (api/agent.ts), when it is set up and the person chooses it.
+  const [aiReady, setAiReady] = useState(false);
+  const [agent, setAgent] = useState(false);
+  useEffect(() => {
+    let live = true;
+    void agentAvailable().then((ok) => live && setAiReady(ok));
+    return () => {
+      live = false;
+    };
+  }, []);
   // Where to go back to after editing one answer from the review page.
   const [returnToReview, setReturnToReview] = useState(false);
 
@@ -110,8 +123,13 @@ export function FormFlow({ form, pkg, lang }: { form: FormDefinition; pkg?: Pack
         </a>
       )}
       {screen && (
-        <div className="no-print">
+        <div className="no-print app-live-wrap">
           <LiveCard screens={screens} pos={pos} answers={answers} lang={lang} />
+          {aiReady && !agent && (
+            <button type="button" className="app-chip cm-glass app-ai-switch" onClick={() => setAgent(true)}>
+              <SparkIcon /> {lang === 'es' ? 'Llenar conversando' : 'Fill in by chatting'}
+            </button>
+          )}
         </div>
       )}
       {pos === WELCOME && (
@@ -122,6 +140,15 @@ export function FormFlow({ form, pkg, lang }: { form: FormDefinition; pkg?: Pack
           onStart={() => (Object.keys(answers).length ? go(Math.min(resumeAt, reviewPos)) : startFresh({}))}
           reuseFrom={prefill?.sources}
           onStartWithData={() => startFresh(prefill?.answers ?? {})}
+          onStartWithAgent={
+            aiReady
+              ? () => {
+                  setAgent(true);
+                  if (Object.keys(answers).length) go(Math.min(resumeAt, reviewPos));
+                  else startFresh(prefill?.answers ?? {});
+                }
+              : undefined
+          }
           onStartOver={() => {
             if (!window.confirm(ui.confirmStartOver[lang])) return;
             clear(form.id);
@@ -130,7 +157,22 @@ export function FormFlow({ form, pkg, lang }: { form: FormDefinition; pkg?: Pack
           }}
         />
       )}
-      {screen && (
+      {screen && agent && (
+        <AgentChat
+          form={form}
+          answers={answers}
+          pos={pos}
+          lang={lang}
+          onChange={onChange}
+          onCommit={(a, p) => {
+            setErrors({});
+            setAnswers(a);
+            setPosition(p);
+          }}
+          onExit={() => setAgent(false)}
+        />
+      )}
+      {screen && !agent && (
         <QuestionScreen
           key={screen.question.id}
           form={form}
