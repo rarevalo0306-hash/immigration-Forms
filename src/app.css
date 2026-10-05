@@ -207,7 +207,7 @@ a.app-tile:focus-visible { outline: 3px solid var(--marigold); outline-offset: 2
 .app-chat { display: flex; flex-direction: column; gap: var(--space-4); flex: 1; }
 .app-turn, .app-reply { display: flex; flex-direction: column; gap: var(--space-3); }
 .app-bubble { max-width: 88%; padding: 12px 16px; border-radius: 22px; font: 400 1.0625rem/1.5rem var(--font-sans); }
-.app-bubble p { margin: 0; }
+.app-bubble p { margin: 0; white-space: pre-line; }
 .app-bubble p + p { margin-top: var(--space-2); }
 .app-bubble--bot { align-self: flex-start; background: var(--glass); border: 1px solid var(--glass-line); border-bottom-left-radius: 8px;
   -webkit-backdrop-filter: var(--glass-blur); backdrop-filter: var(--glass-blur); }
